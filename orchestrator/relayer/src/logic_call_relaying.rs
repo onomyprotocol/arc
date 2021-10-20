@@ -1,3 +1,4 @@
+use crate::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use clarity::{address::Address as EthAddress, utils::bytes_to_hex_str};
 use clarity::{PrivateKey as EthPrivateKey, Uint256};
 use cosmos_gravity::query::{get_latest_logic_calls, get_logic_call_signatures};
@@ -13,7 +14,6 @@ use gravity_utils::types::{LogicCallConfirmResponse, Valset};
 use std::collections::HashMap;
 use std::time::Duration;
 use tonic::transport::Channel;
-use web30::amm::WETH_CONTRACT_ADDRESS;
 use web30::client::Web3;
 
 // Determines whether or not submitting `logic_call` will be profitable given the estimated `cost`
@@ -35,7 +35,7 @@ async fn should_relay_logic_call(
     // Check the values in the map to see if we have enough to relay
     let mut total_weth_reward: Uint256 = Uint256::default();
     for (token, total) in rewards.iter() {
-        if *token == *WETH_CONTRACT_ADDRESS {
+        if *token == *WETH_CONTRACT_ADDRESS_RINKEBY {
             // WETH directly counts as ETH
             total_weth_reward += (*total).clone();
         } else {
@@ -44,7 +44,7 @@ async fn should_relay_logic_call(
                 .get_uniswap_price(
                     our_address,
                     *token,
-                    *WETH_CONTRACT_ADDRESS,
+                    *WETH_CONTRACT_ADDRESS_RINKEBY,
                     None,
                     (*total).clone(),
                     None,

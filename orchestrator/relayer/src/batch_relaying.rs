@@ -1,3 +1,4 @@
+use crate::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use clarity::address::Address as EthAddress;
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::Uint256;
@@ -11,7 +12,6 @@ use gravity_utils::types::{BatchConfirmResponse, RelayerConfig, TransactionBatch
 use std::collections::HashMap;
 use std::time::Duration;
 use tonic::transport::Channel;
-use web30::amm::WETH_CONTRACT_ADDRESS;
 use web30::client::Web3;
 
 #[derive(Debug, Clone)]
@@ -125,7 +125,7 @@ async fn should_relay_batch(
     let batch_reward_amount = batch.total_fee.amount.clone();
     let batch_reward_token = batch.total_fee.token_contract_address;
     // If we're given WETH, we just want to know if the reward covers gas
-    if batch_reward_token == *WETH_CONTRACT_ADDRESS {
+    if batch_reward_token == *WETH_CONTRACT_ADDRESS_RINKEBY {
         // TODO: Allow users to specify what sort of margin they want on rewards, to account for
         return batch_reward_amount > cost;
     }
@@ -138,7 +138,7 @@ async fn should_relay_batch(
         .get_uniswap_price(
             pubkey,
             batch_reward_token,
-            *WETH_CONTRACT_ADDRESS,
+            *WETH_CONTRACT_ADDRESS_RINKEBY,
             None,
             batch_reward_amount.clone(),
             None,

@@ -51,7 +51,7 @@ pub async fn relayer(
     let public_eth_key = ethereum_key
         .to_public_key()
         .expect("Invalid Ethereum Private Key!");
-    info!("Starting Gravity Relayer");
+    info!("Starting Gravity Relayer on Rinkeby");
     info!("Ethereum Address: {}", public_eth_key);
 
     let contact = connections.contact.clone().unwrap();

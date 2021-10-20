@@ -2,6 +2,7 @@
 //! the state of both chains and perform the required operations.
 use std::time::Duration;
 
+use crate::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::{address::Address as EthAddress, utils::bytes_to_hex_str};
 use cosmos_gravity::query::get_latest_valsets;
@@ -134,7 +135,7 @@ async fn should_relay_valset(
     }
     let token_in = token_in.unwrap();
     // for now we always want weth
-    let token_out = *web30::amm::WETH_CONTRACT_ADDRESS;
+    let token_out = *WETH_CONTRACT_ADDRESS_RINKEBY;
     // If we're being rewarded in weth, we can just compare cost of gas to reward and see if we're getting enough
     if token_out == token_in {
         // TODO: Give relayers a configuration option in this case
