@@ -79,7 +79,11 @@ async fn setup_batch_test(
     let mut grpc_client = grpc_client.clone();
     // Acquire 10,000 WETH
     let weth_acquired = web30
-        .wrap_eth(one_eth() * 10000u16.into(), *MINER_PRIVATE_KEY, Some(*WETH_CONTRACT_ADDRESS_RINKEBY))
+        .wrap_eth(
+            one_eth() * 10000u16.into(),
+            *MINER_PRIVATE_KEY,
+            Some(*WETH_CONTRACT_ADDRESS_RINKEBY),
+        )
         .await;
     assert!(
         !weth_acquired.is_err(),
