@@ -2,9 +2,15 @@ name: Integration tests
 
 on:
   push:
-    branches: [master, main]
+    branches:
+      - main
+      - dev
+      - rinkeby
   pull_request:
-    branches: [master, main]
+    branches:
+      - main
+      - dev
+      - rinkeby
 
 jobs:
   happy-path-hardhat:

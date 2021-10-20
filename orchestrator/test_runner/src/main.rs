@@ -42,7 +42,7 @@ mod valset_rewards;
 mod valset_stress;
 
 /// the timeout for individual requests
-const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
+const OPERATION_TIMEOUT: Duration = Duration::from_secs(240);
 /// the timeout for the total system
 const TOTAL_TIMEOUT: Duration = Duration::from_secs(300);
 

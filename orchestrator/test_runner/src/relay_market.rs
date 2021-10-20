@@ -20,9 +20,9 @@ use ethereum_gravity::utils::get_tx_batch_nonce;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::types::GravityBridgeToolsConfig;
 use rand::Rng;
+use rinkeby::rinkeby_constants::{DAI_CONTRACT_ADDRESS_RINKEBY, WETH_CONTRACT_ADDRESS_RINKEBY};
 use tokio::time::sleep as delay_for;
 use tonic::transport::Channel;
-use web30::amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS};
 use web30::client::Web3;
 
 pub async fn relay_market_test(
@@ -52,16 +52,17 @@ async fn test_batches(
         contact,
         keys.clone(),
         gravity_address,
-        *DAI_CONTRACT_ADDRESS,
+        *DAI_CONTRACT_ADDRESS_RINKEBY,
     )
     .await;
+
     test_bad_batch(
         web30,
         grpc_client,
         contact,
         keys.clone(),
         gravity_address,
-        *DAI_CONTRACT_ADDRESS,
+        *DAI_CONTRACT_ADDRESS_RINKEBY,
     )
     .await;
 }
@@ -78,7 +79,11 @@ async fn setup_batch_test(
     let mut grpc_client = grpc_client.clone();
     // Acquire 10,000 WETH
     let weth_acquired = web30
-        .wrap_eth(one_eth() * 10000u16.into(), *MINER_PRIVATE_KEY, None)
+        .wrap_eth(
+            one_eth() * 10000u16.into(),
+            *MINER_PRIVATE_KEY,
+            Some(*WETH_CONTRACT_ADDRESS_RINKEBY),
+        )
         .await;
     assert!(
         !weth_acquired.is_err(),
@@ -89,7 +94,7 @@ async fn setup_batch_test(
     let token_acquired = web30
         .swap_uniswap(
             *MINER_PRIVATE_KEY,
-            *WETH_CONTRACT_ADDRESS,
+            *WETH_CONTRACT_ADDRESS_RINKEBY,
             erc20_contract,
             None,
             one_eth() * 1000u16.into(),
@@ -124,7 +129,7 @@ async fn setup_batch_test(
             dest_cosmos_address,
             gravity_address,
             erc20_contract,
-            one_eth() * 100u64.into(),
+            one_eth() * 2000u64.into(),
         )
         .await;
     }
@@ -141,7 +146,7 @@ async fn setup_batch_test(
         requester_address,
         gravity_address,
         erc20_contract,
-        one_eth() * 100u64.into(),
+        one_eth() * 2000u64.into(),
     )
     .await;
     let cdai_held = check_cosmos_balance("gravity", dest_cosmos_address, contact)
@@ -252,7 +257,7 @@ async fn test_good_batch(
     gravity_address: EthAddress,
     erc20_contract: EthAddress,
 ) {
-    let bridge_fee_amount = one_eth() * 10u8.into();
+    let bridge_fee_amount = one_eth() * 200u16.into();
     let (cdai_held, send_amount, requester_cosmos_private_key, requester_address, dest_eth_address) =
         setup_batch_test(
             web30,

@@ -18,6 +18,7 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::error::GravityError;
 use gravity_utils::types::ValsetConfirmResponse;
 use gravity_utils::types::{RelayerConfig, Valset};
+use rinkeby::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use tonic::transport::Channel;
 use web30::client::Web3;
 
@@ -134,7 +135,7 @@ async fn should_relay_valset(
     }
     let token_in = token_in.unwrap();
     // for now we always want weth
-    let token_out = *web30::amm::WETH_CONTRACT_ADDRESS;
+    let token_out = *WETH_CONTRACT_ADDRESS_RINKEBY;
     // If we're being rewarded in weth, we can just compare cost of gas to reward and see if we're getting enough
     if token_out == token_in {
         // TODO: Give relayers a configuration option in this case

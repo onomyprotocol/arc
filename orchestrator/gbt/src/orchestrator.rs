@@ -89,7 +89,7 @@ pub async fn orchestrator(
         .to_public_key()
         .expect("Invalid Ethereum Private Key!");
     let public_cosmos_key = cosmos_key.to_address(&contact.get_prefix()).unwrap();
-    info!("Starting Gravity Validator companion binary Relayer + Oracle + Eth Signer");
+    info!("Starting Gravity Validator on Rinkeby companion binary Relayer + Oracle + Eth Signer");
     info!(
         "Ethereum Address: {} Cosmos Address {}",
         public_eth_key, public_cosmos_key

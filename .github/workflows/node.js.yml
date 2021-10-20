@@ -5,9 +5,15 @@ name: Solidity contract build and test
 
 on:
   push:
-    branches: [master, main]
+    branches:
+      - main
+      - dev
+      - rinkeby
   pull_request:
-    branches: [master, main]
+    branches:
+      - main
+      - dev
+      - rinkeby
 
 jobs:
   core-tests:

@@ -8,10 +8,10 @@ use ethereum_gravity::utils::{downcast_to_u128, get_tx_batch_nonce};
 use ethereum_gravity::{one_eth, submit_batch::send_eth_transaction_batch};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::types::{BatchConfirmResponse, RelayerConfig, TransactionBatch, Valset};
+use rinkeby::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use std::collections::HashMap;
 use std::time::Duration;
 use tonic::transport::Channel;
-use web30::amm::WETH_CONTRACT_ADDRESS;
 use web30::client::Web3;
 
 #[derive(Debug, Clone)]
@@ -125,7 +125,7 @@ async fn should_relay_batch(
     let batch_reward_amount = batch.total_fee.amount.clone();
     let batch_reward_token = batch.total_fee.token_contract_address;
     // If we're given WETH, we just want to know if the reward covers gas
-    if batch_reward_token == *WETH_CONTRACT_ADDRESS {
+    if batch_reward_token == *WETH_CONTRACT_ADDRESS_RINKEBY {
         // TODO: Allow users to specify what sort of margin they want on rewards, to account for
         return batch_reward_amount > cost;
     }
@@ -138,7 +138,7 @@ async fn should_relay_batch(
         .get_uniswap_price(
             pubkey,
             batch_reward_token,
-            *WETH_CONTRACT_ADDRESS,
+            *WETH_CONTRACT_ADDRESS_RINKEBY,
             None,
             batch_reward_amount.clone(),
             None,
