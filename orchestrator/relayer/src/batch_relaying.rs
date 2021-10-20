@@ -1,4 +1,3 @@
-use crate::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use clarity::address::Address as EthAddress;
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::Uint256;
@@ -9,6 +8,7 @@ use ethereum_gravity::utils::{downcast_to_u128, get_tx_batch_nonce};
 use ethereum_gravity::{one_eth, submit_batch::send_eth_transaction_batch};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::types::{BatchConfirmResponse, RelayerConfig, TransactionBatch, Valset};
+use rinkeby::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use std::collections::HashMap;
 use std::time::Duration;
 use tonic::transport::Channel;

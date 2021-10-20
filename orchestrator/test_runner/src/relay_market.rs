@@ -20,7 +20,7 @@ use ethereum_gravity::utils::get_tx_batch_nonce;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::types::GravityBridgeToolsConfig;
 use rand::Rng;
-use relayer::rinkeby_constants::{DAI_CONTRACT_ADDRESS_RINKEBY, WETH_CONTRACT_ADDRESS_RINKEBY};
+use rinkeby::rinkeby_constants::{DAI_CONTRACT_ADDRESS_RINKEBY, WETH_CONTRACT_ADDRESS_RINKEBY};
 use tokio::time::sleep as delay_for;
 use tonic::transport::Channel;
 use web30::client::Web3;

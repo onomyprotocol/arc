@@ -2450,6 +2450,7 @@ dependencies = [
  "log",
  "num256",
  "openssl-probe",
+ "rinkeby",
  "serde",
  "serde_derive",
  "tokio 1.8.1",
@@ -2474,6 +2475,14 @@ checksum = "52e44394d2086d010551b14b53b1f24e31647570cd1deb0379e2c21b329aba00"
 dependencies = [
  "hostname",
  "quick-error",
+]
+
+[[package]]
+name = "rinkeby"
+version = "0.0.1"
+dependencies = [
+ "clarity",
+ "lazy_static",
 ]
 
 [[package]]
@@ -2883,7 +2892,7 @@ dependencies = [
  "prost",
  "prost-types",
  "rand 0.8.4",
- "relayer",
+ "rinkeby",
  "serde",
  "serde_derive",
  "serde_json",

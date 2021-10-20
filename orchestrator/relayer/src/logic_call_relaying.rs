@@ -1,4 +1,3 @@
-use crate::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use clarity::{address::Address as EthAddress, utils::bytes_to_hex_str};
 use clarity::{PrivateKey as EthPrivateKey, Uint256};
 use cosmos_gravity::query::{get_latest_logic_calls, get_logic_call_signatures};
@@ -11,6 +10,7 @@ use ethereum_gravity::{
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::types::{LogicCall, RelayerConfig};
 use gravity_utils::types::{LogicCallConfirmResponse, Valset};
+use rinkeby::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use std::collections::HashMap;
 use std::time::Duration;
 use tonic::transport::Channel;

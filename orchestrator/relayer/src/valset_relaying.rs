@@ -2,7 +2,6 @@
 //! the state of both chains and perform the required operations.
 use std::time::Duration;
 
-use crate::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::{address::Address as EthAddress, utils::bytes_to_hex_str};
 use cosmos_gravity::query::get_latest_valsets;
@@ -19,6 +18,7 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::error::GravityError;
 use gravity_utils::types::ValsetConfirmResponse;
 use gravity_utils::types::{RelayerConfig, Valset};
+use rinkeby::rinkeby_constants::WETH_CONTRACT_ADDRESS_RINKEBY;
 use tonic::transport::Channel;
 use web30::client::Web3;
 
