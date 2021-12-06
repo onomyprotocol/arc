@@ -29,8 +29,8 @@ use tonic::transport::Channel;
 pub async fn get_gravity_params(
     client: &mut GravityQueryClient<Channel>,
 ) -> Result<Params, GravityError> {
-    let request = client.params(QueryParamsRequest {}).await?.into_inner();
-    Ok(request.params.unwrap())
+    let response = client.params(QueryParamsRequest {}).await?.into_inner();
+    Ok(response.params.unwrap())
 }
 
 /// get the valset for a given nonce (block) height
@@ -38,10 +38,10 @@ pub async fn get_valset(
     client: &mut GravityQueryClient<Channel>,
     nonce: u64,
 ) -> Result<Option<Valset>, GravityError> {
-    let request = client
+    let response = client
         .valset_request(QueryValsetRequestRequest { nonce })
         .await?;
-    let valset = request.into_inner().valset;
+    let valset = response.into_inner().valset;
     let valset = valset.map(|v| v.into());
     Ok(valset)
 }
@@ -54,8 +54,8 @@ pub async fn get_valset(
 pub async fn get_current_valset(
     client: &mut GravityQueryClient<Channel>,
 ) -> Result<Valset, GravityError> {
-    let request = client.current_valset(QueryCurrentValsetRequest {}).await?;
-    let valset = request.into_inner().valset;
+    let response = client.current_valset(QueryCurrentValsetRequest {}).await?;
+    let valset = response.into_inner().valset;
     if let Some(valset) = valset {
         Ok(valset.into())
     } else {
@@ -73,12 +73,12 @@ pub async fn get_oldest_unsigned_valsets(
     address: Address,
     prefix: String,
 ) -> Result<Vec<Valset>, GravityError> {
-    let request = client
+    let response = client
         .last_pending_valset_request_by_addr(QueryLastPendingValsetRequestByAddrRequest {
             address: address.to_bech32(prefix).unwrap(),
         })
         .await?;
-    let valsets = request.into_inner().valsets;
+    let valsets = response.into_inner().valsets;
     // convert from proto valset type to rust valset type
     let valsets = valsets.iter().map(|v| v.into()).collect();
     Ok(valsets)
@@ -89,10 +89,10 @@ pub async fn get_oldest_unsigned_valsets(
 pub async fn get_latest_valsets(
     client: &mut GravityQueryClient<Channel>,
 ) -> Result<Vec<Valset>, GravityError> {
-    let request = client
+    let response = client
         .last_valset_requests(QueryLastValsetRequestsRequest {})
         .await?;
-    let valsets = request.into_inner().valsets;
+    let valsets = response.into_inner().valsets;
     Ok(valsets.iter().map(|v| v.into()).collect())
 }
 
@@ -101,10 +101,10 @@ pub async fn get_all_valset_confirms(
     client: &mut GravityQueryClient<Channel>,
     nonce: u64,
 ) -> Result<Vec<ValsetConfirmResponse>, GravityError> {
-    let request = client
+    let response = client
         .valset_confirms_by_nonce(QueryValsetConfirmsByNonceRequest { nonce })
         .await?;
-    let confirms = request.into_inner().confirms;
+    let confirms = response.into_inner().confirms;
     let mut parsed_confirms = Vec::new();
     for item in confirms {
         let v: ValsetConfirmResponse = ValsetConfirmResponse::try_from(&item)?;
@@ -118,12 +118,12 @@ pub async fn get_oldest_unsigned_transaction_batch(
     address: Address,
     prefix: String,
 ) -> Result<Option<TransactionBatch>, GravityError> {
-    let request = client
+    let response = client
         .last_pending_batch_request_by_addr(QueryLastPendingBatchRequestByAddrRequest {
             address: address.to_bech32(prefix).unwrap(),
         })
         .await?;
-    let batch = request.into_inner().batch;
+    let batch = response.into_inner().batch;
     match batch {
         Some(batch) => Ok(Some(TransactionBatch::try_from(batch)?)),
         None => Ok(None),
@@ -135,10 +135,10 @@ pub async fn get_oldest_unsigned_transaction_batch(
 pub async fn get_latest_transaction_batches(
     client: &mut GravityQueryClient<Channel>,
 ) -> Result<Vec<TransactionBatch>, GravityError> {
-    let request = client
+    let response = client
         .outgoing_tx_batches(QueryOutgoingTxBatchesRequest {})
         .await?;
-    let batches = request.into_inner().batches;
+    let batches = response.into_inner().batches;
     let mut out = Vec::new();
     for batch in batches {
         out.push(TransactionBatch::try_from(batch)?)
@@ -152,13 +152,13 @@ pub async fn get_transaction_batch_signatures(
     nonce: u64,
     contract_address: EthAddress,
 ) -> Result<Vec<BatchConfirmResponse>, GravityError> {
-    let request = client
+    let response = client
         .batch_confirms(QueryBatchConfirmsRequest {
             nonce,
             contract_address: contract_address.to_string(),
         })
         .await?;
-    let batch_confirms = request.into_inner().confirms;
+    let batch_confirms = response.into_inner().confirms;
     let mut out = Vec::new();
     for confirm in batch_confirms {
         out.push(BatchConfirmResponse::try_from(confirm)?)
@@ -173,22 +173,22 @@ pub async fn get_last_event_nonce_for_validator(
     address: Address,
     prefix: String,
 ) -> Result<u64, GravityError> {
-    let request = client
+    let response = client
         .last_event_nonce_by_addr(QueryLastEventNonceByAddrRequest {
             address: address.to_bech32(prefix).unwrap(),
         })
         .await?;
-    Ok(request.into_inner().event_nonce)
+    Ok(response.into_inner().event_nonce)
 }
 
 /// Gets the 100 latest logic calls for a relayer to consider relaying
 pub async fn get_latest_logic_calls(
     client: &mut GravityQueryClient<Channel>,
 ) -> Result<Vec<LogicCall>, GravityError> {
-    let request = client
+    let response = client
         .outgoing_logic_calls(QueryOutgoingLogicCallsRequest {})
         .await?;
-    let calls = request.into_inner().calls;
+    let calls = response.into_inner().calls;
     let mut out = Vec::new();
     for call in calls {
         out.push(LogicCall::try_from(call)?);
@@ -201,13 +201,13 @@ pub async fn get_logic_call_signatures(
     invalidation_id: Vec<u8>,
     invalidation_nonce: u64,
 ) -> Result<Vec<LogicCallConfirmResponse>, GravityError> {
-    let request = client
+    let response = client
         .logic_confirms(QueryLogicConfirmsRequest {
             invalidation_id,
             invalidation_nonce,
         })
         .await?;
-    let call_confirms = request.into_inner().confirms;
+    let call_confirms = response.into_inner().confirms;
     let mut out = Vec::new();
     for confirm in call_confirms {
         out.push(LogicCallConfirmResponse::try_from(confirm)?)
@@ -220,12 +220,12 @@ pub async fn get_oldest_unsigned_logic_call(
     address: Address,
     prefix: String,
 ) -> Result<Option<LogicCall>, GravityError> {
-    let request = client
+    let response = client
         .last_pending_logic_call_by_addr(QueryLastPendingLogicCallByAddrRequest {
             address: address.to_bech32(prefix).unwrap(),
         })
         .await?;
-    let call = request.into_inner().call;
+    let call = response.into_inner().call;
     match call {
         Some(call) => Ok(Some(LogicCall::try_from(call)?)),
         None => Ok(None),
@@ -236,12 +236,12 @@ pub async fn get_attestations(
     client: &mut GravityQueryClient<Channel>,
     limit: Option<u64>,
 ) -> Result<Vec<Attestation>, GravityError> {
-    let request = client
+    let response = client
         .get_attestations(QueryAttestationsRequest {
             limit: limit.or(Some(1000u64)).unwrap(),
         })
         .await?;
-    let attestations = request.into_inner().attestations;
+    let attestations = response.into_inner().attestations;
     Ok(attestations)
 }
 
@@ -250,10 +250,10 @@ pub async fn get_pending_send_to_eth(
     client: &mut GravityQueryClient<Channel>,
     sender_address: Address,
 ) -> Result<QueryPendingSendToEthResponse, GravityError> {
-    let request = client
+    let response = client
         .get_pending_send_to_eth(QueryPendingSendToEth {
             sender_address: sender_address.to_string(),
         })
         .await?;
-    Ok(request.into_inner())
+    Ok(response.into_inner())
 }
