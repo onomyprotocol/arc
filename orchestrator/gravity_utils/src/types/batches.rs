@@ -110,8 +110,8 @@ impl TryFrom<gravity_proto::gravity::OutgoingTxBatch> for TransactionBatch {
                 total_fee,
             })
         } else {
-            Err(GravityError::InvalidBridgeStateError(
-                "Transaction batch containing no transactions!".to_string(),
+            Err(GravityError::ValidationError(
+                "Transaction batch containing no transactions!".into(),
             ))
         }
     }
@@ -138,8 +138,8 @@ impl TryFrom<gravity_proto::gravity::OutgoingTransferTx> for BatchTransaction {
         input: gravity_proto::gravity::OutgoingTransferTx,
     ) -> Result<BatchTransaction, GravityError> {
         if input.erc20_fee.is_none() || input.erc20_token.is_none() {
-            return Err(GravityError::InvalidBridgeStateError(
-                "Can not have tx with null erc20_token!".to_string(),
+            return Err(GravityError::ValidationError(
+                "Cannot have tx with null erc20_token!".into(),
             ));
         }
         Ok(BatchTransaction {

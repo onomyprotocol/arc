@@ -2,6 +2,9 @@
 //! It's a common problem to have conflicts between ipv4 and ipv6 localhost and this module is first and foremost supposed to resolve that problem
 //! by trying more than one thing to handle potentially misconfigured inputs.
 
+use crate::error::GravityError;
+use crate::get_with_retry::get_balances_with_retry;
+use crate::get_with_retry::get_eth_balances_with_retry;
 use clarity::Address as EthAddress;
 use deep_space::Address as CosmosAddress;
 use deep_space::Contact;
@@ -9,15 +12,11 @@ use deep_space::{client::ChainStatus, Coin};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::QueryDelegateKeysByEthAddress;
 use gravity_proto::gravity::QueryDelegateKeysByOrchestratorAddress;
-use std::process::exit;
 use std::time::Duration;
 use tokio::time::sleep as delay_for;
 use tonic::transport::Channel;
 use url::Url;
 use web30::client::Web3;
-
-use crate::get_with_retry::get_balances_with_retry;
-use crate::get_with_retry::get_eth_balances_with_retry;
 
 pub struct Connections {
     pub web3: Option<Web3>,
@@ -237,7 +236,7 @@ pub async fn check_delegate_addresses(
     delegate_eth_address: EthAddress,
     delegate_orchestrator_address: CosmosAddress,
     prefix: &str,
-) {
+) -> Result<(), GravityError> {
     let eth_response = client
         .get_delegate_key_by_eth(QueryDelegateKeysByEthAddress {
             eth_address: delegate_eth_address.to_string(),
@@ -261,76 +260,102 @@ pub async fn check_delegate_addresses(
             {
                 error!("Your Delegate Ethereum and Orchestrator addresses are both incorrect!");
                 error!(
-                    "You provided {}  Correct Value {}",
+                    "You provided {} Correct Value {}",
                     delegate_eth_address, req_delegate_eth_address
                 );
                 error!(
-                    "You provided {}  Correct Value {}",
+                    "You provided {} Correct Value {}",
                     delegate_orchestrator_address, req_delegate_orchestrator_address
                 );
                 error!("In order to resolve this issue you should double check your input value or re-register your delegate keys");
-                exit(1);
+                Err(GravityError::UnrecoverableError(
+                    "Etehreum orchestrator addresses incorrect".into(),
+                ))
             } else if req_delegate_eth_address != delegate_eth_address {
                 error!("Your Delegate Ethereum address is incorrect!");
                 error!(
-                    "You provided {}  Correct Value {}",
+                    "You provided {} Correct Value {}",
                     delegate_eth_address, req_delegate_eth_address
                 );
                 error!("In order to resolve this issue you should double check how you input your eth private key");
-                exit(1);
+                Err(GravityError::UnrecoverableError(
+                    "Ethereum address incorrect".into(),
+                ))
             } else if req_delegate_orchestrator_address != delegate_orchestrator_address {
                 error!("Your Delegate Orchestrator address is incorrect!");
                 error!(
-                    "You provided {}  Correct Value {}",
-                    delegate_eth_address, req_delegate_eth_address
+                    "You provided {} Correct Value {}",
+                    delegate_orchestrator_address, req_delegate_orchestrator_address
                 );
                 error!("In order to resolve this issue you should double check how you input your Orchestrator address phrase, make sure you didn't use your Validator phrase!");
-                exit(1);
-            }
-
-            if e.validator_address != o.validator_address {
+                Err(GravityError::UnrecoverableError(
+                    "Orchestrator Address Incorrect".into(),
+                ))
+            } else if e.validator_address != o.validator_address {
                 error!("You are using delegate keys from two different validator addresses!");
                 error!("If you get this error message I would just blow everything away and start again");
-                exit(1);
+                Err(GravityError::UnrecoverableError(
+                    "Different validator addresses".into(),
+                ))
+            } else {
+                Ok(())
             }
         }
         (Err(e), Ok(_)) => {
-            error!("Your delegate Ethereum address is incorrect, please double check you private key. If you can't locate the correct private key register your delegate keys again and use the new value {:?}", e);
-            exit(1);
+            Err(GravityError::UnrecoverableError(
+                format!(
+                    "Your delegate Ethereum address is incorrect, please double check you private key. If you can't locate the correct private key register your delegate keys again and use the new value {:?}", e
+                )
+            ))
         }
         (Ok(_), Err(e)) => {
-            error!("Your delegate Cosmos address is incorrect, please double check your phrase. If you can't locate the correct phrase register your delegate keys again and use the new value {:?}", e);
-            exit(1);
+            Err(GravityError::UnrecoverableError(
+                format!(
+                    "Your delegate Cosmos address is incorrect, please double check your phrase. If you can't locate the correct phrase register your delegate keys again and use the new value {:?}", e
+                )
+            ))
         }
         (Err(_), Err(_)) => {
-            error!("Delegate keys are not set! Please Register your delegate keys");
-            exit(1);
+            Err(GravityError::UnrecoverableError(
+                "Delegate keys are not set! Please Register your delegate keys".into(),
+            ))
         }
     }
 }
 
 /// Checks if a given Coin, used for fees is in the provided address in a sufficient quantity
-pub async fn check_for_fee(fee: &Coin, address: CosmosAddress, contact: &Contact) {
+pub async fn check_for_fee(
+    fee: &Coin,
+    address: CosmosAddress,
+    contact: &Contact,
+) -> Result<(), GravityError> {
     let balances = get_balances_with_retry(address, contact).await;
+
     for balance in balances {
         if balance.denom.contains(&fee.denom) {
             if balance.amount < fee.amount {
-                error!("You have specified a fee that is greater than your balance of that coin! {}{} > {}{} ", fee.amount, fee.denom, balance.amount, balance.denom);
-                exit(1);
+                return Err(GravityError::ValidationError(
+                    format!("You have specified a fee that is greater than your balance of that coin! {}{} > {}{}", fee.amount, fee.denom, balance.amount, balance.denom)
+                ));
             } else {
-                return;
+                return Ok(());
             }
         }
     }
-    error!("You have specified that fees should be paid in {} but account {} has no balance of that token!", fee.denom, address);
-    exit(1);
+
+    Err(GravityError::UnrecoverableError(
+        format!("You have specified that fees should be paid in {} but account {} has no balance of that token!", fee.denom, address)
+    ))
 }
 
 /// Checks the user has some Ethereum in their address to pay for things
-pub async fn check_for_eth(address: EthAddress, web3: &Web3) {
+pub async fn check_for_eth(address: EthAddress, web3: &Web3) -> Result<(), GravityError> {
     let balance = get_eth_balances_with_retry(address, web3).await;
     if balance == 0u8.into() {
-        error!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs", address);
-        exit(1);
+        Err(GravityError::ValidationError(
+        format!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs", address)
+        ))
+    } else {
+        Ok(())
     }
 }

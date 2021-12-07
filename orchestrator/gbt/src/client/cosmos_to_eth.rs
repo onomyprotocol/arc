@@ -5,9 +5,12 @@ use cosmos_gravity::send::{send_request_batch, send_to_eth};
 use deep_space::Coin;
 use gravity_proto::gravity::QueryDenomToErc20Request;
 use gravity_utils::connection_prep::{check_for_fee, create_rpc_connections};
-use std::process::exit;
+use gravity_utils::error::GravityError;
 
-pub async fn cosmos_to_eth(args: CosmosToEthOpts, address_prefix: String) {
+pub async fn cosmos_to_eth(
+    args: CosmosToEthOpts,
+    address_prefix: String,
+) -> Result<(), GravityError> {
     let cosmos_key = args.cosmos_phrase;
     let gravity_coin = args.amount;
     let fee = args.fees;
@@ -36,12 +39,11 @@ pub async fn cosmos_to_eth(args: CosmosToEthOpts, address_prefix: String) {
             gravity_coin.denom,
             val.into_inner().erc20
         ),
-        Err(_e) => {
-            info!(
+        Err(_) => {
+            return Err(GravityError::UnrecoverableError(format!(
                 "Asset {} has no ERC20 representation, you may need to deploy an ERC20 for it!",
                 gravity_coin.denom
-            );
-            exit(1);
+            )));
         }
     }
 
@@ -50,8 +52,8 @@ pub async fn cosmos_to_eth(args: CosmosToEthOpts, address_prefix: String) {
         denom: gravity_coin.denom.clone(),
         amount: 1u64.into(),
     };
-    check_for_fee(&gravity_coin, cosmos_address, &contact).await;
-    check_for_fee(&fee, cosmos_address, &contact).await;
+    check_for_fee(&gravity_coin, cosmos_address, &contact).await?;
+    check_for_fee(&fee, cosmos_address, &contact).await?;
 
     let balances = contact
         .get_balances(cosmos_address)
@@ -67,15 +69,18 @@ pub async fn cosmos_to_eth(args: CosmosToEthOpts, address_prefix: String) {
     info!("Cosmos balances {:?}", balances);
 
     if found.is_none() {
-        error!("You don't have any {} tokens!", gravity_coin.denom);
-        exit(1);
+        return Err(GravityError::UnrecoverableError(format!(
+            "You don't have any {} tokens!",
+            gravity_coin.denom
+        )));
     } else if amount.amount.clone() >= found.unwrap().amount {
-        if is_cosmos_originated {
-            error!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_atom(amount.amount), gravity_coin.denom, print_atom(found.unwrap().amount.clone()));
+        let error = if is_cosmos_originated {
+            format!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_atom(amount.amount), gravity_coin.denom, print_atom(found.unwrap().amount.clone()))
         } else {
-            error!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_eth(amount.amount), gravity_coin.denom, print_eth(found.unwrap().amount.clone()));
-        }
-        exit(1);
+            format!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_eth(amount.amount), gravity_coin.denom, print_eth(found.unwrap().amount.clone()))
+        };
+
+        return Err(GravityError::UnrecoverableError(error));
     }
 
     info!(
@@ -110,4 +115,6 @@ pub async fn cosmos_to_eth(args: CosmosToEthOpts, address_prefix: String) {
     } else {
         info!("--no-batch specified, your transfer will wait until someone requests a batch for this token type")
     }
+
+    Ok(())
 }

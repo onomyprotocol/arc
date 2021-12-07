@@ -5,98 +5,54 @@ use clarity::Error as ClarityError;
 use deep_space::error::AddressError as CosmosAddressError;
 use deep_space::error::CosmosGrpcError;
 use num_bigint::ParseBigIntError;
-use std::fmt::{self, Debug};
-use tokio::time::error::Elapsed;
+use std::fmt::Debug;
 use tonic::Status;
 use web30::jsonrpc::error::Web3Error;
 
-#[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
+#[derive(thiserror::Error, Debug)]
 pub enum GravityError {
-    InvalidBigInt(ParseBigIntError),
-    CosmosGrpcError(CosmosGrpcError),
-    CosmosAddressError(CosmosAddressError),
-    EthereumRestError(Web3Error),
-    InvalidBridgeStateError(String),
-    FailedToUpdateValset,
-    EthereumContractError(String),
-    InvalidOptionsError(String),
-    ClarityError(ClarityError),
-    TimeoutError,
-    InvalidEventLogError(String),
-    GravityGrpcError(Status),
-    InsufficientVotingPowerToPass(String),
-    ParseBigIntError(ParseBigIntError),
-}
+    #[error("{0}")]
+    ValidationError(String),
 
-impl fmt::Display for GravityError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            GravityError::GravityGrpcError(val) => write!(f, "Gravity gRPC error {}", val),
-            GravityError::CosmosGrpcError(val) => write!(f, "Cosmos gRPC error {}", val),
-            GravityError::InvalidBigInt(val) => {
-                write!(f, "Got invalid BigInt from cosmos! {}", val)
-            }
-            GravityError::CosmosAddressError(val) => write!(f, "Cosmos Address error {}", val),
-            GravityError::EthereumRestError(val) => write!(f, "Ethereum REST error {}", val),
-            GravityError::InvalidOptionsError(val) => {
-                write!(f, "Invalid TX options for this call {}", val)
-            }
-            GravityError::InvalidBridgeStateError(val) => {
-                write!(f, "Invalid bridge state! {}", val)
-            }
-            GravityError::FailedToUpdateValset => write!(f, "ValidatorSetUpdate Failed!"),
-            GravityError::TimeoutError => write!(f, "Operation timed out!"),
-            GravityError::ClarityError(val) => write!(f, "Clarity Error {}", val),
-            GravityError::InvalidEventLogError(val) => write!(f, "InvalidEvent: {}", val),
-            GravityError::EthereumContractError(val) => {
-                write!(f, "Contract operation failed: {}", val)
-            }
-            GravityError::InsufficientVotingPowerToPass(val) => {
-                write!(f, "{}", val)
-            }
-            GravityError::ParseBigIntError(val) => write!(f, "Failed to parse big integer {}", val),
-        }
-    }
-}
+    #[error("{0}")]
+    UnrecoverableError(String),
 
-impl std::error::Error for GravityError {}
+    // we can pass String info here as well if we need more context/details
+    #[error(transparent)]
+    RpcError(#[from] Box<dyn std::error::Error>),
+}
 
 impl From<CosmosGrpcError> for GravityError {
     fn from(error: CosmosGrpcError) -> Self {
-        GravityError::CosmosGrpcError(error)
-    }
-}
-
-impl From<Elapsed> for GravityError {
-    fn from(_error: Elapsed) -> Self {
-        GravityError::TimeoutError
+        GravityError::RpcError(Box::new(error))
     }
 }
 
 impl From<ClarityError> for GravityError {
     fn from(error: ClarityError) -> Self {
-        GravityError::ClarityError(error)
+        GravityError::ValidationError(error.to_string())
     }
 }
 
 impl From<Web3Error> for GravityError {
     fn from(error: Web3Error) -> Self {
-        GravityError::EthereumRestError(error)
+        GravityError::RpcError(Box::new(error))
     }
 }
+
 impl From<Status> for GravityError {
     fn from(error: Status) -> Self {
-        GravityError::GravityGrpcError(error)
+        GravityError::RpcError(Box::new(error))
     }
 }
+
 impl From<CosmosAddressError> for GravityError {
     fn from(error: CosmosAddressError) -> Self {
-        GravityError::CosmosAddressError(error)
+        GravityError::ValidationError(error.to_string())
     }
 }
 impl From<ParseBigIntError> for GravityError {
     fn from(error: ParseBigIntError) -> Self {
-        GravityError::InvalidBigInt(error)
+        GravityError::ValidationError(error.to_string())
     }
 }

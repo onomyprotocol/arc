@@ -1,13 +1,12 @@
-use std::process::exit;
-
 use crate::args::EthToCosmosOpts;
 use crate::utils::fraction_to_exponent;
 use crate::utils::TIMEOUT;
 use ethereum_gravity::send_to_cosmos::send_to_cosmos;
 use ethereum_gravity::utils::get_valset_nonce;
 use gravity_utils::connection_prep::{check_for_eth, create_rpc_connections};
+use gravity_utils::error::GravityError;
 
-pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) {
+pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), GravityError> {
     let gravity_address = args.gravity_contract_address;
     let erc20_address = args.token_contract_address;
     let cosmos_dest = args.destination;
@@ -24,7 +23,7 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) {
         .await
         .expect("Incorrect Gravity Address or otherwise unable to contact Gravity");
 
-    check_for_eth(ethereum_public_key, &web3).await;
+    check_for_eth(ethereum_public_key, &web3).await?;
 
     let res = web3
         .get_erc20_decimals(erc20_address, ethereum_public_key)
@@ -39,14 +38,16 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) {
         .expect("Failed to get balance, check ERC20 contract address");
 
     if erc20_balance == 0u8.into() {
-        error!(
+        return Err(GravityError::UnrecoverableError(format!(
             "You have zero {} tokens, please double check your sender and erc20 addresses!",
             erc20_address
-        );
-        exit(1);
+        )));
     } else if amount.clone() > erc20_balance {
         error!("Insufficient balance {} > {}", amount, erc20_balance);
-        exit(1);
+        return Err(GravityError::UnrecoverableError(format!(
+            "Insufficient balance {} > {}",
+            amount, erc20_balance
+        )));
     }
 
     info!(
@@ -69,4 +70,6 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) {
         Ok(tx_id) => info!("Send to Cosmos txid: {:#066x}", tx_id),
         Err(e) => info!("Failed to send tokens! {:?}", e),
     }
+
+    Ok(())
 }

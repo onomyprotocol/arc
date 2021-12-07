@@ -27,8 +27,8 @@ pub async fn send_to_cosmos(
 
     for option in options.iter() {
         if let SendTxOption::Nonce(_) = option {
-            return Err(GravityError::InvalidOptionsError(
-                "This call sends more than one tx! Can't specify".to_string(),
+            return Err(GravityError::ValidationError(
+                "This call sends more than one tx! Can't specify".into(),
             ));
         }
     }

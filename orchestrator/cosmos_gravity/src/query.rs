@@ -60,8 +60,8 @@ pub async fn get_current_valset(
         Ok(valset.into())
     } else {
         error!("Current valset returned None? This should be impossible");
-        Err(GravityError::InvalidBridgeStateError(
-            "Must have a current valset!".to_string(),
+        Err(GravityError::ValidationError(
+            "Must have a current valset!".into(),
         ))
     }
 }

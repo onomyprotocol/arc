@@ -67,7 +67,7 @@ impl TryFrom<gravity_proto::gravity::OutgoingLogicCall> for LogicCall {
             fees.push(Erc20Token::try_from(fee)?)
         }
         if transfers.is_empty() || fees.is_empty() {
-            return Err(GravityError::InvalidBridgeStateError(
+            return Err(GravityError::ValidationError(
                 "Transaction batch containing no transactions!".to_string(),
             ));
         }

@@ -171,6 +171,7 @@ pub async fn check_for_events(
                 fee,
             )
             .await?;
+
             let new_event_nonce = get_last_event_nonce_for_validator(
                 grpc_client,
                 our_cosmos_address,
@@ -183,7 +184,7 @@ pub async fn check_for_events(
             // since we can't actually trust that the above txresponse is correct we have to check here
             // we may be able to trust the tx response post grpc
             if new_event_nonce == last_event_nonce {
-                return Err(GravityError::InvalidBridgeStateError(
+                return Err(GravityError::ValidationError(
                     format!("Claims did not process, trying to update but still on {}, trying again in a moment, check txhash {} for errors", last_event_nonce, res.txhash),
                 ));
             } else {
@@ -193,9 +194,9 @@ pub async fn check_for_events(
         Ok(latest_block)
     } else {
         error!("Failed to get events");
-        Err(GravityError::EthereumRestError(Web3Error::BadResponse(
-            "Failed to get logs!".to_string(),
-        )))
+        Err(GravityError::RpcError(Box::new(Web3Error::BadResponse(
+            "Failed to get logs!".into(),
+        ))))
     }
 }
 

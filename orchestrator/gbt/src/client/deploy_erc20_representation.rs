@@ -2,18 +2,18 @@ use crate::{args::DeployErc20RepresentationOpts, utils::TIMEOUT};
 use cosmos_gravity::query::get_gravity_params;
 use ethereum_gravity::deploy_erc20::deploy_erc20;
 use gravity_proto::gravity::QueryDenomToErc20Request;
-use gravity_utils::connection_prep::{check_for_eth, create_rpc_connections};
-use std::{
-    process::exit,
-    time::{Duration, Instant},
+use gravity_utils::{
+    connection_prep::{check_for_eth, create_rpc_connections},
+    error::GravityError,
 };
+use std::time::{Duration, Instant};
 use tokio::time::sleep as delay_for;
 use web30::types::SendTxOption;
 
 pub async fn deploy_erc20_representation(
     args: DeployErc20RepresentationOpts,
     address_prefix: String,
-) {
+) -> Result<(), GravityError> {
     let grpc_url = args.cosmos_grpc;
     let ethereum_rpc = args.ethereum_rpc;
     let ethereum_key = args.ethereum_key;
@@ -26,7 +26,7 @@ pub async fn deploy_erc20_representation(
     let mut grpc = connections.grpc.unwrap();
 
     let ethereum_public_key = ethereum_key.to_public_key().unwrap();
-    check_for_eth(ethereum_public_key, &web3).await;
+    check_for_eth(ethereum_public_key, &web3).await?;
 
     let contract_address = if let Some(c) = args.gravity_contract_address {
         c
@@ -34,8 +34,9 @@ pub async fn deploy_erc20_representation(
         let params = get_gravity_params(&mut grpc).await.unwrap();
         let c = params.bridge_ethereum_address.parse();
         if c.is_err() {
-            error!("The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address");
-            exit(1);
+            return Err(GravityError::UnrecoverableError(
+                "The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into(),
+            ));
         }
         c.unwrap()
     };
@@ -46,12 +47,11 @@ pub async fn deploy_erc20_representation(
         })
         .await;
     if let Ok(val) = res {
-        info!(
+        let erc20 = val.into_inner().erc20;
+        return Err(GravityError::UnrecoverableError(format!(
             "Asset {} already has ERC20 representation {}",
-            denom,
-            val.into_inner().erc20
-        );
-        exit(1);
+            denom, erc20
+        )));
     }
 
     info!("Starting deploy of ERC20");
@@ -85,12 +85,14 @@ pub async fn deploy_erc20_representation(
                 denom,
                 val.into_inner().erc20
             );
-            exit(0);
+            return Ok(());
         }
 
         if Instant::now() - start > Duration::from_secs(100) {
-            info!("Your ERC20 contract was not adopted, double check the metadata and try again");
-            exit(1);
+            return Err(GravityError::UnrecoverableError(
+                "Your ERC20 contract was not adopted, double check the metadata and try again"
+                    .into(),
+            ));
         }
         delay_for(Duration::from_secs(1)).await;
     }

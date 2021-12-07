@@ -5,14 +5,17 @@ use crate::{
     config::{config_exists, load_keys, save_keys},
 };
 use deep_space::PrivateKey;
-use std::{path::Path, process::exit};
+use gravity_utils::error::GravityError;
+use std::path::Path;
 
-pub fn show_keys(home_dir: &Path, prefix: &str) {
+pub fn show_keys(home_dir: &Path, prefix: &str) -> Result<(), GravityError> {
     if !config_exists(home_dir) {
-        error!("Please run `gbt init` before running this command!");
-        exit(1);
+        return Err(GravityError::UnrecoverableError(
+            "Please run `gbt init` before running this command!".into(),
+        ));
     }
-    let keys = load_keys(home_dir);
+    let keys = load_keys(home_dir)?;
+
     match keys.orchestrator_phrase {
         Some(v) => {
             let key = PrivateKey::from_phrase(&v, "")
@@ -29,31 +32,44 @@ pub fn show_keys(home_dir: &Path, prefix: &str) {
         }
         None => info!("You do not have an Ethereum key set"),
     }
+
+    Ok(())
 }
 
-pub fn set_eth_key(home_dir: &Path, opts: SetEthereumKeyOpts) {
+pub fn set_eth_key(home_dir: &Path, opts: SetEthereumKeyOpts) -> Result<(), GravityError> {
     if !config_exists(home_dir) {
-        error!("Please run `gbt init` before running this command!");
-        exit(1);
+        return Err(GravityError::UnrecoverableError(
+            "Please run `gbt init` before running this command!".into(),
+        ));
     }
-    let mut keys = load_keys(home_dir);
+    let mut keys = load_keys(home_dir)?;
     keys.ethereum_key = Some(opts.key);
     save_keys(home_dir, keys);
-    info!("Successfully updated Ethereum Key")
+    info!("Successfully updated Ethereum Key");
+
+    Ok(())
 }
 
-pub fn set_orchestrator_key(home_dir: &Path, opts: SetOrchestratorKeyOpts) {
+pub fn set_orchestrator_key(
+    home_dir: &Path,
+    opts: SetOrchestratorKeyOpts,
+) -> Result<(), GravityError> {
     if !config_exists(home_dir) {
-        error!("Please run `gbt init` before running this command!");
-        exit(1);
+        return Err(GravityError::UnrecoverableError(
+            "Please run `gbt init` before running this command!".into(),
+        ));
     }
     let res = PrivateKey::from_phrase(&opts.phrase, "");
     if let Err(e) = res {
-        error!("Invalid Cosmos mnemonic phrase {} {:?}", opts.phrase, e);
-        exit(1);
+        return Err(GravityError::UnrecoverableError(format!(
+            "Invalid Cosmos mnemonic phrase {} {:?}",
+            opts.phrase, e
+        )));
     }
-    let mut keys = load_keys(home_dir);
+    let mut keys = load_keys(home_dir)?;
     keys.orchestrator_phrase = Some(opts.phrase);
     save_keys(home_dir, keys);
-    info!("Successfully updated Orchestrator Key")
+    info!("Successfully updated Orchestrator Key");
+
+    Ok(())
 }

@@ -17,13 +17,12 @@ use deep_space::Contact;
 use deep_space::{client::ChainStatus, utils::FeeInfo};
 use deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
 use ethereum_gravity::utils::get_gravity_id;
-use futures::future::join;
-use futures::future::join3;
+use futures::future::{try_join, try_join3};
 use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
+use gravity_utils::error::GravityError;
 use gravity_utils::types::GravityBridgeToolsConfig;
 use relayer::main_loop::relayer_main_loop;
-use std::process::exit;
 use std::time::Duration;
 use std::time::Instant;
 use tokio::time::sleep as delay_for;
@@ -51,7 +50,7 @@ pub async fn orchestrator_main_loop(
     gravity_contract_address: EthAddress,
     user_fee_amount: Coin,
     config: GravityBridgeToolsConfig,
-) {
+) -> Result<(), GravityError> {
     let fee = user_fee_amount;
 
     let a = eth_oracle_main_loop(
@@ -81,10 +80,16 @@ pub async fn orchestrator_main_loop(
 
     // if the relayer is not enabled we just don't start the future
     if config.orchestrator.relayer_enabled {
-        join3(a, b, c).await;
+        if let Err(e) = try_join3(a, b, c).await {
+            return Err(e);
+        }
     } else {
-        join(a, b).await;
+        if let Err(e) = try_join(a, b).await {
+            return Err(e);
+        }
     }
+
+    Ok(())
 }
 
 const DELAY: Duration = Duration::from_secs(5);
@@ -98,7 +103,7 @@ pub async fn eth_oracle_main_loop(
     grpc_client: GravityQueryClient<Channel>,
     gravity_contract_address: EthAddress,
     fee: Coin,
-) {
+) -> Result<(), GravityError> {
     let our_cosmos_address = cosmos_key.to_address(&contact.get_prefix()).unwrap();
     let long_timeout_web30 = Web3::new(&web3.get_url(), Duration::from_secs(120));
     let mut last_checked_block: Uint256 = get_last_checked_block(
@@ -192,14 +197,15 @@ pub async fn eth_signer_main_loop(
     grpc_client: GravityQueryClient<Channel>,
     gravity_contract_address: EthAddress,
     fee: Coin,
-) {
+) -> Result<(), GravityError> {
     let our_cosmos_address = cosmos_key.to_address(&contact.get_prefix()).unwrap();
     let our_ethereum_address = ethereum_key.to_public_key().unwrap();
     let mut grpc_client = grpc_client;
     let gravity_id = get_gravity_id(gravity_contract_address, our_ethereum_address, &web3).await;
     if gravity_id.is_err() {
-        error!("Failed to get GravityID, check your Eth node");
-        return;
+        return Err(GravityError::ValidationError(
+            "Failed to get GravityID, check your Eth node".into(),
+        ));
     }
     let gravity_id = gravity_id.unwrap();
 
@@ -270,7 +276,7 @@ pub async fn eth_signer_main_loop(
                     )
                     .await;
                     trace!("Valset confirm result is {:?}", res);
-                    check_for_fee_error(res, &fee);
+                    check_for_fee_error(res, &fee)?;
                 }
             }
             Err(e) => trace!(
@@ -304,7 +310,7 @@ pub async fn eth_signer_main_loop(
                 )
                 .await;
                 trace!("Batch confirm result is {:?}", res);
-                check_for_fee_error(res, &fee);
+                check_for_fee_error(res, &fee)?;
             }
             Ok(None) => trace!("No unsigned batches! Everything good!"),
             Err(e) => trace!(
@@ -336,7 +342,7 @@ pub async fn eth_signer_main_loop(
                 )
                 .await;
                 trace!("call confirm result is {:?}", res);
-                check_for_fee_error(res, &fee);
+                check_for_fee_error(res, &fee)?;
             }
             Ok(None) => trace!("No unsigned logic call! Everything good!"),
             Err(e) => info!(
@@ -358,7 +364,10 @@ pub async fn eth_signer_main_loop(
 /// Checks for fee errors on our confirm submission transactions, a failure here
 /// can be fatal and cause slashing so we want to warn the user and exit. There is
 /// no point in running if we can't perform our most important function
-fn check_for_fee_error(res: Result<TxResponse, CosmosGrpcError>, fee: &Coin) {
+fn check_for_fee_error(
+    res: Result<TxResponse, CosmosGrpcError>,
+    fee: &Coin,
+) -> Result<(), GravityError> {
     if let Err(CosmosGrpcError::InsufficientFees { fee_info }) = res {
         match fee_info {
             FeeInfo::InsufficientFees { min_fees } => {
@@ -368,11 +377,17 @@ fn check_for_fee_error(res: Result<TxResponse, CosmosGrpcError>, fee: &Coin) {
                     Coin::display_list(&min_fees)
                 );
                 error!("Correct fee argument immediately! You will be slashed within a few hours if you fail to do so");
-                exit(1);
+                return Err(GravityError::UnrecoverableError(
+                    "Specified fee value too small".into(),
+                ));
             }
             FeeInfo::InsufficientGas { .. } => {
-                panic!("Hardcoded gas amounts insufficient!");
+                return Err(GravityError::UnrecoverableError(
+                    "Hardcoded gas amounts insufficient!".into(),
+                ));
             }
         }
     }
+
+    Ok(())
 }

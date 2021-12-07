@@ -1,6 +1,3 @@
-use std::path::PathBuf;
-use std::process::exit;
-
 use crate::args::RegisterOrchestratorAddressOpts;
 use crate::config::config_exists;
 use crate::config::load_keys;
@@ -10,15 +7,18 @@ use crate::utils::TIMEOUT;
 use clarity::PrivateKey as EthPrivateKey;
 use cosmos_gravity::send::set_gravity_delegate_addresses;
 use deep_space::{mnemonic::Mnemonic, private_key::PrivateKey as CosmosPrivateKey};
-use gravity_utils::connection_prep::check_for_fee;
-use gravity_utils::connection_prep::{create_rpc_connections, wait_for_cosmos_node_ready};
+use gravity_utils::connection_prep::{
+    check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready,
+};
+use gravity_utils::error::GravityError;
 use rand::{thread_rng, Rng};
+use std::path::PathBuf;
 
 pub async fn register_orchestrator_address(
     args: RegisterOrchestratorAddressOpts,
     prefix: String,
     home_dir: PathBuf,
-) {
+) -> Result<(), GravityError> {
     let fee = args.fees;
     let cosmos_grpc = args.cosmos_grpc;
     let validator_key = args.validator_phrase;
@@ -27,8 +27,9 @@ pub async fn register_orchestrator_address(
     let mut generated_eth = false;
 
     if !args.no_save && !config_exists(&home_dir) {
-        error!("Please run `gbt init` before running this command!");
-        exit(1);
+        return Err(GravityError::UnrecoverableError(
+            "Please run `gbt init` before running this command!".into(),
+        ));
     }
 
     let connections = create_rpc_connections(prefix, Some(cosmos_grpc), None, TIMEOUT).await;
@@ -36,7 +37,7 @@ pub async fn register_orchestrator_address(
     wait_for_cosmos_node_ready(&contact).await;
 
     let validator_addr = validator_key.to_address(&contact.get_prefix()).unwrap();
-    check_for_fee(&fee, validator_addr, &contact).await;
+    check_for_fee(&fee, validator_addr, &contact).await?;
 
     // Set the cosmos key to either the cli value, the value in the config, or a generated
     // value if the config has not been setup
@@ -45,7 +46,7 @@ pub async fn register_orchestrator_address(
     } else {
         let mut key = None;
         if config_exists(&home_dir) {
-            let keys = load_keys(&home_dir);
+            let keys = load_keys(&home_dir)?;
             if let Some(phrase) = keys.orchestrator_phrase {
                 key = Some(CosmosPrivateKey::from_phrase(phrase.as_str(), "").unwrap());
             }
@@ -64,7 +65,7 @@ pub async fn register_orchestrator_address(
     } else {
         let mut key = None;
         if config_exists(&home_dir) {
-            let keys = load_keys(&home_dir);
+            let keys = load_keys(&home_dir)?;
             if let Some(config_key) = keys.ethereum_key {
                 key = Some(config_key);
             }
@@ -92,8 +93,11 @@ pub async fn register_orchestrator_address(
     let res = contact.wait_for_tx(res, TIMEOUT).await;
 
     if let Err(e) = res {
-        error!("Failed trying to register delegate addresses error {:?}, correct the error and try again", e);
-        exit(1);
+        return Err(GravityError::UnrecoverableError(
+            format!(
+                "Failed trying to register delegate addresses error {:?}, correct the error and try again", e
+            )
+        ));
     }
 
     if let Some(phrase) = generated_cosmos.clone() {
@@ -125,7 +129,7 @@ pub async fn register_orchestrator_address(
                 // in this case the user has set keys in the config
                 // and then registered them so lets just load the config
                 // value again
-                let keys = load_keys(&home_dir);
+                let keys = load_keys(&home_dir)?;
                 keys.orchestrator_phrase.unwrap()
             }
         };
@@ -135,4 +139,6 @@ pub async fn register_orchestrator_address(
         };
         save_keys(&home_dir, new_keys);
     }
+
+    Ok(())
 }

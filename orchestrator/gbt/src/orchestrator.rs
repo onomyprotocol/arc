@@ -7,20 +7,20 @@ use gravity_utils::connection_prep::{
     check_delegate_addresses, check_for_eth, wait_for_cosmos_node_ready,
 };
 use gravity_utils::connection_prep::{check_for_fee, create_rpc_connections};
+use gravity_utils::error::GravityError;
 use gravity_utils::types::GravityBridgeToolsConfig;
 use orchestrator::main_loop::orchestrator_main_loop;
 use orchestrator::main_loop::{ETH_ORACLE_LOOP_SPEED, ETH_SIGNER_LOOP_SPEED};
 use relayer::main_loop::LOOP_SPEED as RELAYER_LOOP_SPEED;
 use std::cmp::min;
 use std::path::Path;
-use std::process::exit;
 
 pub async fn orchestrator(
     args: OrchestratorOpts,
     address_prefix: String,
     home_dir: &Path,
     config: GravityBridgeToolsConfig,
-) {
+) -> Result<(), GravityError> {
     let fee = args.fees;
     let cosmos_grpc = args.cosmos_grpc;
     let ethereum_rpc = args.ethereum_rpc;
@@ -32,7 +32,7 @@ pub async fn orchestrator(
     } else {
         let mut k = None;
         if config_exists(home_dir) {
-            let keys = load_keys(home_dir);
+            let keys = load_keys(home_dir)?;
             if let Some(stored_key) = keys.orchestrator_phrase {
                 k = Some(CosmosPrivateKey::from_phrase(&stored_key, "").unwrap())
             }
@@ -42,7 +42,9 @@ pub async fn orchestrator(
             error!("To generate, register, and store a key use `gbt keys register-orchestrator-address`");
             error!("Store an already registered key using 'gbt keys set-orchestrator-key`");
             error!("To run from the command line, with no key storage use 'gbt orchestrator --cosmos-phrase your phrase' ");
-            exit(1);
+            return Err(GravityError::UnrecoverableError(
+                "Cosmos key phrase not specified".into(),
+            ));
         }
         k.unwrap()
     };
@@ -51,7 +53,7 @@ pub async fn orchestrator(
     } else {
         let mut k = None;
         if config_exists(home_dir) {
-            let keys = load_keys(home_dir);
+            let keys = load_keys(home_dir)?;
             if let Some(stored_key) = keys.ethereum_key {
                 k = Some(stored_key)
             }
@@ -61,7 +63,9 @@ pub async fn orchestrator(
             error!("To generate, register, and store a key use `gbt keys register-orchestrator-address`");
             error!("Store an already registered key using 'gbt keys set-ethereum-key`");
             error!("To run from the command line, with no key storage use 'gbt orchestrator --ethereum-key your key' ");
-            exit(1);
+            return Err(GravityError::UnrecoverableError(
+                "Ethereum key not specified".into(),
+            ));
         }
         k.unwrap()
     };
@@ -107,11 +111,11 @@ pub async fn orchestrator(
         public_cosmos_key,
         &contact.get_prefix(),
     )
-    .await;
+    .await?;
 
     // check if we actually have the promised balance of tokens to pay fees
-    check_for_fee(&fee, public_cosmos_key, &contact).await;
-    check_for_eth(public_eth_key, &web3).await;
+    check_for_fee(&fee, public_cosmos_key, &contact).await?;
+    check_for_eth(public_eth_key, &web3).await?;
 
     // get the gravity contract address, if not provided
     let contract_address = if let Some(c) = args.gravity_contract_address {
@@ -120,8 +124,9 @@ pub async fn orchestrator(
         let params = get_gravity_params(&mut grpc).await.unwrap();
         let c = params.bridge_ethereum_address.parse();
         if c.is_err() {
-            error!("The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address");
-            exit(1);
+            return Err(GravityError::UnrecoverableError(
+                "The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into(),
+            ));
         }
         c.unwrap()
     };
@@ -136,5 +141,5 @@ pub async fn orchestrator(
         fee,
         config,
     )
-    .await;
+    .await
 }
