@@ -83,10 +83,8 @@ pub async fn orchestrator_main_loop(
         if let Err(e) = try_join3(a, b, c).await {
             return Err(e);
         }
-    } else {
-        if let Err(e) = try_join(a, b).await {
-            return Err(e);
-        }
+    } else if let Err(e) = try_join(a, b).await {
+        return Err(e);
     }
 
     Ok(())
