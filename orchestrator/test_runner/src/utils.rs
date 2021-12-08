@@ -273,7 +273,7 @@ pub async fn start_orchestrators(
                 config,
             );
             let system = System::new();
-            system.block_on(fut);
+            let _ = system.block_on(fut);
         });
         // used to break out of the loop early to simulate one validator
         // not running an orchestrator
