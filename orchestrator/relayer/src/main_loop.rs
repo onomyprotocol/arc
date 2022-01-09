@@ -7,8 +7,8 @@ use clarity::PrivateKey as EthPrivateKey;
 use ethereum_gravity::utils::get_gravity_id;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{error::GravityError, types::RelayerConfig};
-use std::time::{Duration, Instant};
-use tokio::time::sleep as delay_for;
+use std::time::Duration;
+use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::client::Web3;
 
@@ -24,70 +24,74 @@ pub async fn relayer_main_loop(
     relayer_config: &RelayerConfig,
 ) -> Result<(), GravityError> {
     let mut grpc_client = grpc_client;
+
     loop {
-        let loop_start = Instant::now();
+        let (async_result, _) = tokio::join!(
+            async {
+                let our_ethereum_address = ethereum_key.to_address();
+                let current_valset =
+                    find_latest_valset(&mut grpc_client, gravity_contract_address, &web3).await;
 
-        let our_ethereum_address = ethereum_key.to_address();
-        let current_valset =
-            find_latest_valset(&mut grpc_client, gravity_contract_address, &web3).await;
-        if current_valset.is_err() {
-            error!("Could not get current valset! {:?}", current_valset);
-            continue;
-        }
-        let current_valset = current_valset.unwrap();
+                if current_valset.is_err() {
+                    error!("Could not get current valset! {:?}", current_valset);
+                    return Ok(());
+                }
 
-        let gravity_id =
-            get_gravity_id(gravity_contract_address, our_ethereum_address, &web3).await;
-        if gravity_id.is_err() {
-            error!("Failed to get GravityID, check your Eth node");
-            return Err(GravityError::ValidationError(
-                "Failed to get GravityID".into(),
-            ));
-        }
-        let gravity_id = gravity_id.unwrap();
+                let current_valset = current_valset.unwrap();
+                let gravity_id =
+                    get_gravity_id(gravity_contract_address, our_ethereum_address, &web3).await;
 
-        relay_valsets(
-            &current_valset,
-            ethereum_key,
-            &web3,
-            &mut grpc_client,
-            gravity_contract_address,
-            gravity_id.clone(),
-            LOOP_SPEED,
-            relayer_config,
-        )
-        .await;
+                if gravity_id.is_err() {
+                    error!("Failed to get GravityID, check your Eth node");
+                    return Err(GravityError::ValidationError(
+                        "Failed to get GravityID".into(),
+                    ));
+                }
+                let gravity_id = gravity_id.unwrap();
 
-        relay_batches(
-            &current_valset,
-            ethereum_key,
-            &web3,
-            &mut grpc_client,
-            gravity_contract_address,
-            gravity_id.clone(),
-            LOOP_SPEED,
-            relayer_config,
-        )
-        .await;
+                relay_valsets(
+                    &current_valset,
+                    ethereum_key,
+                    &web3,
+                    &mut grpc_client,
+                    gravity_contract_address,
+                    gravity_id.clone(),
+                    LOOP_SPEED,
+                    relayer_config,
+                )
+                .await;
 
-        relay_logic_calls(
-            &current_valset,
-            ethereum_key,
-            &web3,
-            &mut grpc_client,
-            gravity_contract_address,
-            gravity_id.clone(),
-            LOOP_SPEED,
-            relayer_config,
-        )
-        .await;
+                relay_batches(
+                    &current_valset,
+                    ethereum_key,
+                    &web3,
+                    &mut grpc_client,
+                    gravity_contract_address,
+                    gravity_id.clone(),
+                    LOOP_SPEED,
+                    relayer_config,
+                )
+                .await;
 
-        // a bit of logic that tries to keep things running every 5 seconds exactly
-        // this is not required for any specific reason. In fact we expect and plan for
-        // the timing being off significantly
-        let elapsed = Instant::now() - loop_start;
-        if elapsed < LOOP_SPEED {
-            delay_for(LOOP_SPEED - elapsed).await;
+                relay_logic_calls(
+                    &current_valset,
+                    ethereum_key,
+                    &web3,
+                    &mut grpc_client,
+                    gravity_contract_address,
+                    gravity_id.clone(),
+                    LOOP_SPEED,
+                    relayer_config,
+                )
+                .await;
+
+                Ok(())
+            },
+            sleep(LOOP_SPEED)
+        );
+
+        if let Err(e) = async_result {
+            return Err(e);
         }
     }
 }

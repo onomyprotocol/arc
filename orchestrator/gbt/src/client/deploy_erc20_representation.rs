@@ -6,8 +6,8 @@ use gravity_utils::{
     connection_prep::{check_for_eth, create_rpc_connections},
     error::GravityError,
 };
-use std::time::{Duration, Instant};
-use tokio::time::sleep as delay_for;
+use std::time::Duration;
+use tokio::time::sleep;
 use web30::types::SendTxOption;
 
 pub async fn deploy_erc20_representation(
@@ -71,29 +71,30 @@ pub async fn deploy_erc20_representation(
 
     info!("We have deployed ERC20 contract {:#066x}, waiting to see if the Cosmos chain choses to adopt it", res);
 
-    let start = Instant::now();
-    loop {
-        let res = grpc
-            .denom_to_erc20(QueryDenomToErc20Request {
-                denom: denom.clone(),
-            })
-            .await;
+    let keep_querying_for_erc20 = async {
+        loop {
+            let res = grpc
+                .denom_to_erc20(QueryDenomToErc20Request {
+                    denom: denom.clone(),
+                })
+                .await;
 
-        if let Ok(val) = res {
-            info!(
-                "Asset {} has accepted new ERC20 representation {}",
-                denom,
-                val.into_inner().erc20
-            );
-            return Ok(());
+            if let Ok(val) = res {
+                info!(
+                    "Asset {} has accepted new ERC20 representation {}",
+                    denom,
+                    val.into_inner().erc20
+                );
+                break;
+            }
+            sleep(Duration::from_secs(1)).await;
         }
+    };
 
-        if Instant::now() - start > Duration::from_secs(100) {
-            return Err(GravityError::UnrecoverableError(
-                "Your ERC20 contract was not adopted, double check the metadata and try again"
-                    .into(),
-            ));
-        }
-        delay_for(Duration::from_secs(1)).await;
+    match tokio::time::timeout(Duration::from_secs(100), keep_querying_for_erc20).await {
+        Ok(_) => Ok(()),
+        Err(_) => Err(GravityError::UnrecoverableError(
+            "Your ERC20 contract was not adopted, double check the metadata and try again".into(),
+        )),
     }
 }

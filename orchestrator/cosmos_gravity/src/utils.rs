@@ -12,23 +12,22 @@ use gravity_utils::types::LogicCall;
 use gravity_utils::types::TransactionBatch;
 use gravity_utils::types::Valset;
 use prost_types::Any;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::time::sleep;
 use tonic::transport::Channel;
 
 pub async fn wait_for_cosmos_online(contact: &Contact, timeout: Duration) {
-    let start = Instant::now();
-    while let Err(CosmosGrpcError::NodeNotSynced) | Err(CosmosGrpcError::ChainNotRunning) =
-        contact.wait_for_next_block(timeout).await
-    {
-        sleep(Duration::from_secs(1)).await;
-        if Instant::now() - start > timeout {
+    match tokio::time::timeout(timeout, contact.wait_for_next_block(timeout)).await {
+        Ok(Err(CosmosGrpcError::NodeNotSynced) | Err(CosmosGrpcError::ChainNotRunning)) => {
             panic!("Cosmos node has not come online during timeout!")
         }
+        Err(_) => debug!("timedout"),
+        _ => {}
     }
-    contact.wait_for_next_block(timeout).await.unwrap();
-    contact.wait_for_next_block(timeout).await.unwrap();
-    contact.wait_for_next_block(timeout).await.unwrap();
+
+    for _ in 0..3 {
+        let _ = contact.wait_for_next_block(timeout).await;
+    }
 }
 
 /// gets the Cosmos last event nonce, no matter how long it takes.
@@ -37,17 +36,18 @@ pub async fn get_last_event_nonce_with_retry(
     our_cosmos_address: CosmosAddress,
     prefix: String,
 ) -> u64 {
-    let mut res =
-        get_last_event_nonce_for_validator(client, our_cosmos_address, prefix.clone()).await;
-    while res.is_err() {
-        error!(
-            "Failed to get last event nonce, is the Cosmos GRPC working? {:?}",
-            res
-        );
-        sleep(RETRY_TIME).await;
-        res = get_last_event_nonce_for_validator(client, our_cosmos_address, prefix.clone()).await;
+    loop {
+        match get_last_event_nonce_for_validator(client, our_cosmos_address, prefix.clone()).await {
+            Err(res) => {
+                error!(
+                    "Failed to get last event nonce, is the Cosmos GRPC working? {:?}",
+                    res
+                );
+                sleep(RETRY_TIME).await;
+            }
+            Ok(last_nonce) => return last_nonce,
+        }
     }
-    res.unwrap()
 }
 
 pub enum BadSignatureEvidence {
