@@ -10,11 +10,8 @@ use ethereum_gravity::{send_to_cosmos::send_to_cosmos, utils::get_tx_batch_nonce
 use futures::future::join_all;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use rand::seq::SliceRandom;
-use std::{
-    collections::HashSet,
-    time::{Duration, Instant},
-};
-use tokio::time::sleep as delay_for;
+use std::{collections::HashSet, time::Duration};
+use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::{client::Web3, types::SendTxOption};
 
@@ -100,39 +97,48 @@ pub async fn transaction_stress_test(
         );
     }
 
-    let start = Instant::now();
-    let mut good = true;
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        good = true;
-        for keys in user_keys.iter() {
-            let c_addr = keys.cosmos_address;
-            let balances = contact.get_balances(c_addr).await.unwrap();
-            for token in erc20_addresses.iter() {
-                let mut found = false;
-                for balance in balances.iter() {
-                    if balance.denom.contains(&token.to_string())
-                        && balance.amount == one_hundred_eth()
-                    {
-                        found = true;
+    let check_all_deposists_bridged_to_cosmos = async {
+        loop {
+            let mut good = true;
+
+            for keys in user_keys.iter() {
+                let c_addr = keys.cosmos_address;
+                let balances = contact.get_balances(c_addr).await.unwrap();
+
+                for token in erc20_addresses.iter() {
+                    let mut found = false;
+                    for balance in balances.iter() {
+                        if balance.denom.contains(&token.to_string())
+                            && balance.amount == one_hundred_eth()
+                        {
+                            found = true;
+                        }
+                    }
+                    if !found {
+                        good = false;
                     }
                 }
-                if !found {
-                    good = false;
-                }
             }
+
+            if good {
+                break;
+            }
+
+            sleep(Duration::from_secs(5)).await;
         }
-        if good {
-            info!(
-                "All {} deposits bridged to Cosmos successfully!",
-                user_keys.len() * erc20_addresses.len()
-            );
-            break;
-        }
-        delay_for(Duration::from_secs(5)).await;
-    }
-    if !good {
+    };
+
+    if tokio::time::timeout(TOTAL_TIMEOUT, check_all_deposists_bridged_to_cosmos)
+        .await
+        .is_err()
+    {
         panic!(
             "Failed to perform all {} deposits to Cosmos!",
+            user_keys.len() * erc20_addresses.len()
+        );
+    } else {
+        info!(
+            "All {} deposits bridged to Cosmos successfully!",
             user_keys.len() * erc20_addresses.len()
         );
     }
@@ -259,36 +265,42 @@ pub async fn transaction_stress_test(
         info!("batch request response is {:?}", res);
     }
 
-    let start = Instant::now();
-    let mut good = true;
-    let mut found_canceled = false;
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        good = true;
-        found_canceled = false;
-        for keys in user_keys.iter() {
-            let e_dest_addr = keys.eth_dest_address;
-            for token in erc20_addresses.iter() {
-                let bal = web30.get_erc20_balance(*token, e_dest_addr).await.unwrap();
-                if bal != send_amount.clone() {
-                    if e_dest_addr == user_who_cancels.eth_address && bal == 0u8.into() {
-                        info!("We successfully found the user who canceled their sends!");
-                        found_canceled = true;
-                    } else {
-                        good = false;
+    let check_withdraws_from_ethereum = async {
+        loop {
+            let mut good = true;
+            let mut found_canceled = false;
+
+            for keys in user_keys.iter() {
+                let e_dest_addr = keys.eth_dest_address;
+                for token in erc20_addresses.iter() {
+                    let bal = web30.get_erc20_balance(*token, e_dest_addr).await.unwrap();
+                    if bal != send_amount.clone() {
+                        if e_dest_addr == user_who_cancels.eth_address && bal == 0u8.into() {
+                            info!("We successfully found the user who canceled their sends!");
+                            found_canceled = true;
+                        } else {
+                            good = false;
+                        }
                     }
                 }
             }
+
+            if good && found_canceled {
+                info!(
+                    "All {} withdraws to Ethereum bridged successfully!",
+                    NUM_USERS * erc20_addresses.len()
+                );
+                break;
+            }
+
+            sleep(Duration::from_secs(5)).await;
         }
-        if good && found_canceled {
-            info!(
-                "All {} withdraws to Ethereum bridged successfully!",
-                NUM_USERS * erc20_addresses.len()
-            );
-            break;
-        }
-        delay_for(Duration::from_secs(5)).await;
-    }
-    if !(good && found_canceled) {
+    };
+
+    if tokio::time::timeout(TOTAL_TIMEOUT, check_withdraws_from_ethereum)
+        .await
+        .is_err()
+    {
         panic!(
             "Failed to perform all {} withdraws to Ethereum!",
             NUM_USERS * erc20_addresses.len()

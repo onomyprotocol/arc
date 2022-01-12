@@ -1,8 +1,6 @@
 //! This is the testing module for relay market functionality, testing that
 //! relayers utilize web30 to interact with a testnet to obtain coin swap values
 //! and determine whether relays should happen or not
-use std::time::{Duration, Instant};
-
 use crate::happy_path::test_erc20_deposit;
 use crate::utils::{
     check_cosmos_balance, create_market_test_config, send_one_eth, start_orchestrators,
@@ -22,7 +20,8 @@ use deep_space::{Address, Contact};
 use ethereum_gravity::utils::get_tx_batch_nonce;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use rand::Rng;
-use tokio::time::sleep as delay_for;
+use std::time::Duration;
+use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS};
 use web30::client::Web3;
@@ -209,39 +208,50 @@ async fn wait_for_batch(
         .await
         .expect("Failed to get batch to sign");
 
-    let mut current_eth_batch_nonce =
+    let starting_batch_nonce =
         get_tx_batch_nonce(gravity_address, erc20_contract, *MINER_ADDRESS, web30)
             .await
             .expect("Failed to get current eth valset");
-    let starting_batch_nonce = current_eth_batch_nonce;
 
-    let start = Instant::now();
-    while starting_batch_nonce == current_eth_batch_nonce {
-        info!(
-            "Batch is not yet submitted {}>, waiting",
-            starting_batch_nonce
-        );
-        current_eth_batch_nonce =
-            get_tx_batch_nonce(gravity_address, erc20_contract, *MINER_ADDRESS, web30)
-                .await
-                .expect("Failed to get current eth tx batch nonce");
-        delay_for(Duration::from_secs(4)).await;
-        if Instant::now() - start > OPERATION_TIMEOUT {
+    match tokio::time::timeout(OPERATION_TIMEOUT, async {
+        loop {
+            match get_tx_batch_nonce(gravity_address, erc20_contract, *MINER_ADDRESS, web30).await {
+                Err(_) => panic!("Failed to get current eth tx batch nonce"),
+                Ok(current_batch_nonce) => {
+                    if current_batch_nonce != starting_batch_nonce {
+                        return current_batch_nonce;
+                    } else {
+                        info!(
+                            "Batch is not yet submitted {}>, waiting",
+                            current_batch_nonce
+                        );
+                    }
+                }
+            }
+
+            sleep(Duration::from_secs(4)).await;
+        }
+    })
+    .await
+    {
+        Err(_) => {
             if expect_batch {
-                panic!("Failed to submit transaction batch set");
+                panic!("Failed to submit transaction batch set")
             } else {
-                break;
+                starting_batch_nonce
             }
         }
-    }
-    if !expect_batch && starting_batch_nonce != current_eth_batch_nonce {
-        panic!(
-            "Expected to not have a batch update, but observed nonce {} change to {}",
-            starting_batch_nonce, current_eth_batch_nonce
-        );
-    }
+        Ok(current_eth_batch_nonce) => {
+            if !expect_batch && starting_batch_nonce != current_eth_batch_nonce {
+                panic!(
+                    "Expected to not have a batch update, but observed nonce {} change to {}",
+                    starting_batch_nonce, current_eth_batch_nonce
+                );
+            }
 
-    current_eth_batch_nonce
+            current_eth_batch_nonce
+        }
+    }
 }
 
 async fn test_good_batch(

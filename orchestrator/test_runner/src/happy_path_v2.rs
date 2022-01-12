@@ -17,8 +17,9 @@ use ethereum_gravity::{deploy_erc20::deploy_erc20, utils::get_event_nonce};
 use gravity_proto::gravity::{
     query_client::QueryClient as GravityQueryClient, QueryDenomToErc20Request,
 };
-use std::time::{Duration, Instant};
-use tokio::time::sleep as delay_for;
+use std::panic;
+use std::time::Duration;
+use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::client::Web3;
 
@@ -121,28 +122,39 @@ pub async fn happy_path_test_v2(
     info!("Sent batch request to move things along");
 
     info!("Waiting for batch to be signed and relayed to Ethereum");
-    let start = Instant::now();
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        let balance = web30
-            .get_erc20_balance(erc20_contract, user.eth_address)
-            .await;
-        if balance.is_err() {
-            continue;
+
+    let verify_asset_is_bridged_to_eth = async {
+        loop {
+            match web30
+                .get_erc20_balance(erc20_contract, user.eth_address)
+                .await
+            {
+                Err(_) => {}
+                Ok(balance) => {
+                    if balance == amount_to_bridge {
+                        info!(
+                            "Successfully bridged {} Cosmos asset {} to Ethereum!",
+                            amount_to_bridge, token_to_send_to_eth
+                        );
+                        break;
+                    } else if balance != 0u8.into() {
+                        panic!(
+                            "Expected {} {} but got {} instead",
+                            amount_to_bridge, token_to_send_to_eth, balance
+                        );
+                    }
+                }
+            }
+
+            sleep(Duration::from_secs(1)).await;
         }
-        let balance = balance.unwrap();
-        if balance == amount_to_bridge {
-            info!(
-                "Successfully bridged {} Cosmos asset {} to Ethereum!",
-                amount_to_bridge, token_to_send_to_eth
-            );
-            break;
-        } else if balance != 0u8.into() {
-            panic!(
-                "Expected {} {} but got {} instead",
-                amount_to_bridge, token_to_send_to_eth, balance
-            );
-        }
-        delay_for(Duration::from_secs(1)).await;
+    };
+
+    if tokio::time::timeout(TOTAL_TIMEOUT, verify_asset_is_bridged_to_eth)
+        .await
+        .is_err()
+    {
+        panic!("failed to verify asset is bridged to ethereum: timed out")
     }
 }
 
@@ -199,32 +211,32 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
     )
     .await;
 
-    let start = Instant::now();
-    // the erc20 representing the cosmos asset on Ethereum
-    let mut erc20_contract = None;
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        let res = grpc_client
-            .denom_to_erc20(QueryDenomToErc20Request {
-                denom: token_to_send_to_eth.clone(),
-            })
-            .await;
-        if let Ok(res) = res {
-            let erc20 = res.into_inner().erc20;
-            info!(
-                "Successfully adopted {} token contract of {}",
-                token_to_send_to_eth, erc20
-            );
-            erc20_contract = Some(erc20);
-            break;
+    let get_cosmos_asset_on_eth = async {
+        loop {
+            // the erc20 representing the cosmos asset on Ethereum
+            if let Ok(res) = grpc_client
+                .denom_to_erc20(QueryDenomToErc20Request {
+                    denom: token_to_send_to_eth.clone(),
+                })
+                .await
+            {
+                let erc20 = res.into_inner().erc20;
+                info!(
+                    "Successfully adopted {} token contract of {}",
+                    token_to_send_to_eth, erc20
+                );
+                return erc20;
+            }
+
+            sleep(Duration::from_secs(1)).await;
         }
-        delay_for(Duration::from_secs(1)).await;
-    }
-    if erc20_contract.is_none() {
-        panic!(
+    };
+
+    match tokio::time::timeout(TOTAL_TIMEOUT, get_cosmos_asset_on_eth).await {
+        Err(_) => panic!(
             "Cosmos did not adopt the ERC20 contract for {} it must be invalid in some way",
             token_to_send_to_eth
-        );
+        ),
+        Ok(erc20_contract) => erc20_contract.parse().unwrap(),
     }
-    let erc20_contract: EthAddress = erc20_contract.unwrap().parse().unwrap();
-    erc20_contract
 }

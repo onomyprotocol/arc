@@ -19,7 +19,7 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::types::GravityBridgeToolsConfig;
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
-use std::time::Instant;
+use std::panic;
 use web30::jsonrpc::error::Web3Error;
 use web30::{client::Web3, types::SendTxOption};
 
@@ -163,23 +163,31 @@ async fn wait_for_txids(txids: Vec<Result<Uint256, Web3Error>>, web3: &Web3) {
 }
 
 /// utility function for bulk checking erc20 balances, used to provide
-/// a single future that contains the assert as well s the request
+/// a single future that contains the assert as well qs the request
 async fn check_erc20_balance(address: EthAddress, erc20: EthAddress, amount: Uint256, web3: &Web3) {
-    let start = Instant::now();
     // overly complicated retry logic allows us to handle the possibility that gas prices change between blocks
     // and cause any individual request to fail.
-    let mut new_balance = Err(Web3Error::BadInput("Intentional Error".to_string()));
-    while new_balance.is_err() && Instant::now() - start < TOTAL_TIMEOUT {
-        new_balance = web3.get_erc20_balance(erc20, address).await;
-        // only keep trying if our error is gas related
-        if let Err(ref e) = new_balance {
-            if !e.to_string().contains("maxFeePerGas") {
-                break;
+    let get_erc20_balance = async {
+        loop {
+            match web3.get_erc20_balance(erc20, address).await {
+                Ok(new_balance) => return Some(new_balance),
+                Err(err) => {
+                    // only keep trying if our error is gas related
+                    if !err.to_string().contains("maxFeePerGas") {
+                        return None;
+                    }
+                }
             }
         }
+    };
+
+    match tokio::time::timeout(TOTAL_TIMEOUT, get_erc20_balance).await {
+        Err(_) => panic!("get_erc20_balance timedout"),
+        Ok(new_balance) => {
+            let new_balance = new_balance.unwrap();
+            assert!(new_balance >= amount.clone());
+        }
     }
-    let new_balance = new_balance.unwrap();
-    assert!(new_balance >= amount.clone());
 }
 
 pub fn get_user_key() -> BridgeUserKey {
