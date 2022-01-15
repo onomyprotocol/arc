@@ -276,7 +276,7 @@ pub async fn eth_signer_main_loop(
                             check_for_fee_error(res, &fee)?;
                         }
                     }
-                    Err(e) => trace!(
+                    Err(e) => error!(
                         "Failed to get unsigned valsets, check your Cosmos gRPC {:?}",
                         e
                     ),
@@ -385,6 +385,10 @@ fn check_for_fee_error(
                 ));
             }
         }
+    } else if res.is_err() {
+        let error = res.err();
+        error!("{:?}", error);
+        //return Err(GravityError::UnrecoverableError());
     }
 
     Ok(())
