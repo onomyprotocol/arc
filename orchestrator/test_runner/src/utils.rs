@@ -286,6 +286,7 @@ pub async fn start_orchestrators(
                 gravity_address,
                 get_fee(),
                 config,
+                None,
             )
             .await;
         });

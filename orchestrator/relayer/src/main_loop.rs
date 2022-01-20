@@ -4,7 +4,7 @@ use crate::{
 };
 use clarity::address::Address as EthAddress;
 use clarity::PrivateKey as EthPrivateKey;
-use ethereum_gravity::utils::get_gravity_id;
+use ethereum_gravity::utils::get_gravity_id_with_retry;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{error::GravityError, types::RelayerConfig};
 use std::time::Duration;
@@ -22,13 +22,31 @@ pub async fn relayer_main_loop(
     grpc_client: GravityQueryClient<Channel>,
     gravity_contract_address: EthAddress,
     relayer_config: &RelayerConfig,
+    wait_time: Option<Duration>,
 ) -> Result<(), GravityError> {
     let mut grpc_client = grpc_client;
+    let our_ethereum_address = ethereum_key.to_address();
+
+    let gravity_id = get_gravity_id_with_retry(
+        gravity_contract_address,
+        our_ethereum_address,
+        &web3,
+        wait_time,
+    )
+    .await;
+
+    // timeout expired - ethreum node not reachable
+    if gravity_id.is_err() {
+        return Err(GravityError::UnrecoverableError(
+            "Failed to get GravityID, check your ethereum node".into(),
+        ));
+    }
+
+    let gravity_id = gravity_id.unwrap();
 
     loop {
         let (async_result, _) = tokio::join!(
             async {
-                let our_ethereum_address = ethereum_key.to_address();
                 let current_valset =
                     find_latest_valset(&mut grpc_client, gravity_contract_address, &web3).await;
 
@@ -38,16 +56,6 @@ pub async fn relayer_main_loop(
                 }
 
                 let current_valset = current_valset.unwrap();
-                let gravity_id =
-                    get_gravity_id(gravity_contract_address, our_ethereum_address, &web3).await;
-
-                if gravity_id.is_err() {
-                    error!("Failed to get GravityID, check your Eth node");
-                    return Err(GravityError::ValidationError(
-                        "Failed to get GravityID".into(),
-                    ));
-                }
-                let gravity_id = gravity_id.unwrap();
 
                 relay_valsets(
                     &current_valset,

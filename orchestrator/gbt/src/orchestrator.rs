@@ -9,11 +9,13 @@ use gravity_utils::connection_prep::{
 use gravity_utils::connection_prep::{check_for_fee, create_rpc_connections};
 use gravity_utils::error::GravityError;
 use gravity_utils::types::GravityBridgeToolsConfig;
-use orchestrator::main_loop::orchestrator_main_loop;
-use orchestrator::main_loop::{ETH_ORACLE_LOOP_SPEED, ETH_SIGNER_LOOP_SPEED};
+use orchestrator::main_loop::{
+    orchestrator_main_loop, ETH_ORACLE_LOOP_SPEED, ETH_SIGNER_LOOP_SPEED,
+};
 use relayer::main_loop::LOOP_SPEED as RELAYER_LOOP_SPEED;
 use std::cmp::min;
 use std::path::Path;
+use std::time::Duration;
 
 pub async fn orchestrator(
     args: OrchestratorOpts,
@@ -26,6 +28,9 @@ pub async fn orchestrator(
     let ethereum_rpc = args.ethereum_rpc;
     let ethereum_key = args.ethereum_key;
     let cosmos_key = args.cosmos_phrase;
+    let wait_time = args
+        .wait_time
+        .map(|minutes| Duration::from_secs(minutes * 60));
 
     let cosmos_key = if let Some(k) = cosmos_key {
         k
@@ -138,6 +143,7 @@ pub async fn orchestrator(
         contract_address,
         fee,
         config,
+        wait_time,
     )
     .await
 }
