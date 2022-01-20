@@ -493,6 +493,7 @@ dependencies = [
  "num256",
  "rand 0.8.4",
  "sha3 0.9.1",
+ "tokio",
  "web30",
 ]
 
