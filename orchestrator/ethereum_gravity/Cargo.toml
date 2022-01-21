@@ -14,6 +14,7 @@ deep_space = "2.4"
 log = "0.4"
 num256 = "0.3"
 sha3 = "0.9"
+tokio = {version = "1.4", features = ["time"]}
 web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "7dd3533a3690a54c56ec79f72df2c8f6c858625b"}
 
 [dev_dependencies]

@@ -16,7 +16,7 @@ use deep_space::error::CosmosGrpcError;
 use deep_space::Contact;
 use deep_space::{client::ChainStatus, utils::FeeInfo};
 use deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
-use ethereum_gravity::utils::get_gravity_id;
+use ethereum_gravity::utils::get_gravity_id_with_retry;
 use futures::future::{try_join, try_join3};
 use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
@@ -49,6 +49,7 @@ pub async fn orchestrator_main_loop(
     gravity_contract_address: EthAddress,
     user_fee_amount: Coin,
     config: GravityBridgeToolsConfig,
+    wait_time: Option<Duration>,
 ) -> Result<(), GravityError> {
     let fee = user_fee_amount;
 
@@ -60,6 +61,7 @@ pub async fn orchestrator_main_loop(
         gravity_contract_address,
         fee.clone(),
     );
+
     let b = eth_signer_main_loop(
         cosmos_key,
         ethereum_key,
@@ -68,13 +70,16 @@ pub async fn orchestrator_main_loop(
         grpc_client.clone(),
         gravity_contract_address,
         fee.clone(),
+        wait_time,
     );
+
     let c = relayer_main_loop(
         ethereum_key,
         web3,
         grpc_client.clone(),
         gravity_contract_address,
         &config.relayer,
+        wait_time,
     );
 
     // if the relayer is not enabled we just don't start the future
@@ -186,6 +191,7 @@ pub async fn eth_oracle_main_loop(
 /// The eth_signer simply signs off on any batches or validator sets provided by the validator
 /// since these are provided directly by a trusted Cosmsos node they can simply be assumed to be
 /// valid and signed off on.
+#[allow(clippy::too_many_arguments)]
 pub async fn eth_signer_main_loop(
     cosmos_key: CosmosPrivateKey,
     ethereum_key: EthPrivateKey,
@@ -194,16 +200,27 @@ pub async fn eth_signer_main_loop(
     grpc_client: GravityQueryClient<Channel>,
     gravity_contract_address: EthAddress,
     fee: Coin,
+    wait_time: Option<Duration>,
 ) -> Result<(), GravityError> {
     let our_cosmos_address = cosmos_key.to_address(&contact.get_prefix()).unwrap();
     let our_ethereum_address = ethereum_key.to_address();
     let mut grpc_client = grpc_client;
-    let gravity_id = get_gravity_id(gravity_contract_address, our_ethereum_address, &web3).await;
+
+    let gravity_id = get_gravity_id_with_retry(
+        gravity_contract_address,
+        our_ethereum_address,
+        &web3,
+        wait_time,
+    )
+    .await;
+
+    // timeout expired - ethreum node not reachable
     if gravity_id.is_err() {
-        return Err(GravityError::ValidationError(
-            "Failed to get GravityID, check your Eth node".into(),
+        return Err(GravityError::UnrecoverableError(
+            "Failed to get GravityID, check your ethereum node".into(),
         ));
     }
+
     let gravity_id = gravity_id.unwrap();
 
     loop {
@@ -276,7 +293,7 @@ pub async fn eth_signer_main_loop(
                             check_for_fee_error(res, &fee)?;
                         }
                     }
-                    Err(e) => trace!(
+                    Err(e) => error!(
                         "Failed to get unsigned valsets, check your Cosmos gRPC {:?}",
                         e
                     ),
@@ -385,6 +402,9 @@ fn check_for_fee_error(
                 ));
             }
         }
+    } else if res.is_err() {
+        let error = res.err();
+        error!("{:?}", error);
     }
 
     Ok(())

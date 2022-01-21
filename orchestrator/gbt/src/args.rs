@@ -66,6 +66,10 @@ pub struct OrchestratorOpts {
     /// The address fo the Gravity contract on Ethereum
     #[clap(short, long, parse(try_from_str))]
     pub gravity_contract_address: Option<EthAddress>,
+    /// The time, in `minutes`, the orchestrator will wait for ethereum node when starting.
+    /// If not provided, the orchestrator will wait indefinitely.
+    #[clap(short, long, parse(try_from_str))]
+    pub wait_time: Option<u64>,
 }
 
 /// The Gravity Bridge Relayer is an unpermissioned role that takes data from the Cosmos blockchain
@@ -86,6 +90,10 @@ pub struct RelayerOpts {
     /// (Optional) The Cosmos gRPC server that will be used to
     #[clap(short, long, default_value = "http://localhost:9090")]
     pub cosmos_grpc: String,
+    /// The time, in `minutes`, the relayer will wait for ethereum node when starting.
+    /// If not provided, the relayer will wait indefinitely.
+    #[clap(short, long, parse(try_from_str))]
+    pub wait_time: Option<u64>,
 }
 
 /// The Gravity Bridge client contains helpful command line tools for interacting with the Gravity bridge

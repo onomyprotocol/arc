@@ -10,6 +10,7 @@ use gravity_utils::types::RelayerConfig;
 use relayer::main_loop::relayer_main_loop;
 use relayer::main_loop::LOOP_SPEED;
 use std::path::Path;
+use std::time::Duration;
 
 pub async fn relayer(
     args: RelayerOpts,
@@ -20,6 +21,10 @@ pub async fn relayer(
     let cosmos_grpc = args.cosmos_grpc;
     let ethereum_rpc = args.ethereum_rpc;
     let ethereum_key = args.ethereum_key;
+    let wait_time = args
+        .wait_time
+        .map(|minutes| Duration::from_secs(minutes * 60));
+
     let connections = create_rpc_connections(
         address_prefix,
         Some(cosmos_grpc),
@@ -78,5 +83,13 @@ pub async fn relayer(
         c.unwrap()
     };
 
-    relayer_main_loop(ethereum_key, web3, grpc, contract_address, config).await
+    relayer_main_loop(
+        ethereum_key,
+        web3,
+        grpc,
+        contract_address,
+        config,
+        wait_time,
+    )
+    .await
 }
