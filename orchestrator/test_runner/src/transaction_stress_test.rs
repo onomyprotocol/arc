@@ -15,7 +15,7 @@ use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::{client::Web3, types::SendTxOption};
 
-const TIMEOUT: Duration = Duration::from_secs(240);
+const TIMEOUT: Duration = Duration::from_secs(120);
 
 /// The number of users we will be simulating for this test, each user
 /// will get one token from each token type in erc20_addresses and send it
@@ -26,7 +26,7 @@ const TIMEOUT: Duration = Duration::from_secs(240);
 /// ERC20 sends = (erc20_addresses.len() * NUM_USERS)
 /// Gravity Deposits = (erc20_addresses.len() * NUM_USERS)
 /// Batches executed = erc20_addresses.len() * (NUM_USERS / 100)
-const NUM_USERS: usize = 100;
+const NUM_USERS: usize = 40;
 
 /// Perform a stress test by sending thousands of
 /// transactions and producing large batches

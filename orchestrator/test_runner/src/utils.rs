@@ -92,6 +92,7 @@ pub async fn send_erc20_bulk(
         .unwrap();
 
     for address in destinations {
+        info!("Sending {} erc20 to {}", amount.clone(), *address);
         let txid = web3
             .erc20_send(
                 amount.clone(),
@@ -129,6 +130,7 @@ pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &
         .unwrap();
 
     for address in destinations {
+        info!("Sending {} ETH to {}", amount.clone(), *address);
         let tx = Transaction {
             to: *address,
             nonce: nonce.clone(),
