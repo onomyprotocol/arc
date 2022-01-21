@@ -12,7 +12,6 @@ use deep_space::coin::Coin;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
 use deep_space::utils::encode_any;
 use deep_space::Contact;
-use futures::future::join_all;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParameterChangeProposal;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
@@ -20,7 +19,6 @@ use gravity_utils::types::GravityBridgeToolsConfig;
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
 use std::panic;
-use web30::jsonrpc::error::Web3Error;
 use web30::{client::Web3, types::SendTxOption};
 
 pub fn create_default_test_config() -> GravityBridgeToolsConfig {
@@ -92,31 +90,30 @@ pub async fn send_erc20_bulk(
         .eth_get_transaction_count(*MINER_ADDRESS)
         .await
         .unwrap();
-    let mut transactions = Vec::new();
+
     for address in destinations {
-        let send = web3.erc20_send(
-            amount.clone(),
-            *address,
-            erc20,
-            *MINER_PRIVATE_KEY,
-            Some(OPERATION_TIMEOUT),
-            vec![
-                SendTxOption::Nonce(nonce.clone()),
-                SendTxOption::GasLimit(100_000u32.into()),
-                SendTxOption::GasPriceMultiplier(5.0),
-            ],
-        );
-        transactions.push(send);
+        let txid = web3
+            .erc20_send(
+                amount.clone(),
+                *address,
+                erc20,
+                *MINER_PRIVATE_KEY,
+                Some(OPERATION_TIMEOUT),
+                vec![
+                    SendTxOption::Nonce(nonce.clone()),
+                    SendTxOption::GasLimit(100_000u32.into()),
+                    SendTxOption::GasPriceMultiplier(5.0),
+                ],
+            )
+            .await;
+
+        web3.wait_for_transaction(txid.unwrap(), TOTAL_TIMEOUT, None)
+            .await
+            .unwrap();
+        check_erc20_balance(*address, erc20, amount.clone(), web3).await;
+
         nonce += 1u64.into();
     }
-    let txids = join_all(transactions).await;
-    wait_for_txids(txids, web3).await;
-    let mut balance_checks = Vec::new();
-    for address in destinations {
-        let check = check_erc20_balance(*address, erc20, amount.clone(), web3);
-        balance_checks.push(check);
-    }
-    join_all(balance_checks).await;
 }
 
 /// This function efficiently distributes ETH to a large number of provided Ethereum addresses
@@ -124,14 +121,15 @@ pub async fn send_erc20_bulk(
 /// single address without your sequence getting out of whack. By manually setting the nonce
 /// here we can quickly send thousands of transactions in only a few blocks
 pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &Web3) {
+    // type to let the nonce be indexed
     let net_version = web3.net_version().await.unwrap();
     let mut nonce = web3
         .eth_get_transaction_count(*MINER_ADDRESS)
         .await
         .unwrap();
-    let mut transactions = Vec::new();
+
     for address in destinations {
-        let t = Transaction {
+        let tx = Transaction {
             to: *address,
             nonce: nonce.clone(),
             gas_price: HIGH_GAS_PRICE.into(),
@@ -140,26 +138,14 @@ pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &
             data: Vec::new(),
             signature: None,
         };
-        let t = t.sign(&*MINER_PRIVATE_KEY, Some(net_version));
-        transactions.push(t);
+        let tx = tx.sign(&*MINER_PRIVATE_KEY, Some(net_version));
+        let txid = web3.eth_send_raw_transaction(tx.to_bytes().unwrap()).await;
+        web3.wait_for_transaction(txid.unwrap(), TOTAL_TIMEOUT, None)
+            .await
+            .unwrap();
+
         nonce += 1u64.into();
     }
-    let mut sends = Vec::new();
-    for tx in transactions {
-        sends.push(web3.eth_send_raw_transaction(tx.to_bytes().unwrap()));
-    }
-    let txids = join_all(sends).await;
-    wait_for_txids(txids, web3).await;
-}
-
-/// utility function that waits for a large number of txids to enter a block
-async fn wait_for_txids(txids: Vec<Result<Uint256, Web3Error>>, web3: &Web3) {
-    let mut wait_for_txid = Vec::new();
-    for txid in txids {
-        let wait = web3.wait_for_transaction(txid.unwrap(), TOTAL_TIMEOUT, None);
-        wait_for_txid.push(wait);
-    }
-    join_all(wait_for_txid).await;
 }
 
 /// utility function for bulk checking erc20 balances, used to provide
