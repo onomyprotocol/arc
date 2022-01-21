@@ -20,6 +20,17 @@ use tonic::transport::Channel;
 use web30::client::Web3;
 use web30::jsonrpc::error::Web3Error;
 
+const BLOCK_DELAY: u8 = 35;
+// network IDs
+const ETHEREUM_MAINNET_ID: u64 = 1;
+const ROPSTEN_NET_ID: u64 = 3;
+const KOTTI_NET_ID: u64 = 6;
+const MORDOR_NET_ID: u64 = 7;
+const GRAVITY_TEST_NET_ID: u64 = 15;
+const HARDHAT_NET_ID: u64 = 31337;
+const RINKEBY_NET_ID: u64 = 4;
+const GOERLI_NET_ID: u64 = 5;
+
 pub async fn check_for_events(
     web3: &Web3,
     contact: &Contact,
@@ -211,30 +222,24 @@ pub async fn check_for_events(
 /// to concern ourselves with re-orgs or forking. This function checks the netID of the
 /// provided Ethereum RPC and adjusts the block delay accordingly
 ///
-/// The value used here for Ethereum is a balance between being reasonably fast and reasonably secure
-/// As you can see on https://etherscan.io/blocks_forked uncles (one block deep reorgs)
-/// occur once every few minutes. Two deep once or twice a day.
-/// https://etherscan.io/chart/uncles
-/// Let's make a conservative assumption of 1% chance of an uncle being a two block deep reorg
-/// (actual is closer to 0.3%) and assume that continues as we increase the depth.
-/// Given an uncle every 2.8 minutes, a 6 deep reorg would be 2.8 minutes * (100^4) or one
-/// 6 deep reorg every 53,272 years.
-///
+/// We have chosen to go with block delay of 35, giving preference to security over speed.
+/// This function has previously discriminated different networks,
+/// but now we added the same block delay for all of them
+/// yet we have kept the different and named different networks here - in case of future changes.
 pub async fn get_block_delay(web3: &Web3) -> Uint256 {
     let net_version = get_net_version_with_retry(web3).await;
 
     match net_version {
-        // Mainline Ethereum, Ethereum classic, or the Ropsten, Kotti, Mordor testnets
-        // all POW Chains
-        1 | 3 | 6 | 7 => 6u8.into(),
+        // all PoW Chains
+        ETHEREUM_MAINNET_ID | ROPSTEN_NET_ID | KOTTI_NET_ID | MORDOR_NET_ID => BLOCK_DELAY.into(),
         // Dev, our own Gravity Ethereum testnet, and Hardhat respectively
         // all single signer chains with no chance of any reorgs
-        2018 | 15 | 31337 => 0u8.into(),
-        // Rinkeby and Goerli use Clique (POA) Consensus, finality takes
-        // up to num validators blocks. Number is higher than Ethereum based
-        // on experience with operational issues
-        4 | 5 => 10u8.into(),
+        // yet for testing purposes we add the same delay as for the mainnets
+        2018 | GRAVITY_TEST_NET_ID | HARDHAT_NET_ID => BLOCK_DELAY.into(),
+        // Rinkeby and Goerli use Clique (PoA) Consensus, finality takes
+        // up to num validators blocks.
+        RINKEBY_NET_ID | GOERLI_NET_ID => BLOCK_DELAY.into(),
         // assume the safe option (POW) where we don't know
-        _ => 6u8.into(),
+        _ => BLOCK_DELAY.into(),
     }
 }
