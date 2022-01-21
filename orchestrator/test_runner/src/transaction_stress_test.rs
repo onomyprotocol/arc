@@ -15,7 +15,7 @@ use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::{client::Web3, types::SendTxOption};
 
-const TIMEOUT: Duration = Duration::from_secs(120);
+const TIMEOUT: Duration = Duration::from_secs(240);
 
 /// The number of users we will be simulating for this test, each user
 /// will get one token from each token type in erc20_addresses and send it

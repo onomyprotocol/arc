@@ -42,9 +42,9 @@ mod valset_rewards;
 mod valset_stress;
 
 /// the timeout for individual requests
-const OPERATION_TIMEOUT: Duration = Duration::from_secs(120);
+const OPERATION_TIMEOUT: Duration = Duration::from_secs(240);
 /// the timeout for the total system
-const TOTAL_TIMEOUT: Duration = Duration::from_secs(600);
+const TOTAL_TIMEOUT: Duration = Duration::from_secs(900);
 
 // Retrieve values from runtime ENV vars
 lazy_static! {
