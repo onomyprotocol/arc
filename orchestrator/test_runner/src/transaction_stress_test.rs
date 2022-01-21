@@ -26,7 +26,7 @@ const TIMEOUT: Duration = Duration::from_secs(120);
 /// ERC20 sends = (erc20_addresses.len() * NUM_USERS)
 /// Gravity Deposits = (erc20_addresses.len() * NUM_USERS)
 /// Batches executed = erc20_addresses.len() * (NUM_USERS / 100)
-const NUM_USERS: usize = 40;
+const NUM_USERS: usize = 100;
 
 /// Perform a stress test by sending thousands of
 /// transactions and producing large batches
