@@ -224,8 +224,8 @@ pub async fn check_for_events(
 ///
 /// We have chosen to go with block delay of 35, giving preference to security over speed.
 /// This function has previously discriminated different networks,
-/// but now we added the same block delay for all of them
-/// yet we have kept the different and named different networks here - in case of future changes.
+/// but now we added the same block delay for all of the networks.
+/// We have kept the different networks and their names - in case of future changes.
 pub async fn get_block_delay(web3: &Web3) -> Uint256 {
     let net_version = get_net_version_with_retry(web3).await;
 
