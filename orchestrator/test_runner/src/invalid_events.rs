@@ -260,7 +260,7 @@ pub async fn send_to_cosmos_invalid(
         let options = vec![SendTxOption::Nonce(nonce.clone())];
         approve_nonce = Some(nonce);
         let txid = web3
-            .approve_erc20_transfers(erc20, *MINER_PRIVATE_KEY, gravity_contract, None, options)
+            .approve_erc20_transfers(erc20, &MINER_PRIVATE_KEY, gravity_contract, None, options)
             .await
             .unwrap();
         trace!(
@@ -296,7 +296,7 @@ pub async fn send_to_cosmos_invalid(
             .unwrap(),
             0u32.into(),
             *MINER_ADDRESS,
-            *MINER_PRIVATE_KEY,
+            &MINER_PRIVATE_KEY,
             vec![SendTxOption::GasLimitMultiplier(3.0)],
         )
         .await
@@ -340,7 +340,7 @@ async fn deploy_invalid_erc20(
             .unwrap(),
             0u32.into(),
             *MINER_ADDRESS,
-            *MINER_PRIVATE_KEY,
+            &MINER_PRIVATE_KEY,
             vec![SendTxOption::GasPriceMultiplier(2.0)],
         )
         .await

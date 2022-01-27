@@ -54,7 +54,7 @@ pub async fn send_to_cosmos(
         options.push(SendTxOption::Nonce(nonce.clone()));
         approve_nonce = Some(nonce);
         let txid = web3
-            .approve_erc20_transfers(erc20, sender_secret, gravity_contract, None, options)
+            .approve_erc20_transfers(erc20, &sender_secret, gravity_contract, None, options)
             .await?;
         trace!(
             "We are not approved for ERC20 transfers, approving txid: {:#066x}",
@@ -100,7 +100,7 @@ pub async fn send_to_cosmos(
             )?,
             0u32.into(),
             sender_address,
-            sender_secret,
+            &sender_secret,
             options,
         )
         .await?;

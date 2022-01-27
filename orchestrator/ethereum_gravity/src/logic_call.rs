@@ -59,7 +59,7 @@ pub async fn send_eth_logic_call(
             payload,
             0u32.into(),
             eth_address,
-            our_eth_key,
+            &our_eth_key,
             vec![],
         )
         .await?;
@@ -284,7 +284,7 @@ mod tests {
         };
 
         let our_encoding =
-            encode_logic_call_payload(valset, &logic_call, &[confirm], "foo".to_string()).unwrap();
+            encode_logic_call_payload(&valset, &logic_call, &[confirm], "foo".to_string()).unwrap();
         assert_eq!(bytes_to_hex_str(&encoded), bytes_to_hex_str(&our_encoding));
     }
 }

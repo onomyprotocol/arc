@@ -318,7 +318,7 @@ async fn test_good_batch(
             Vec::new(),
             1_000_000_000_000_000_000u128.into(),
             *MINER_ADDRESS,
-            *MINER_PRIVATE_KEY,
+            &MINER_PRIVATE_KEY,
             vec![],
         )
         .await

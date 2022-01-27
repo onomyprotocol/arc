@@ -448,8 +448,11 @@ pub async fn test_erc20_deposit_bool(
     })
     .await
     {
+        Err(_) => {
+            info!("Have not received erc20 deposit within {:?}", duration);
+            false
+        }
         Ok(v) => v,
-        Err(_) => false,
     }
 }
 
@@ -593,7 +596,7 @@ async fn test_batch(
                     Vec::new(),
                     1_000_000_000_000_000_000u128.into(),
                     *MINER_ADDRESS,
-                    *MINER_PRIVATE_KEY,
+                    &MINER_PRIVATE_KEY,
                     vec![],
                 )
                 .await

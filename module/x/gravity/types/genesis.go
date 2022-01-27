@@ -72,7 +72,6 @@ var (
 	// ResetBridgeHeight stores the nonce after which oracle events should be discarded when resetting the bridge
 	ParamStoreResetBridgeNonce = []byte("ResetBridgeNonce")
 
-
 	// ParamStoreErc20ToDenomPermanentSwap the key of Erc20ToDenomPair for store.
 	ParamStoreErc20ToDenomPermanentSwap = []byte("Erc20ToDenomPermanentSwap")
 
@@ -97,8 +96,8 @@ var (
 			Denom:  "",
 			Amount: sdk.Int{},
 		},
-		ResetBridgeState: false,
-		ResetBridgeNonce: 0,
+		ResetBridgeState:          false,
+		ResetBridgeNonce:          0,
 		Erc20ToDenomPermanentSwap: ERC20ToDenom{},
 	}
 )

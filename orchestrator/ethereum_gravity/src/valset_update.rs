@@ -46,7 +46,7 @@ pub async fn send_eth_valset_update(
             payload,
             0u32.into(),
             eth_address,
-            our_eth_key,
+            &our_eth_key,
             vec![SendTxOption::GasPriceMultiplier(1.10f32)],
         )
         .await?;
