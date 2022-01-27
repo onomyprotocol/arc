@@ -80,13 +80,12 @@ async function runSendAndBurnWnomTest(opts: {}) {
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
   let validators = signers.slice(0, powers.length);
-  const powerThreshold = 6666;
   const {
     gravity,
     testERC20,
     checkpoint: deployCheckpoint,
     testERC20WNOM,
-  } = await deployContracts(gravityId, powerThreshold, validators, powers);
+  } = await deployContracts(gravityId, validators, powers);
 
   // Transfer out to Cosmos, locking coins
   // =====================================

@@ -9,7 +9,7 @@ use gravity_utils::types::{LogicCall, TransactionBatch, Valset};
 /// Note: This is the message, you need to run Keccak256::digest() in order to get the 32byte
 /// digest that is normally signed or may be used as a 'hash of the message'
 pub fn encode_valset_confirm(gravity_id: String, valset: &Valset) -> Vec<u8> {
-    let (eth_addresses, powers) = valset.filter_empty_addresses();
+    let (eth_addresses, powers) = valset.to_arrays();
     let reward_token = if let Some(v) = valset.reward_token {
         v
     } else {

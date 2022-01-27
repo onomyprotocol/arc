@@ -26,7 +26,7 @@ use gravity_utils::types::SendToCosmosEvent;
 use prost::Message;
 use rand::Rng;
 use std::any::type_name;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::client::Web3;
@@ -385,32 +385,58 @@ pub async fn test_erc20_deposit_bool(
         .await
         .expect("Send to cosmos transaction failed to be included into ethereum side");
 
-    match tokio::time::timeout(TOTAL_TIMEOUT, async {
+    let duration = match timeout {
+        Some(w) => w,
+        None => TOTAL_TIMEOUT,
+    };
+    match tokio::time::timeout(duration, async {
         loop {
             match (
                 start_coin.clone(),
                 check_cosmos_balance("gravity", dest, contact).await,
             ) {
                 (Some(start_coin), Some(end_coin)) => {
-                    if start_coin.amount + amount.clone() == end_coin.amount
+                    // When a bridge governance vote happens, the orchestrator will replay all incomplete
+                    // sends to cosmos on the next send to cosmos transaction, so we need to use expected_change
+                    if let Some(expected) = expected_change.clone() {
+                        if end_coin.amount.clone() - start_coin.amount.clone() == expected
+                            && start_coin.denom == end_coin.denom
+                        {
+                            info!(
+                                "Successfully bridged ERC20 {}{} to Cosmos! Balance is now {}{}",
+                                amount, start_coin.denom, end_coin.amount, end_coin.denom
+                            );
+                            return true;
+                        }
+                    } else if start_coin.amount + amount.clone() == end_coin.amount
                         && start_coin.denom == end_coin.denom
                     {
                         info!(
                             "Successfully bridged ERC20 {}{} to Cosmos! Balance is now {}{}",
                             amount, start_coin.denom, end_coin.amount, end_coin.denom
                         );
-                        return Ok::<(), ()>(());
+                        return true;
                     }
                 }
                 (None, Some(end_coin)) => {
-                    if amount == end_coin.amount {
+                    // When a bridge governance vote happens, the orchestrator will replay all incomplete
+                    // sends to cosmos on the next send to cosmos transaction, so we need to use expected_change
+                    if let Some(expected) = expected_change.clone() {
+                        if end_coin.amount == expected {
+                            info!(
+                                "Successfully bridged ERC20 {}{} to Cosmos! Balance is now {}{}",
+                                amount, end_coin.denom, end_coin.amount, end_coin.denom,
+                            );
+                            return true;
+                        }
+                    } else if amount == end_coin.amount {
                         info!(
                             "Successfully bridged ERC20 {}{} to Cosmos! Balance is now {}{}",
                             amount, end_coin.denom, end_coin.amount, end_coin.denom
                         );
-                        return Ok(());
+                        return true;
                     } else {
-                        return Err(());
+                        panic!("Failed to bridge ERC20!")
                     }
                 }
                 _ => {}
@@ -422,8 +448,8 @@ pub async fn test_erc20_deposit_bool(
     })
     .await
     {
-        Err(_) | Ok(Err(_)) => panic!("Failed to bridge ERC20!"),
-        _ => {}
+        Ok(v) => v,
+        Err(_) => false,
     }
 }
 

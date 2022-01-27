@@ -1,19 +1,15 @@
 //! This is the testing module for relay market functionality, testing that
 //! relayers utilize web30 to interact with a testnet to obtain coin swap values
 //! and determine whether relays should happen or not
-use crate::happy_path::test_erc20_deposit;
+use crate::happy_path::test_erc20_deposit_panic;
 use crate::utils::{
     check_cosmos_balance, create_market_test_config, send_one_eth, start_orchestrators,
     ValidatorKeys,
 };
-use std::time::{Duration, Instant};
-
-use crate::happy_path::test_erc20_deposit_panic;
-use crate::utils::{check_cosmos_balance, send_one_eth, start_orchestrators, ValidatorKeys};
-use crate::ADDRESS_PREFIX;
 use crate::MINER_PRIVATE_KEY;
 use crate::TOTAL_TIMEOUT;
 use crate::{one_eth, MINER_ADDRESS};
+use crate::{ADDRESS_PREFIX, OPERATION_TIMEOUT};
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::{Address as EthAddress, Uint256};
 use cosmos_gravity::send::{send_to_eth, TIMEOUT};
@@ -29,7 +25,6 @@ use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS};
 use web30::client::Web3;
-use web30::jsonrpc::error::Web3Error;
 
 pub async fn relay_market_test(
     web30: &Web3,
@@ -87,7 +82,12 @@ async fn setup_batch_test(
 
     // Acquire 10,000 WETH
     let weth_acquired = web30
-        .wrap_eth(one_eth() * 10000u16.into(), *MINER_PRIVATE_KEY, None, None)
+        .wrap_eth(
+            one_eth() * 10000u16.into(),
+            *MINER_PRIVATE_KEY,
+            None,
+            Some(TOTAL_TIMEOUT),
+        )
         .await;
     assert!(
         !weth_acquired.is_err(),
@@ -107,9 +107,10 @@ async fn setup_batch_test(
             None,
             None,
             None,
-            None,
+            Some(TOTAL_TIMEOUT),
         )
         .await;
+    info!("Swap result is {:?}", token_acquired);
     assert!(
         !token_acquired.is_err(),
         "Unable to give the miner 1000 WETH worth of {}",

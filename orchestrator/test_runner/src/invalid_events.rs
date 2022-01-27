@@ -320,13 +320,10 @@ async fn deploy_invalid_erc20(
     keys: Vec<ValidatorKeys>,
     erc20_params: Erc20Params,
 ) {
-    let starting_event_nonce = get_event_nonce(
-        gravity_address,
-        keys[0].eth_key.to_public_key().unwrap(),
-        web30,
-    )
-    .await
-    .unwrap();
+    let starting_event_nonce =
+        get_event_nonce(gravity_address, keys[0].eth_key.to_address(), web30)
+            .await
+            .unwrap();
 
     let tx_hash = web30
         .send_transaction(
@@ -354,13 +351,9 @@ async fn deploy_invalid_erc20(
         .await
         .unwrap();
 
-    let ending_event_nonce = get_event_nonce(
-        gravity_address,
-        keys[0].eth_key.to_public_key().unwrap(),
-        web30,
-    )
-    .await
-    .unwrap();
+    let ending_event_nonce = get_event_nonce(gravity_address, keys[0].eth_key.to_address(), web30)
+        .await
+        .unwrap();
 
     assert!(starting_event_nonce != ending_event_nonce);
     info!(

@@ -632,7 +632,6 @@ contract Gravity is ReentrancyGuard {
 			wNomBurner.burn(_amount);
 		}
 
-		state_lastEventNonce = state_lastEventNonce.add(1);
 		emit SendToCosmosEvent(
 			_tokenContract,
 			msg.sender,

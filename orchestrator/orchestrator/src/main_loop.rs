@@ -118,6 +118,9 @@ pub async fn eth_oracle_main_loop(
     )
     .await;
 
+    // In case of governance vote to unhalt bridge, need to replay old events. Keep track of the
+    // last checked event nonce to detect when this happens
+    let mut last_checked_event: Uint256 = 0u8.into();
     info!("Oracle resync complete, Oracle now operational");
     let mut grpc_client = grpc_client;
 
@@ -174,7 +177,25 @@ pub async fn eth_oracle_main_loop(
                 )
                 .await
                 {
-                    Ok(new_block) => last_checked_block = new_block,
+                    Ok(nonces) => {
+                        // this output CheckedNonces is accurate unless a governance vote happens
+                        last_checked_block = nonces.block_number;
+                        if last_checked_event > nonces.event_nonce {
+                            // validator went back in history
+                            info!(
+                                "Governance unhalt vote must have happened, resetting the block to check!"
+                            );
+                            last_checked_block = get_last_checked_block(
+                                grpc_client.clone(),
+                                our_cosmos_address,
+                                contact.get_prefix(),
+                                gravity_contract_address,
+                                &web3,
+                            )
+                            .await;
+                        }
+                        last_checked_event = nonces.event_nonce;
+                    }
                     Err(e) => error!(
                         "Failed to get events for block range, Check your Eth node and Cosmos gRPC {:?}",
                         e

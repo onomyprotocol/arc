@@ -46,7 +46,7 @@ impl ValsetUpdatedEvent {
     /// Decodes the data bytes of a valset log event, separated for easy testing
     fn decode_data_bytes(input: &[u8]) -> Result<ValsetDataBytes, GravityError> {
         if input.len() < 6 * 32 {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "too short for ValsetUpdatedEventData".to_string(),
             ));
         }
@@ -97,7 +97,7 @@ impl ValsetUpdatedEvent {
         let index_end = index_start + 32;
         let eth_addresses_offset = index_end;
         if input.len() < eth_addresses_offset {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "too short for dynamic data".to_string(),
             ));
         }
@@ -113,7 +113,7 @@ impl ValsetUpdatedEvent {
         let index_end = index_start + 32;
         let powers_offset = index_end;
         if input.len() < powers_offset {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "too short for dynamic data".to_string(),
             ));
         }
@@ -139,7 +139,7 @@ impl ValsetUpdatedEvent {
             let address_end = address_start + 32;
 
             if input.len() < address_end || input.len() < power_end {
-                return Err(GravityError::InvalidEventLogError(
+                return Err(GravityError::ValidationError(
                     "too short for dynamic data".to_string(),
                 ));
             }
@@ -399,7 +399,7 @@ impl SendToCosmosEvent {
     }
     fn decode_data_bytes(data: &[u8]) -> Result<SendToCosmosEventData, GravityError> {
         if data.len() < 4 * 32 {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "too short for SendToCosmosEventData".to_string(),
             ));
         }
@@ -414,7 +414,7 @@ impl SendToCosmosEvent {
             Uint256::from_bytes_be(&data[destination_str_len_start..destination_str_len_end]);
 
         if destination_str_len > u32::MAX.into() {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "denom length overflow, probably incorrect parsing".to_string(),
             ));
         }
@@ -424,7 +424,7 @@ impl SendToCosmosEvent {
         let destination_str_end = destination_str_start + destination_str_len;
 
         if data.len() < destination_str_end {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Incorrect length for dynamic data".to_string(),
             ));
         }
@@ -527,7 +527,7 @@ impl Erc20DeployedEvent {
             let block_height = if let Some(bn) = input.block_number.clone() {
                 bn
             } else {
-                return Err(GravityError::InvalidEventLogError(
+                return Err(GravityError::ValidationError(
                     "Log does not have block number, we only search logs already in blocks?"
                         .to_string(),
                 ));
@@ -545,14 +545,12 @@ impl Erc20DeployedEvent {
                 block_height,
             })
         } else {
-            Err(GravityError::InvalidEventLogError(
-                "Too few topics".to_string(),
-            ))
+            Err(GravityError::ValidationError("Too few topics".to_string()))
         }
     }
     fn decode_data_bytes(data: &[u8]) -> Result<Erc20DeployedEventData, GravityError> {
         if data.len() < 6 * 32 {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "too short for Erc20DeployedEventData".to_string(),
             ));
         }
@@ -563,7 +561,7 @@ impl Erc20DeployedEvent {
 
         let decimals = Uint256::from_bytes_be(&data[index_start..index_end]);
         if decimals > u8::MAX.into() {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Decimals overflow, probably incorrect parsing".to_string(),
             ));
         }
@@ -573,7 +571,7 @@ impl Erc20DeployedEvent {
         let index_end = index_start + 32;
         let nonce = Uint256::from_bytes_be(&data[index_start..index_end]);
         if nonce > u64::MAX.into() {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Nonce overflow, probably incorrect parsing".to_string(),
             ));
         }
@@ -584,7 +582,7 @@ impl Erc20DeployedEvent {
         let denom_len = Uint256::from_bytes_be(&data[index_start..index_end]);
         // it's not probable that we have 4+ gigabytes of event data
         if denom_len > u32::MAX.into() {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "denom length overflow, probably incorrect parsing".to_string(),
             ));
         }
@@ -629,7 +627,7 @@ impl Erc20DeployedEvent {
         let index_end = index_start + 32;
 
         if data.len() < index_end {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Erc20DeployedEvent dynamic data too short".to_string(),
             ));
         }
@@ -637,7 +635,7 @@ impl Erc20DeployedEvent {
         let erc20_name_len = Uint256::from_bytes_be(&data[index_start..index_end]);
         // it's not probable that we have 4+ gigabytes of event data
         if erc20_name_len > u32::MAX.into() {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "ERC20 Name length overflow, probably incorrect parsing".to_string(),
             ));
         }
@@ -646,7 +644,7 @@ impl Erc20DeployedEvent {
         let index_end = index_start + erc20_name_len;
 
         if data.len() < index_end {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Erc20DeployedEvent dynamic data too short".to_string(),
             ));
         }
@@ -683,7 +681,7 @@ impl Erc20DeployedEvent {
         let index_end = index_start + 32;
 
         if data.len() < index_end {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Erc20DeployedEvent dynamic data too short".to_string(),
             ));
         }
@@ -691,7 +689,7 @@ impl Erc20DeployedEvent {
         let symbol_len = Uint256::from_bytes_be(&data[index_start..index_end]);
         // it's not probable that we have 4+ gigabytes of event data
         if symbol_len > u32::MAX.into() {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Symbol length overflow, probably incorrect parsing".to_string(),
             ));
         }
@@ -700,7 +698,7 @@ impl Erc20DeployedEvent {
         let index_end = index_start + symbol_len;
 
         if data.len() < index_end {
-            return Err(GravityError::InvalidEventLogError(
+            return Err(GravityError::ValidationError(
                 "Erc20DeployedEvent dynamic data too short".to_string(),
             ));
         }

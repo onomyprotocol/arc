@@ -22,9 +22,8 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::types::GravityBridgeToolsConfig;
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
-use std::thread;
-use std::time::{Duration, Instant};
 use std::panic;
+use std::time::Duration;
 use web30::jsonrpc::error::Web3Error;
 use web30::{client::Web3, types::SendTxOption};
 

@@ -167,7 +167,7 @@ pub async fn check_for_events(
             )
         }
 
-        let mut new_event_nonce: Uint256 = last_event_nonce.into();
+        let new_event_nonce: Uint256 = last_event_nonce.into();
         if !deposits.is_empty()
             || !withdraws.is_empty()
             || !erc20_deploys.is_empty()
@@ -191,14 +191,12 @@ pub async fn check_for_events(
                 our_cosmos_address,
                 contact.get_prefix(),
             )
-                .await?;
+            .await?;
 
             info!("Current event nonce is {}", new_event_nonce);
 
             // since we can't actually trust that the above txresponse is correct we have to check here
             // we may be able to trust the tx response post grpc
-            if new_event_nonce == last_event_nonce.into() {
-                return Err(GravityError::InvalidBridgeStateError(
             if new_event_nonce == last_event_nonce {
                 return Err(GravityError::ValidationError(
                     format!("Claims did not process, trying to update but still on {}, trying again in a moment, check txhash {} for errors", last_event_nonce, res.txhash),
