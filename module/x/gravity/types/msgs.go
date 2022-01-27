@@ -27,11 +27,11 @@ var (
 )
 
 // NewMsgSetOrchestratorAddress returns a new msgSetOrchestratorAddress
-func NewMsgSetOrchestratorAddress(val sdk.ValAddress, oper sdk.AccAddress, eth string) *MsgSetOrchestratorAddress {
+func NewMsgSetOrchestratorAddress(val sdk.ValAddress, oper sdk.AccAddress, eth EthAddress) *MsgSetOrchestratorAddress {
 	return &MsgSetOrchestratorAddress{
 		Validator:    val.String(),
 		Orchestrator: oper.String(),
-		EthAddress:   eth,
+		EthAddress:   eth.GetAddress(),
 	}
 }
 
@@ -72,14 +72,14 @@ func (msg *MsgSetOrchestratorAddress) GetSigners() []sdk.AccAddress {
 // NewMsgValsetConfirm returns a new msgValsetConfirm
 func NewMsgValsetConfirm(
 	nonce uint64,
-	ethAddress string,
+	ethAddress EthAddress,
 	validator sdk.AccAddress,
 	signature string,
 ) *MsgValsetConfirm {
 	return &MsgValsetConfirm{
 		Nonce:        nonce,
 		Orchestrator: validator.String(),
-		EthAddress:   ethAddress,
+		EthAddress:   ethAddress.GetAddress(),
 		Signature:    signature,
 	}
 }
@@ -117,10 +117,10 @@ func (msg *MsgValsetConfirm) GetSigners() []sdk.AccAddress {
 }
 
 // NewMsgSendToEth returns a new msgSendToEth
-func NewMsgSendToEth(sender sdk.AccAddress, destAddress string, send sdk.Coin, bridgeFee sdk.Coin) *MsgSendToEth {
+func NewMsgSendToEth(sender sdk.AccAddress, destAddress EthAddress, send sdk.Coin, bridgeFee sdk.Coin) *MsgSendToEth {
 	return &MsgSendToEth{
 		Sender:    sender.String(),
-		EthDest:   destAddress,
+		EthDest:   destAddress.GetAddress(),
 		Amount:    send,
 		BridgeFee: bridgeFee,
 	}
@@ -309,7 +309,7 @@ type EthereumClaim interface {
 	// The claim hash of this claim. This is used to store these claims and also used to check if two different
 	// validators claims agree. Therefore it's extremely important that this include all elements of the claim
 	// with the exception of the orchestrator who sent it in, which will be used as a different part of the index
-	ClaimHash() []byte
+	ClaimHash() ([]byte, error)
 }
 
 //nolint: exhaustivestruct
@@ -327,9 +327,6 @@ func (msg *MsgSendToCosmosClaim) GetType() ClaimType {
 
 // ValidateBasic performs stateless checks
 func (msg *MsgSendToCosmosClaim) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.CosmosReceiver); err != nil {
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, msg.CosmosReceiver)
-	}
 	if err := ValidateEthAddress(msg.EthereumSender); err != nil {
 		return sdkerrors.Wrap(err, "eth sender")
 	}
@@ -389,9 +386,9 @@ const (
 // could engineer a hash collision and execute a version of the claim with any unhashed data changed to benefit them.
 // note that the Orchestrator is the only field excluded from this hash, this is because that value is used higher up in the store
 // structure for who has made what claim and is verified by the msg ante-handler for signatures
-func (msg *MsgSendToCosmosClaim) ClaimHash() []byte {
-	path := fmt.Sprintf("%d/%d/%s/%s/%s/%s", msg.EventNonce, msg.BlockHeight, msg.TokenContract, msg.Amount.String(), string(msg.EthereumSender), msg.CosmosReceiver)
-	return tmhash.Sum([]byte(path))
+func (msg *MsgSendToCosmosClaim) ClaimHash() ([]byte, error) {
+	path := fmt.Sprintf("%d/%d/%s/%s/%s/%s", msg.EventNonce, msg.BlockHeight, msg.TokenContract, msg.Amount.String(), msg.EthereumSender, msg.CosmosReceiver)
+	return tmhash.Sum([]byte(path)), nil
 }
 
 // GetType returns the claim type
@@ -417,9 +414,9 @@ func (e *MsgBatchSendToEthClaim) ValidateBasic() error {
 }
 
 // Hash implements WithdrawBatch.Hash
-func (msg *MsgBatchSendToEthClaim) ClaimHash() []byte {
+func (msg *MsgBatchSendToEthClaim) ClaimHash() ([]byte, error) {
 	path := fmt.Sprintf("%s/%d/%d/%s", msg.TokenContract, msg.BatchNonce, msg.EventNonce, msg.TokenContract)
-	return tmhash.Sum([]byte(path))
+	return tmhash.Sum([]byte(path)), nil
 }
 
 // GetSignBytes encodes the message for signing
@@ -514,9 +511,9 @@ func (msg MsgERC20DeployedClaim) Route() string { return RouterKey }
 // could engineer a hash collision and execute a version of the claim with any unhashed data changed to benefit them.
 // note that the Orchestrator is the only field excluded from this hash, this is because that value is used higher up in the store
 // structure for who has made what claim and is verified by the msg ante-handler for signatures
-func (b *MsgERC20DeployedClaim) ClaimHash() []byte {
+func (b *MsgERC20DeployedClaim) ClaimHash() ([]byte, error) {
 	path := fmt.Sprintf("%d/%d/%s/%s/%s/%s/%d", b.EventNonce, b.BlockHeight, b.CosmosDenom, b.TokenContract, b.Name, b.Symbol, b.Decimals)
-	return tmhash.Sum([]byte(path))
+	return tmhash.Sum([]byte(path)), nil
 }
 
 // EthereumClaim implementation for MsgLogicCallExecutedClaim
@@ -574,9 +571,9 @@ func (msg MsgLogicCallExecutedClaim) Route() string { return RouterKey }
 // could engineer a hash collision and execute a version of the claim with any unhashed data changed to benefit them.
 // note that the Orchestrator is the only field excluded from this hash, this is because that value is used higher up in the store
 // structure for who has made what claim and is verified by the msg ante-handler for signatures
-func (b *MsgLogicCallExecutedClaim) ClaimHash() []byte {
+func (b *MsgLogicCallExecutedClaim) ClaimHash() ([]byte, error) {
 	path := fmt.Sprintf("%d,%d,%s/%d/", b.EventNonce, b.BlockHeight, b.InvalidationId, b.InvalidationNonce)
-	return tmhash.Sum([]byte(path))
+	return tmhash.Sum([]byte(path)), nil
 }
 
 // EthereumClaim implementation for MsgValsetUpdatedClaim
@@ -647,11 +644,15 @@ func (msg MsgValsetUpdatedClaim) Route() string { return RouterKey }
 // could engineer a hash collision and execute a version of the claim with any unhashed data changed to benefit them.
 // note that the Orchestrator is the only field excluded from this hash, this is because that value is used higher up in the store
 // structure for who has made what claim and is verified by the msg ante-handler for signatures
-func (b *MsgValsetUpdatedClaim) ClaimHash() []byte {
+func (b *MsgValsetUpdatedClaim) ClaimHash() ([]byte, error) {
 	var members BridgeValidators = b.Members
-	members.Sort()
-	path := fmt.Sprintf("%d/%d/%d/%s/%s/%s", b.EventNonce, b.ValsetNonce, b.BlockHeight, members, b.RewardAmount.String(), b.RewardToken)
-	return tmhash.Sum([]byte(path))
+	internalMembers, err := members.ToInternal()
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid members")
+	}
+	internalMembers.Sort()
+	path := fmt.Sprintf("%d/%d/%d/%s/%s/%s", b.EventNonce, b.ValsetNonce, b.BlockHeight, internalMembers.ToExternal(), b.RewardAmount.String(), b.RewardToken)
+	return tmhash.Sum([]byte(path)), nil
 }
 
 // NewMsgCancelSendToEth returns a new msgSetOrchestratorAddress

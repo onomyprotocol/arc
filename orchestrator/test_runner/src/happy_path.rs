@@ -13,6 +13,7 @@ use cosmos_gravity::send::{send_request_batch, send_to_eth};
 use cosmos_gravity::{query::get_oldest_unsigned_transaction_batch, send::send_ethereum_claims};
 use deep_space::address::Address as CosmosAddress;
 use deep_space::coin::Coin;
+use deep_space::error::CosmosGrpcError;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
 use deep_space::Contact;
 use ethereum_gravity::utils::get_event_nonce;
@@ -71,11 +72,12 @@ pub async fn happy_path_test(
     // generate an address for coin sending tests, this ensures test imdepotency
     let user_keys = get_user_key();
 
+    info!("testing erc20 deposit");
     // the denom and amount of the token bridged from Ethereum -> Cosmos
     // so the denom is the gravity<hash> token name
     // Send a token 3 times
     for _ in 0u32..3 {
-        test_erc20_deposit(
+        test_erc20_deposit_panic(
             web30,
             contact,
             &mut grpc_client,
@@ -83,6 +85,8 @@ pub async fn happy_path_test(
             gravity_address,
             erc20_address,
             100u64.into(),
+            None,
+            None,
         )
         .await;
     }
@@ -299,8 +303,9 @@ async fn check_valset_update_attestation(
     info!("Found the expected MsgValsetUpdatedClaim attestation");
 }
 
-/// this function tests Ethereum -> Cosmos
-pub async fn test_erc20_deposit(
+// Tests an ERC20 deposit and panics on failure
+#[allow(clippy::too_many_arguments)]
+pub async fn test_erc20_deposit_panic(
     web30: &Web3,
     contact: &Contact,
     grpc_client: &mut GravityQueryClient<Channel>,
@@ -308,7 +313,44 @@ pub async fn test_erc20_deposit(
     gravity_address: EthAddress,
     erc20_address: EthAddress,
     amount: Uint256,
+    timeout: Option<Duration>, // how long to wait for balance on cosmos to change
+    expected_change: Option<Uint256>, // provide an expected change when multiple transactions will take place at once
 ) {
+    match test_erc20_deposit_bool(
+        web30,
+        contact,
+        grpc_client,
+        dest,
+        gravity_address,
+        erc20_address,
+        amount,
+        timeout,
+        expected_change,
+    )
+    .await
+    {
+        true => {
+            info!("Successfully bridged ERC20!")
+        }
+        false => {
+            panic!("Failed to bridge ERC20!")
+        }
+    }
+}
+
+/// this function tests Ethereum -> Cosmos
+#[allow(clippy::too_many_arguments)]
+pub async fn test_erc20_deposit_bool(
+    web30: &Web3,
+    contact: &Contact,
+    grpc_client: &mut GravityQueryClient<Channel>,
+    dest: CosmosAddress,
+    gravity_address: EthAddress,
+    erc20_address: EthAddress,
+    amount: Uint256,
+    timeout: Option<Duration>,
+    expected_change: Option<Uint256>, // provide an expected change when multiple transactions will take place at once
+) -> bool {
     get_valset_nonce(gravity_address, *MINER_ADDRESS, web30)
         .await
         .expect("Incorrect Gravity Address or otherwise unable to contact Gravity");
@@ -316,6 +358,7 @@ pub async fn test_erc20_deposit(
     let mut grpc_client = grpc_client.clone();
 
     let start_coin = check_cosmos_balance("gravity", dest, contact).await;
+
     info!(
         "Sending to Cosmos from {} to {} with amount {}",
         *MINER_ADDRESS, dest, amount
@@ -575,26 +618,34 @@ async fn submit_duplicate_erc20_send(
         block_height: 500u16.into(),
         erc20: erc20_address,
         sender: ethereum_sender,
-        destination: receiver,
+        destination: receiver.to_string(),
+        validated_destination: Some(receiver),
         amount,
     };
 
     // iterate through all validators and try to send an event with duplicate nonce
     for k in keys.iter() {
-        let c_key = k.orch_key;
-        let res = send_ethereum_claims(
-            contact,
-            c_key,
-            vec![event.clone()],
-            vec![],
-            vec![],
-            vec![],
-            vec![],
-            get_fee(),
-        )
-        .await
-        .unwrap();
+        let start = Instant::now();
+        let mut res = Err(CosmosGrpcError::BadInput("Dummy Error".to_string()));
+        while Instant::now() - start < TOTAL_TIMEOUT {
+            let c_key = k.orch_key;
+            res = send_ethereum_claims(
+                contact,
+                c_key,
+                vec![event.clone()],
+                vec![],
+                vec![],
+                vec![],
+                vec![],
+                get_fee(),
+            )
+            .await;
+            if res.is_ok() {
+                break;
+            }
+        }
         info!("Submitted duplicate sendToCosmos event: {:?}", res);
+        res.unwrap();
     }
 
     contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();

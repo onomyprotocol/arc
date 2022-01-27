@@ -2,7 +2,7 @@ import { Gravity } from "../typechain/Gravity";
 import { TestERC20A } from "../typechain/TestERC20A";
 import { TestERC20WNOM } from "../typechain/TestERC20WNOM";
 import { ethers } from "hardhat";
-import { makeCheckpoint, signHash, getSignerAddresses, ZeroAddress } from "./pure";
+import { makeCheckpoint, getSignerAddresses, ZeroAddress } from "./pure";
 import { Signer } from "ethers";
 
 type DeployContractsOptions = {
@@ -11,11 +11,13 @@ type DeployContractsOptions = {
 
 export async function deployContracts(
   gravityId: string = "foo",
-  powerThreshold: number,
   validators: Signer[],
   powers: number[],
   opts?: DeployContractsOptions
 ) {
+  // enable automining for these tests
+  await ethers.provider.send("evm_setAutomine", [true]);
+
   const TestERC20 = await ethers.getContractFactory("TestERC20A");
   const testERC20 = (await TestERC20.deploy()) as TestERC20A;
 
@@ -30,7 +32,6 @@ export async function deployContracts(
 
   const gravity = (await Gravity.deploy(
     gravityId,
-    powerThreshold,
     await getSignerAddresses(validators),
     powers,
       testERC20WNOM.address

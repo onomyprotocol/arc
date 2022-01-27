@@ -6,10 +6,14 @@ use crate::utils::{
     check_cosmos_balance, create_market_test_config, send_one_eth, start_orchestrators,
     ValidatorKeys,
 };
+use std::time::{Duration, Instant};
+
+use crate::happy_path::test_erc20_deposit_panic;
+use crate::utils::{check_cosmos_balance, send_one_eth, start_orchestrators, ValidatorKeys};
+use crate::ADDRESS_PREFIX;
 use crate::MINER_PRIVATE_KEY;
 use crate::TOTAL_TIMEOUT;
 use crate::{one_eth, MINER_ADDRESS};
-use crate::{ADDRESS_PREFIX, OPERATION_TIMEOUT};
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::{Address as EthAddress, Uint256};
 use cosmos_gravity::send::{send_to_eth, TIMEOUT};
@@ -25,6 +29,7 @@ use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS};
 use web30::client::Web3;
+use web30::jsonrpc::error::Web3Error;
 
 pub async fn relay_market_test(
     web30: &Web3,
@@ -78,6 +83,8 @@ async fn setup_batch_test(
     grpc_client: &mut GravityQueryClient<Channel>,
 ) -> (Coin, Uint256, CosmosPrivateKey, Address, EthAddress) {
     let mut grpc_client = grpc_client.clone();
+    info!("Starting batch test!");
+
     // Acquire 10,000 WETH
     let weth_acquired = web30
         .wrap_eth(one_eth() * 10000u16.into(), *MINER_PRIVATE_KEY, None, None)
@@ -108,6 +115,7 @@ async fn setup_batch_test(
         "Unable to give the miner 1000 WETH worth of {}",
         erc20_contract
     );
+
     // Generate an address to send funds
     let mut rng = rand::thread_rng();
     let secret: [u8; 32] = rng.gen();
@@ -120,7 +128,7 @@ async fn setup_batch_test(
 
     // Send the generated address 300 dai from ethereum to cosmos
     for _ in 0u32..3 {
-        test_erc20_deposit(
+        test_erc20_deposit_panic(
             web30,
             contact,
             &mut grpc_client,
@@ -128,6 +136,8 @@ async fn setup_batch_test(
             gravity_address,
             erc20_contract,
             one_eth() * 100u64.into(),
+            None,
+            None,
         )
         .await;
     }
@@ -137,7 +147,7 @@ async fn setup_batch_test(
     let requester_address = requester_cosmos_private_key
         .to_address(&contact.get_prefix())
         .unwrap();
-    test_erc20_deposit(
+    test_erc20_deposit_panic(
         web30,
         contact,
         &mut grpc_client,
@@ -145,6 +155,8 @@ async fn setup_batch_test(
         gravity_address,
         erc20_contract,
         one_eth() * 100u64.into(),
+        None,
+        None,
     )
     .await;
     let cdai_held = check_cosmos_balance("gravity", dest_cosmos_address, contact)
@@ -199,10 +211,7 @@ async fn wait_for_batch(
     erc20_contract: EthAddress,
     gravity_address: EthAddress,
 ) -> u64 {
-    contact
-        .wait_for_next_block(OPERATION_TIMEOUT)
-        .await
-        .unwrap();
+    contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
 
     get_oldest_unsigned_transaction_batch(grpc_client, requester_address, contact.get_prefix())
         .await

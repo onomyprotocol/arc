@@ -87,7 +87,10 @@ func TestValsetSlashing_ValsetCreated_After_ValidatorBonded(t *testing.T) {
 			// don't sign with first validator
 			continue
 		}
-		conf := types.NewMsgValsetConfirm(vs.Nonce, keeper.EthAddrs[i].String(), val, "dummysig")
+		ethAddr, err := types.NewEthAddress(keeper.EthAddrs[i].String())
+		require.NoError(t, err)
+
+		conf := types.NewMsgValsetConfirm(vs.Nonce, *ethAddr, val, "dummysig")
 		pk.SetValsetConfirm(ctx, *conf)
 	}
 
@@ -147,7 +150,10 @@ func TestValsetSlashing_UnbondingValidator_UnbondWindow_NotExpired(t *testing.T)
 			// don't sign with first validator
 			continue
 		}
-		conf := types.NewMsgValsetConfirm(vs.Nonce, keeper.EthAddrs[i].String(), val, "dummysig")
+		ethAddr, err := types.NewEthAddress(keeper.EthAddrs[i].String())
+		require.NoError(t, err)
+
+		conf := types.NewMsgValsetConfirm(vs.Nonce, *ethAddr, val, "dummysig")
 		pk.SetValsetConfirm(ctx, *conf)
 	}
 	staking.EndBlocker(input.Context, input.StakingKeeper)
@@ -175,13 +181,15 @@ func TestBatchSlashing(t *testing.T) {
 	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + int64(params.SignedValsetsWindow) + 2)
 
 	// First store a batch
-	batch := &types.OutgoingTxBatch{
+
+	batch, err := types.NewInternalOutgingTxBatchFromExternalBatch(types.OutgoingTxBatch{
 		BatchNonce:    1,
 		BatchTimeout:  0,
 		Transactions:  []*types.OutgoingTransferTx{},
 		TokenContract: keeper.TokenContractAddrs[0],
 		Block:         uint64(ctx.BlockHeight() - int64(params.SignedBatchesWindow+1)),
-	}
+	})
+	require.NoError(t, err)
 	pk.StoreBatchUnsafe(ctx, batch)
 
 	for i, val := range keeper.AccAddrs {
@@ -236,7 +244,9 @@ func TestValsetEmission(t *testing.T) {
 	// Store a validator set with a power change as the most recent validator set
 	vs := pk.GetCurrentValset(ctx)
 	vs.Nonce--
-	delta := float64(types.BridgeValidators(vs.Members).TotalPower()) * 0.05
+	internalMembers, err := types.BridgeValidators(vs.Members).ToInternal()
+	require.NoError(t, err)
+	delta := float64(internalMembers.TotalPower()) * 0.05
 	vs.Members[0].Power = uint64(float64(vs.Members[0].Power) - delta/2)
 	vs.Members[1].Power = uint64(float64(vs.Members[1].Power) + delta/2)
 	pk.StoreValset(ctx, vs)
@@ -266,10 +276,14 @@ func TestBatchTimeout(t *testing.T) {
 		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
-		allVouchers         = sdk.NewCoins(
-			types.NewERC20Token(99999, myTokenContractAddr).GravityCoin(),
-		)
+		token, err          = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
+		allVouchers         = sdk.NewCoins(token.GravityCoin())
 	)
+	require.NoError(t, err)
+	receiver, err := types.NewEthAddress(myReceiver)
+	require.NoError(t, err)
+	tokenContract, err := types.NewEthAddress(myTokenContractAddr)
+	require.NoError(t, err)
 
 	require.Greater(t, params.AverageBlockTime, uint64(0))
 	require.Greater(t, params.AverageEthereumBlockTime, uint64(0))
@@ -282,9 +296,14 @@ func TestBatchTimeout(t *testing.T) {
 
 	// add some TX to the pool
 	for i, v := range []uint64{2, 3, 2, 1, 5, 6} {
-		amount := types.NewERC20Token(uint64(i+100), myTokenContractAddr).GravityCoin()
-		fee := types.NewERC20Token(v, myTokenContractAddr).GravityCoin()
-		_, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, myReceiver, amount, fee)
+		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
+		require.NoError(t, err)
+		amount := amountToken.GravityCoin()
+		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
+		require.NoError(t, err)
+		fee := feeToken.GravityCoin()
+
+		_, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
 	}
 
@@ -293,13 +312,13 @@ func TestBatchTimeout(t *testing.T) {
 	ctx = ctx.WithBlockHeight(250)
 
 	// check that we can make a batch without first setting an ethereum block height
-	b1, err1 := pk.BuildOutgoingTXBatch(ctx, myTokenContractAddr, 2)
+	b1, err1 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
 	require.NoError(t, err1)
 	require.Equal(t, b1.BatchTimeout, uint64(0))
 
 	pk.SetLastObservedEthereumBlockHeight(ctx, 500)
 
-	b2, err2 := pk.BuildOutgoingTXBatch(ctx, myTokenContractAddr, 2)
+	b2, err2 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
 	require.NoError(t, err2)
 	// this is exactly block 500 plus twelve hours
 	require.Equal(t, b2.BatchTimeout, uint64(504))
@@ -314,7 +333,7 @@ func TestBatchTimeout(t *testing.T) {
 	ctx = ctx.WithBlockTime(now)
 	ctx = ctx.WithBlockHeight(9)
 
-	b3, err2 := pk.BuildOutgoingTXBatch(ctx, myTokenContractAddr, 2)
+	b3, err2 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
 	require.NoError(t, err2)
 
 	EndBlocker(ctx, pk)

@@ -202,9 +202,10 @@ func queryAllBatchConfirms(ctx sdk.Context, nonceStr string, tokenContract strin
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
 	}
+	contract, err := types.NewEthAddress(tokenContract)
 
 	var confirms []types.MsgConfirmBatch
-	keeper.IterateBatchConfirmByNonceAndTokenContract(ctx, nonce, tokenContract, func(_ []byte, c types.MsgConfirmBatch) bool {
+	keeper.IterateBatchConfirmByNonceAndTokenContract(ctx, nonce, *contract, func(_ []byte, c types.MsgConfirmBatch) bool {
 		confirms = append(confirms, c)
 		return false
 	})
@@ -323,10 +324,10 @@ func lastPendingBatchRequest(ctx sdk.Context, operatorAddr string, keeper Keeper
 	}
 
 	var pendingBatchReq *types.OutgoingTxBatch
-	keeper.IterateOutgoingTXBatches(ctx, func(_ []byte, batch *types.OutgoingTxBatch) bool {
+	keeper.IterateOutgoingTXBatches(ctx, func(_ []byte, batch *types.InternalOutgoingTxBatch) bool {
 		foundConfirm := keeper.GetBatchConfirm(ctx, batch.BatchNonce, batch.TokenContract, addr) != nil
 		if !foundConfirm {
-			pendingBatchReq = batch
+			pendingBatchReq = batch.ToExternal()
 			return true
 		}
 		return false
@@ -346,8 +347,8 @@ const MaxResults = 100 // todo: impl pagination
 // Gets MaxResults batches from store. Does not select by token type or anything
 func lastBatchesRequest(ctx sdk.Context, keeper Keeper) ([]byte, error) {
 	var batches []*types.OutgoingTxBatch
-	keeper.IterateOutgoingTXBatches(ctx, func(_ []byte, batch *types.OutgoingTxBatch) bool {
-		batches = append(batches, batch)
+	keeper.IterateOutgoingTXBatches(ctx, func(_ []byte, batch *types.InternalOutgoingTxBatch) bool {
+		batches = append(batches, batch.ToExternal())
 		return len(batches) == MaxResults
 	})
 	if len(batches) == 0 {
@@ -392,14 +393,15 @@ func queryBatch(ctx sdk.Context, nonce string, tokenContract string, keeper Keep
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, err.Error())
 	}
-	if types.ValidateEthAddress(tokenContract) != nil {
+	contract, err := types.NewEthAddress(tokenContract)
+	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, err.Error())
 	}
-	foundBatch := keeper.GetOutgoingTXBatch(ctx, tokenContract, parsedNonce)
+	foundBatch := keeper.GetOutgoingTXBatch(ctx, *contract, parsedNonce)
 	if foundBatch == nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, "Can not find tx batch")
 	}
-	res, err := codec.MarshalJSONIndent(types.ModuleCdc, foundBatch)
+	res, err := codec.MarshalJSONIndent(types.ModuleCdc, foundBatch.ToExternal())
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, err.Error())
 	}
@@ -495,7 +497,7 @@ func queryDenomToERC20(ctx sdk.Context, denom string, keeper Keeper) ([]byte, er
 	}
 	var response types.QueryDenomToERC20Response
 	response.CosmosOriginated = cosmos_originated
-	response.Erc20 = erc20
+	response.Erc20 = erc20.GetAddress()
 	bytes, err := codec.MarshalJSONIndent(types.ModuleCdc, response)
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
@@ -505,7 +507,11 @@ func queryDenomToERC20(ctx sdk.Context, denom string, keeper Keeper) ([]byte, er
 }
 
 func queryERC20ToDenom(ctx sdk.Context, ERC20 string, keeper Keeper) ([]byte, error) {
-	cosmos_originated, denom := keeper.ERC20ToDenomLookup(ctx, ERC20)
+	ethAddr, err := types.NewEthAddress(ERC20)
+	if err != nil {
+		return nil, sdkerrors.Wrapf(err, "invalid ERC20 in query: %s", ERC20)
+	}
+	cosmos_originated, denom := keeper.ERC20ToDenomLookup(ctx, *ethAddr)
 	var response types.QueryERC20ToDenomResponse
 	response.CosmosOriginated = cosmos_originated
 	response.Denom = denom
@@ -520,21 +526,20 @@ func queryERC20ToDenom(ctx sdk.Context, ERC20 string, keeper Keeper) ([]byte, er
 func queryPendingSendToEth(ctx sdk.Context, senderAddr string, k Keeper) ([]byte, error) {
 	batches := k.GetOutgoingTxBatches(ctx)
 	unbatched_tx := k.GetUnbatchedTransactions(ctx)
-	sender_address := senderAddr
 	res := types.QueryPendingSendToEthResponse{
 		TransfersInBatches: []*types.OutgoingTransferTx{},
 		UnbatchedTransfers: []*types.OutgoingTransferTx{},
 	}
 	for _, batch := range batches {
 		for _, tx := range batch.Transactions {
-			if tx.Sender == sender_address {
-				res.TransfersInBatches = append(res.TransfersInBatches, tx)
+			if tx.Sender.String() == senderAddr {
+				res.TransfersInBatches = append(res.TransfersInBatches, tx.ToExternal())
 			}
 		}
 	}
 	for _, tx := range unbatched_tx {
-		if tx.Sender == sender_address {
-			res.UnbatchedTransfers = append(res.UnbatchedTransfers, tx)
+		if tx.Sender.String() == senderAddr {
+			res.UnbatchedTransfers = append(res.UnbatchedTransfers, tx.ToExternal())
 		}
 	}
 	bytes, err := codec.MarshalJSONIndent(types.ModuleCdc, res)

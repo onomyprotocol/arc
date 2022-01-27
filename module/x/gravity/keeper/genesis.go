@@ -1,7 +1,10 @@
 package keeper
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
 	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
 )
@@ -23,7 +26,11 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 	// reset batches in state
 	for _, batch := range data.Batches {
 		// TODO: block height?
-		k.StoreBatchUnsafe(ctx, batch)
+		intBatch, err := batch.ToInternal()
+		if err != nil {
+			panic(sdkerrors.Wrapf(err, "unable to make batch internal: %v", batch))
+		}
+		k.StoreBatchUnsafe(ctx, intBatch)
 	}
 
 	// reset batch confirmations in state
@@ -45,7 +52,11 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 
 	// reset pool transactions in state
 	for _, tx := range data.UnbatchedTransfers {
-		if err := k.addUnbatchedTX(ctx, tx); err != nil {
+		intTx, err := tx.ToInternal()
+		if err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid unbatched tx: %v", tx))
+		}
+		if err := k.addUnbatchedTX(ctx, intTx); err != nil {
 			panic(err)
 		}
 	}
@@ -59,7 +70,11 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		}
 
 		// TODO: block height?
-		k.SetAttestation(ctx, claim.GetEventNonce(), claim.ClaimHash(), &att)
+		hash, err := claim.ClaimHash()
+		if err != nil {
+			panic(fmt.Errorf("error when computing ClaimHash for %v", hash))
+		}
+		k.SetAttestation(ctx, claim.GetEventNonce(), hash, &att)
 	}
 	k.setLastObservedEventNonce(ctx, data.LastObservedNonce)
 
@@ -87,7 +102,7 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 			}
 			last := k.GetLastEventNonceByValidator(ctx, val)
 			if claim.GetEventNonce() > last {
-				k.setLastEventNonceByValidator(ctx, val, claim.GetEventNonce())
+				k.SetLastEventNonceByValidator(ctx, val, claim.GetEventNonce())
 			}
 		}
 	}
@@ -102,6 +117,7 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		if err != nil {
 			panic(err)
 		}
+		ethAddr, _ := types.NewEthAddress(keys.EthAddress) // already validated in keys.ValidateBasic()
 
 		orch, err := sdk.AccAddressFromBech32(keys.Orchestrator)
 		if err != nil {
@@ -111,12 +127,16 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		// set the orchestrator address
 		k.SetOrchestratorValidator(ctx, val, orch)
 		// set the ethereum address
-		k.SetEthAddressForValidator(ctx, val, keys.EthAddress)
+		k.SetEthAddressForValidator(ctx, val, *ethAddr)
 	}
 
 	// populate state with cosmos originated denom-erc20 mapping
-	for _, item := range data.Erc20ToDenoms {
-		k.setCosmosOriginatedDenomToERC20(ctx, item.Denom, item.Erc20)
+	for i, item := range data.Erc20ToDenoms {
+		ethAddr, err := types.NewEthAddress(item.Erc20)
+		if err != nil {
+			panic(fmt.Errorf("invalid erc20 address in Erc20ToDenoms for item %d: %s", i, item.Erc20))
+		}
+		k.setCosmosOriginatedDenomToERC20(ctx, item.Denom, *ethAddr)
 	}
 
 	// now that we have the denom-erc20 mapping we need to validate
@@ -130,6 +150,11 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		}
 	}
 
+	// reset bridge - ignore the genesis data as we do not want to reset immediately
+	resetBridgeState := false
+	k.SetResetBridgeState(ctx, resetBridgeState)
+	resetBridgeNonce := uint64(0)
+	k.SetResetBridgeNonce(ctx, resetBridgeNonce)
 }
 
 // ExportGenesis exports all the state needed to restart the chain
@@ -158,10 +183,12 @@ func ExportGenesis(ctx sdk.Context, k Keeper) types.GenesisState {
 	}
 
 	// export batch confirmations from state
-	for _, batch := range batches {
+	extBatches := make([]*types.OutgoingTxBatch, len(batches))
+	for i, batch := range batches {
 		// TODO: set height = 0?
 		batchconfs = append(batchconfs,
 			k.GetBatchConfirmByNonceAndTokenContract(ctx, batch.BatchNonce, batch.TokenContract)...)
+		extBatches[i] = batch.ToExternal()
 	}
 
 	// export logic call confirmations from state
@@ -183,18 +210,23 @@ func ExportGenesis(ctx sdk.Context, k Keeper) types.GenesisState {
 		return false
 	})
 
+	unbatchedTxs := make([]*types.OutgoingTransferTx, len(unbatchedTransfers))
+	for i, v := range unbatchedTransfers {
+		unbatchedTxs[i] = v.ToExternal()
+	}
+
 	return types.GenesisState{
 		Params:             &p,
 		LastObservedNonce:  lastobserved,
 		Valsets:            valsets,
 		ValsetConfirms:     vsconfs,
-		Batches:            batches,
+		Batches:            extBatches,
 		BatchConfirms:      batchconfs,
 		LogicCalls:         calls,
 		LogicCallConfirms:  callconfs,
 		Attestations:       attestations,
 		DelegateKeys:       delegates,
 		Erc20ToDenoms:      erc20ToDenoms,
-		UnbatchedTransfers: unbatchedTransfers,
+		UnbatchedTransfers: unbatchedTxs,
 	}
 }

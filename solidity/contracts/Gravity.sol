@@ -1,13 +1,27 @@
-pragma solidity ^0.6.6;
+//SPDX-License-Identifier: Apache-2.0
+pragma solidity 0.8.7;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./CosmosToken.sol";
 
-pragma experimental ABIEncoderV2;
+error InvalidSignature();
+error InvalidValsetNonce(uint256 newNonce, uint256 currentNonce);
+error InvalidBatchNonce(uint256 newNonce, uint256 currentNonce);
+error InvalidLogicCallNonce(uint256 newNonce, uint256 currentNonce);
+error InvalidLogicCallTransfers();
+error InvalidLogicCallFees();
+error InvalidSendToCosmos();
+error IncorrectCheckpoint();
+error MalformedNewValidatorSet();
+error MalformedCurrentValidatorSet();
+error MalformedBatch();
+error InsufficientPower(uint256 cumulativePower, uint256 powerThreshold);
+error BatchTimedOut();
+error LogicCallTimedOut();
 
 interface IERC20Burnable {
     function burn(uint256 amount) external;
@@ -47,8 +61,11 @@ struct ValsetArgs {
 }
 
 contract Gravity is ReentrancyGuard {
-	using SafeMath for uint256;
 	using SafeERC20 for IERC20;
+
+	// The number of 'votes' required to execute a valset
+	// update or batch execution, set to 2/3 of 2^32
+	uint256 constant constant_powerThreshold = 2863311530;
 
 	// Address for wNOM
     address public wNomAddress;
@@ -63,9 +80,8 @@ contract Gravity is ReentrancyGuard {
 	// value indicating that no events have yet been submitted
 	uint256 public state_lastEventNonce = 1;
 
-	// These are set once at initialization
-	bytes32 public state_gravityId;
-	uint256 public state_powerThreshold;
+	// This is set once at initialization
+	bytes32 public immutable state_gravityId;
 
 	// TransactionBatchExecutedEvent and SendToCosmosEvent both include the field _eventNonce.
 	// This is incremented every time one of these events is emitted. It is checked by the
@@ -81,7 +97,7 @@ contract Gravity is ReentrancyGuard {
 	event SendToCosmosEvent(
 		address indexed _tokenContract,
 		address indexed _sender,
-		bytes32 indexed _destination,
+		string _destination,
 		uint256 _amount,
 		uint256 _eventNonce
 	);
@@ -111,7 +127,7 @@ contract Gravity is ReentrancyGuard {
 
 	// TEST FIXTURES
 	// These are here to make it easier to measure gas usage. They should be removed before production
-	function testMakeCheckpoint(ValsetArgs memory _valsetArgs, bytes32 _gravityId) public pure {
+	function testMakeCheckpoint(ValsetArgs memory _valsetArgs, bytes32 _gravityId) external pure {
 		makeCheckpoint(_valsetArgs, _gravityId);
 	}
 
@@ -123,7 +139,7 @@ contract Gravity is ReentrancyGuard {
 		bytes32[] memory _s,
 		bytes32 _theHash,
 		uint256 _powerThreshold
-	) public pure {
+	) external pure {
 		checkValidatorSignatures(
 			_currentValidators,
 			_currentPowers,
@@ -137,11 +153,11 @@ contract Gravity is ReentrancyGuard {
 
 	// END TEST FIXTURES
 
-	function lastBatchNonce(address _erc20Address) public view returns (uint256) {
+	function lastBatchNonce(address _erc20Address) external view returns (uint256) {
 		return state_lastBatchNonces[_erc20Address];
 	}
 
-	function lastLogicCallNonce(bytes32 _invalidation_id) public view returns (uint256) {
+	function lastLogicCallNonce(bytes32 _invalidation_id) external view returns (uint256) {
 		return state_invalidationMapping[_invalidation_id];
 	}
 
@@ -156,7 +172,7 @@ contract Gravity is ReentrancyGuard {
 		bytes32 messageDigest = keccak256(
 			abi.encodePacked("\x19Ethereum Signed Message:\n32", _theHash)
 		);
-		return _signer == ecrecover(messageDigest, _v, _r, _s);
+		return _signer == ECDSA.recover(messageDigest, _v, _r, _s);
 	}
 
 	// Make a new checkpoint from the supplied validator set
@@ -209,10 +225,9 @@ contract Gravity is ReentrancyGuard {
 			// (In a valid signature, it is either 27 or 28)
 			if (_v[i] != 0) {
 				// Check that the current validator has signed off on the hash
-				require(
-					verifySig(_currentValidators[i], _theHash, _v[i], _r[i], _s[i]),
-					"Validator signature does not match."
-				);
+				if (!verifySig(_currentValidators[i], _theHash, _v[i], _r[i], _s[i])) {
+					revert InvalidSignature();
+				}
 
 				// Sum up cumulative power
 				cumulativePower = cumulativePower + _currentPowers[i];
@@ -225,17 +240,16 @@ contract Gravity is ReentrancyGuard {
 		}
 
 		// Check that there was enough power
-		require(
-			cumulativePower > _powerThreshold,
-			"Submitted validator set signatures do not have enough power."
-		);
+		if (cumulativePower <= _powerThreshold) {
+			revert InsufficientPower(cumulativePower, _powerThreshold);
+		}
 		// Success
 	}
 
 	// This updates the valset by checking that the validators in the current valset have signed off on the
 	// new valset. The signatures supplied are the signatures of the current valset over the checkpoint hash
 	// generated from the new valset.
-	// Anyone can call this function, but they must supply valid signatures of state_powerThreshold of the current valset over
+	// Anyone can call this function, but they must supply valid signatures of constant_powerThreshold of the current valset over
 	// the new valset.
 	function updateValset(
 		// The new version of the validator set
@@ -246,35 +260,65 @@ contract Gravity is ReentrancyGuard {
 		uint8[] memory _v,
 		bytes32[] memory _r,
 		bytes32[] memory _s
-	) public nonReentrant {
+	) external {
 		// CHECKS
 
 		// Check that the valset nonce is greater than the old one
-		require(
-			_newValset.valsetNonce > _currentValset.valsetNonce,
-			"New valset nonce must be greater than the current nonce"
-		);
+		if (_newValset.valsetNonce <= _currentValset.valsetNonce) {
+			revert InvalidValsetNonce({
+				newNonce: _newValset.valsetNonce,
+				currentNonce: _currentValset.valsetNonce
+			});
+		}
+
+		// Check that the valset nonce is less than a million nonces forward from the old one
+		// this makes it difficult for an attacker to lock out the contract by getting a single
+		// bad validator set through with uint256 max nonce
+		if (_newValset.valsetNonce > _currentValset.valsetNonce + 1000000) {
+			revert InvalidValsetNonce({
+				newNonce: _newValset.valsetNonce,
+				currentNonce: _currentValset.valsetNonce
+			});
+		}
 
 		// Check that new validators and powers set is well-formed
-		require(
-			_newValset.validators.length == _newValset.powers.length,
-			"Malformed new validator set"
-		);
+		if (
+			_newValset.validators.length != _newValset.powers.length ||
+			_newValset.validators.length == 0
+		) {
+			revert MalformedNewValidatorSet();
+		}
 
 		// Check that current validators, powers, and signatures (v,r,s) set is well-formed
-		require(
-			_currentValset.validators.length == _currentValset.powers.length &&
-				_currentValset.validators.length == _v.length &&
-				_currentValset.validators.length == _r.length &&
-				_currentValset.validators.length == _s.length,
-			"Malformed current validator set"
-		);
+		if (
+			_currentValset.validators.length != _currentValset.powers.length ||
+			_currentValset.validators.length != _v.length ||
+			_currentValset.validators.length != _r.length ||
+			_currentValset.validators.length != _s.length
+		) {
+			revert MalformedCurrentValidatorSet();
+		}
+
+		// Check cumulative power to ensure the contract has sufficient power to actually
+		// pass a vote
+		uint256 cumulativePower = 0;
+		for (uint256 i = 0; i < _newValset.powers.length; i++) {
+			cumulativePower = cumulativePower + _newValset.powers[i];
+			if (cumulativePower > constant_powerThreshold) {
+				break;
+			}
+		}
+		if (cumulativePower <= constant_powerThreshold) {
+			revert InsufficientPower({
+				cumulativePower: cumulativePower,
+				powerThreshold: constant_powerThreshold
+			});
+		}
 
 		// Check that the supplied current validator set matches the saved checkpoint
-		require(
-			makeCheckpoint(_currentValset, state_gravityId) == state_lastValsetCheckpoint,
-			"Supplied current validators and powers do not match checkpoint."
-		);
+		if (makeCheckpoint(_currentValset, state_gravityId) != state_lastValsetCheckpoint) {
+			revert IncorrectCheckpoint();
+		}
 
 		// Check that enough current validators have signed off on the new validator set
 		bytes32 newCheckpoint = makeCheckpoint(_newValset, state_gravityId);
@@ -286,7 +330,7 @@ contract Gravity is ReentrancyGuard {
 			_r,
 			_s,
 			newCheckpoint,
-			state_powerThreshold
+			constant_powerThreshold
 		);
 
 		// ACTIONS
@@ -305,7 +349,7 @@ contract Gravity is ReentrancyGuard {
 
 		// LOGS
 
-		state_lastEventNonce = state_lastEventNonce.add(1);
+		state_lastEventNonce = state_lastEventNonce + 1;
 		emit ValsetUpdatedEvent(
 			_newValset.valsetNonce,
 			state_lastEventNonce,
@@ -318,7 +362,7 @@ contract Gravity is ReentrancyGuard {
 
 	// submitBatch processes a batch of Cosmos -> Ethereum transactions by sending the tokens in the transactions
 	// to the destination addresses. It is approved by the current Cosmos validator set.
-	// Anyone can call this function, but they must supply valid signatures of state_powerThreshold of the current valset over
+	// Anyone can call this function, but they must supply valid signatures of constant_powerThreshold of the current valset over
 	// the batch.
 	function submitBatch(
 		// The validators that approve the batch
@@ -336,41 +380,51 @@ contract Gravity is ReentrancyGuard {
 		// a block height beyond which this batch is not valid
 		// used to provide a fee-free timeout
 		uint256 _batchTimeout
-	) public nonReentrant {
+	) external nonReentrant {
 		// CHECKS scoped to reduce stack depth
 		{
 			// Check that the batch nonce is higher than the last nonce for this token
-			require(
-				state_lastBatchNonces[_tokenContract] < _batchNonce,
-				"New batch nonce must be greater than the current nonce"
-			);
+			if (_batchNonce <= state_lastBatchNonces[_tokenContract]) {
+				revert InvalidBatchNonce({
+					newNonce: _batchNonce,
+					currentNonce: state_lastBatchNonces[_tokenContract]
+				});
+			}
+
+			// Check that the batch nonce is less than one million nonces forward from the old one
+			// this makes it difficult for an attacker to lock out the contract by getting a single
+			// bad batch through with uint256 max nonce
+			if (_batchNonce > state_lastBatchNonces[_tokenContract] + 1000000) {
+				revert InvalidBatchNonce({
+					newNonce: _batchNonce,
+					currentNonce: state_lastBatchNonces[_tokenContract]
+				});
+			}
 
 			// Check that the block height is less than the timeout height
-			require(
-				block.number < _batchTimeout,
-				"Batch timeout must be greater than the current block height"
-			);
+			if (block.number >= _batchTimeout) {
+				revert BatchTimedOut();
+			}
 
 			// Check that current validators, powers, and signatures (v,r,s) set is well-formed
-			require(
-				_currentValset.validators.length == _currentValset.powers.length &&
-					_currentValset.validators.length == _v.length &&
-					_currentValset.validators.length == _r.length &&
-					_currentValset.validators.length == _s.length,
-				"Malformed current validator set"
-			);
+			if (
+				_currentValset.validators.length != _currentValset.powers.length ||
+				_currentValset.validators.length != _v.length ||
+				_currentValset.validators.length != _r.length ||
+				_currentValset.validators.length != _s.length
+			) {
+				revert MalformedCurrentValidatorSet();
+			}
 
 			// Check that the supplied current validator set matches the saved checkpoint
-			require(
-				makeCheckpoint(_currentValset, state_gravityId) == state_lastValsetCheckpoint,
-				"Supplied current validators and powers do not match checkpoint."
-			);
+			if (makeCheckpoint(_currentValset, state_gravityId) != state_lastValsetCheckpoint) {
+				revert IncorrectCheckpoint();
+			}
 
 			// Check that the transaction batch is well-formed
-			require(
-				_amounts.length == _destinations.length && _amounts.length == _fees.length,
-				"Malformed batch of transactions"
-			);
+			if (_amounts.length != _destinations.length || _amounts.length != _fees.length) {
+				revert MalformedBatch();
+			}
 
 			// Check that enough current validators have signed off on the transaction batch and valset
 			checkValidatorSignatures(
@@ -393,7 +447,7 @@ contract Gravity is ReentrancyGuard {
 						_batchTimeout
 					)
 				),
-				state_powerThreshold
+				constant_powerThreshold
 			);
 
 			// ACTIONS
@@ -406,7 +460,7 @@ contract Gravity is ReentrancyGuard {
 				uint256 totalFee;
 				for (uint256 i = 0; i < _amounts.length; i++) {
 					IERC20(_tokenContract).safeTransfer(_destinations[i], _amounts[i]);
-					totalFee = totalFee.add(_fees[i]);
+					totalFee = totalFee + _fees[i];
 				}
 
 				// Send transaction fees to msg.sender
@@ -416,7 +470,7 @@ contract Gravity is ReentrancyGuard {
 
 		// LOGS scoped to reduce stack depth
 		{
-			state_lastEventNonce = state_lastEventNonce.add(1);
+			state_lastEventNonce = state_lastEventNonce + 1;
 			emit TransactionBatchExecutedEvent(_batchNonce, _tokenContract, state_lastEventNonce);
 		}
 	}
@@ -438,46 +492,50 @@ contract Gravity is ReentrancyGuard {
 		bytes32[] memory _r,
 		bytes32[] memory _s,
 		LogicCallArgs memory _args
-	) public nonReentrant {
+	) external nonReentrant {
 		// CHECKS scoped to reduce stack depth
 		{
 			// Check that the call has not timed out
-			require(block.number < _args.timeOut, "Timed out");
+			if (block.number >= _args.timeOut) {
+				revert LogicCallTimedOut();
+			}
 
 			// Check that the invalidation nonce is higher than the last nonce for this invalidation Id
-			require(
-				state_invalidationMapping[_args.invalidationId] < _args.invalidationNonce,
-				"New invalidation nonce must be greater than the current nonce"
-			);
+			if (state_invalidationMapping[_args.invalidationId] >= _args.invalidationNonce) {
+				revert InvalidLogicCallNonce({
+					newNonce: _args.invalidationNonce,
+					currentNonce: state_invalidationMapping[_args.invalidationId]
+				});
+			}
+
+			// note the lack of nonce skipping check, it's not needed here since an attacker
+			// will never be able to fill the invalidationId space, therefore a nonce lockout
+			// is simply not possible
 
 			// Check that current validators, powers, and signatures (v,r,s) set is well-formed
-			require(
-				_currentValset.validators.length == _currentValset.powers.length &&
-					_currentValset.validators.length == _v.length &&
-					_currentValset.validators.length == _r.length &&
-					_currentValset.validators.length == _s.length,
-				"Malformed current validator set"
-			);
+			// Check that current validators, powers, and signatures (v,r,s) set is well-formed
+			if (
+				_currentValset.validators.length != _currentValset.powers.length ||
+				_currentValset.validators.length != _v.length ||
+				_currentValset.validators.length != _r.length ||
+				_currentValset.validators.length != _s.length
+			) {
+				revert MalformedCurrentValidatorSet();
+			}
 
 			// Check that the supplied current validator set matches the saved checkpoint
-			require(
-				makeCheckpoint(_currentValset, state_gravityId) == state_lastValsetCheckpoint,
-				"Supplied current validators and powers do not match checkpoint."
-			);
+			if (makeCheckpoint(_currentValset, state_gravityId) != state_lastValsetCheckpoint) {
+				revert IncorrectCheckpoint();
+			}
 
-			// Check that the token transfer list is well-formed
-			require(
-				_args.transferAmounts.length == _args.transferTokenContracts.length,
-				"Malformed list of token transfers"
-			);
+			if (_args.transferAmounts.length != _args.transferTokenContracts.length) {
+				revert InvalidLogicCallTransfers();
+			}
 
-			// Check that the fee list is well-formed
-			require(
-				_args.feeAmounts.length == _args.feeTokenContracts.length,
-				"Malformed list of fees"
-			);
+			if (_args.feeAmounts.length != _args.feeTokenContracts.length) {
+				revert InvalidLogicCallFees();
+			}
 		}
-
 		bytes32 argsHash = keccak256(
 			abi.encode(
 				state_gravityId,
@@ -505,7 +563,7 @@ contract Gravity is ReentrancyGuard {
 				_s,
 				// Get hash of the transaction batch and checkpoint
 				argsHash,
-				state_powerThreshold
+				constant_powerThreshold
 			);
 		}
 
@@ -532,7 +590,7 @@ contract Gravity is ReentrancyGuard {
 
 		// LOGS scoped to reduce stack depth
 		{
-			state_lastEventNonce = state_lastEventNonce.add(1);
+			state_lastEventNonce = state_lastEventNonce + 1;
 			emit LogicCallEvent(
 				_args.invalidationId,
 				_args.invalidationNonce,
@@ -544,10 +602,30 @@ contract Gravity is ReentrancyGuard {
 
 	function sendToCosmos(
 		address _tokenContract,
-		bytes32 _destination,
+		string calldata _destination,
 		uint256 _amount
-	) public nonReentrant {
+	) external nonReentrant {
+		// we snapshot our current balance of this token
+		uint256 ourStartingBalance = IERC20(_tokenContract).balanceOf(address(this));
+
+		// attempt to transfer the user specified amount
 		IERC20(_tokenContract).safeTransferFrom(msg.sender, address(this), _amount);
+
+		// check what this particular ERC20 implementation actually gave us, since it doesn't
+		// have to be at all related to the _amount
+		uint256 ourEndingBalance = IERC20(_tokenContract).balanceOf(address(this));
+
+		// a very strange ERC20 may trigger this condition, if we didn't have this we would
+		// underflow, so it's mostly just an error message printer
+		if (ourEndingBalance <= ourStartingBalance) {
+			revert InvalidSendToCosmos();
+		}
+
+		state_lastEventNonce = state_lastEventNonce + 1;
+
+		// emit to Cosmos the actual amount our balance has changed, rather than the user
+		// provided amount. This protects against a small set of wonky ERC20 behavior, like
+		// burning on send but not tokens that for example change every users balance every day.
 
 		// If Token is wNOM then Burn it
 		if(_tokenContract == wNomAddress) {
@@ -559,22 +637,22 @@ contract Gravity is ReentrancyGuard {
 			_tokenContract,
 			msg.sender,
 			_destination,
-			_amount,
+			ourEndingBalance - ourStartingBalance,
 			state_lastEventNonce
 		);
 	}
 
 	function deployERC20(
-		string memory _cosmosDenom,
-		string memory _name,
-		string memory _symbol,
+		string calldata _cosmosDenom,
+		string calldata _name,
+		string calldata _symbol,
 		uint8 _decimals
-	) public {
+	) external {
 		// Deploy an ERC20 with entire supply granted to Gravity.sol
 		CosmosERC20 erc20 = new CosmosERC20(address(this), _name, _symbol, _decimals);
 
 		// Fire an event to let the Cosmos module know
-		state_lastEventNonce = state_lastEventNonce.add(1);
+		state_lastEventNonce = state_lastEventNonce + 1;
 		emit ERC20DeployedEvent(
 			_cosmosDenom,
 			address(erc20),
@@ -588,36 +666,38 @@ contract Gravity is ReentrancyGuard {
 	constructor(
 		// A unique identifier for this gravity instance to use in signatures
 		bytes32 _gravityId,
-		// How much voting power is needed to approve operations
-		uint256 _powerThreshold,
 		// The validator set, not in valset args format since many of it's
 		// arguments would never be used in this case
 		address[] memory _validators,
 		uint256[] memory _powers,
 		address _wNomAddress
-	) public {
+	) {
 		// Initialize NOM burner
 		wNomAddress = _wNomAddress;
-        wNomBurner = IERC20Burnable(_wNomAddress);
+		wNomBurner = IERC20Burnable(_wNomAddress);
 
 		// CHECKS
 
 		// Check that validators, powers, and signatures (v,r,s) set is well-formed
-		require(_validators.length == _powers.length, "Malformed current validator set");
+		if (_validators.length != _powers.length || _validators.length == 0) {
+			revert MalformedCurrentValidatorSet();
+		}
 
 		// Check cumulative power to ensure the contract has sufficient power to actually
 		// pass a vote
 		uint256 cumulativePower = 0;
 		for (uint256 i = 0; i < _powers.length; i++) {
 			cumulativePower = cumulativePower + _powers[i];
-			if (cumulativePower > _powerThreshold) {
+			if (cumulativePower > constant_powerThreshold) {
 				break;
 			}
 		}
-		require(
-			cumulativePower > _powerThreshold,
-			"Submitted validator set signatures do not have enough power."
-		);
+		if (cumulativePower <= constant_powerThreshold) {
+			revert InsufficientPower({
+				cumulativePower: cumulativePower,
+				powerThreshold: constant_powerThreshold
+			});
+		}
 
 		ValsetArgs memory _valset;
 		_valset = ValsetArgs(_validators, _powers, 0, 0, address(0));
@@ -627,7 +707,6 @@ contract Gravity is ReentrancyGuard {
 		// ACTIONS
 
 		state_gravityId = _gravityId;
-		state_powerThreshold = _powerThreshold;
 		state_lastValsetCheckpoint = newCheckpoint;
 
 		// LOGS

@@ -1,17 +1,185 @@
 package types
 
 import (
-	fmt "fmt"
+	"fmt"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"math/big"
 	"strings"
 
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+func (o OutgoingTransferTx) ToInternal() (*InternalOutgoingTransferTx, error) {
+	return NewInternalOutgoingTransferTx(o.Id, o.Sender, o.DestAddress, *o.Erc20Token, *o.Erc20Fee)
+}
+
+// InternalOutgoingTransferTx is an internal duplicate of OutgoingTransferTx with validation
+type InternalOutgoingTransferTx struct {
+	Id          uint64
+	Sender      sdk.AccAddress
+	DestAddress *EthAddress
+	Erc20Token  *InternalERC20Token
+	Erc20Fee    *InternalERC20Token
+}
+
+func NewInternalOutgoingTransferTx(
+	id uint64,
+	sender string,
+	destAddress string,
+	erc20Token ERC20Token,
+	erc20Fee ERC20Token,
+) (*InternalOutgoingTransferTx, error) {
+	send, err := sdk.AccAddressFromBech32(sender)
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid sender")
+	}
+	dest, err := NewEthAddress(destAddress)
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid eth destination")
+	}
+	token, err := erc20Token.ToInternal()
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid Erc20Token")
+	}
+	fee, err := erc20Fee.ToInternal()
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid Erc20Fee")
+	}
+
+	return &InternalOutgoingTransferTx{
+		Id:          id,
+		Sender:      send,
+		DestAddress: dest,
+		Erc20Token:  token,
+		Erc20Fee:    fee,
+	}, nil
+}
+
+func (i InternalOutgoingTransferTx) ToExternal() *OutgoingTransferTx {
+	return &OutgoingTransferTx{
+		Id:          i.Id,
+		Sender:      i.Sender.String(),
+		DestAddress: i.DestAddress.GetAddress(),
+		Erc20Token:  i.Erc20Token.ToExternal(),
+		Erc20Fee:    i.Erc20Fee.ToExternal(),
+	}
+}
+
+func (i InternalOutgoingTransferTx) ValidateBasic() error {
+	//TODO: Validate id?
+	//TODO: Validate cosmos sender?
+	err := i.DestAddress.ValidateBasic()
+	if err != nil {
+		return sdkerrors.Wrap(err, "invalid DestAddress")
+	}
+	err = i.Erc20Token.ValidateBasic()
+	if err != nil {
+		return sdkerrors.Wrap(err, "invalid Erc20Token")
+	}
+	err = i.Erc20Fee.ValidateBasic()
+	if err != nil {
+		return sdkerrors.Wrap(err, "invalid Erc20Fee")
+	}
+	return nil
+}
+
+// InternalOutgoingTxBatch is an internal duplicate of OutgoingTxBatch with validation
+type InternalOutgoingTxBatch struct {
+	BatchNonce    uint64
+	BatchTimeout  uint64
+	Transactions  []*InternalOutgoingTransferTx
+	TokenContract EthAddress
+	Block         uint64
+}
+
+func NewInternalOutgingTxBatch(
+	nonce uint64,
+	timeout uint64,
+	transactions []*InternalOutgoingTransferTx,
+	contract EthAddress,
+	block uint64) (*InternalOutgoingTxBatch, error) {
+
+	ret := &InternalOutgoingTxBatch{
+		BatchNonce: nonce,
+		BatchTimeout: timeout,
+		Transactions: transactions,
+		TokenContract: contract,
+		Block: block,
+	}
+	if err := ret.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func NewInternalOutgingTxBatchFromExternalBatch(batch OutgoingTxBatch) (*InternalOutgoingTxBatch, error) {
+	contractAddr, err := NewEthAddress(batch.TokenContract)
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid eth address")
+	}
+	txs := make([]*InternalOutgoingTransferTx, len(batch.Transactions))
+	for i, tx := range batch.Transactions {
+		intTx, err := tx.ToInternal()
+		if err != nil {
+			return nil, sdkerrors.Wrapf(err, "invalid transaction in batch: %v", tx)
+		}
+		txs[i] = intTx
+	}
+
+	return &InternalOutgoingTxBatch{
+		BatchNonce: batch.BatchNonce,
+		BatchTimeout: batch.BatchTimeout,
+		Transactions: txs,
+		TokenContract: *contractAddr,
+		Block: batch.Block,
+	}, nil
+}
+
+func (o *OutgoingTxBatch) ToInternal() (*InternalOutgoingTxBatch, error) {
+	return NewInternalOutgingTxBatchFromExternalBatch(*o)
+}
+
+func (i *InternalOutgoingTxBatch) ToExternal() *OutgoingTxBatch {
+	txs := make([]*OutgoingTransferTx, len(i.Transactions))
+	for i, tx := range i.Transactions {
+		txs[i] = tx.ToExternal()
+	}
+	return &OutgoingTxBatch{
+		BatchNonce: i.BatchNonce,
+		BatchTimeout: i.BatchTimeout,
+		Transactions: txs,
+		TokenContract: i.TokenContract.GetAddress(),
+		Block: i.Block,
+	}
+}
+
+func (i *InternalOutgoingTxBatch) ValidateBasic() error {
+	if err := i.TokenContract.ValidateBasic(); err != nil {
+		return sdkerrors.Wrap(err, "invalid eth address")
+	}
+
+	for i, tx := range i.Transactions {
+		if err := tx.ValidateBasic(); err != nil {
+			return sdkerrors.Wrapf(err, "transaction %d is invalid", i)
+		}
+	}
+	return nil
+}
+
+// Required for EthereumSigned interface
+func (o OutgoingTxBatch) GetCheckpoint(gravityIDstring string) []byte {
+	i, err := o.ToInternal()
+	if err != nil {
+		panic(sdkerrors.Wrap(err, "invalid OutgoingTxBatch"))
+	}
+	return i.GetCheckpoint(gravityIDstring)
+}
+
 // GetCheckpoint gets the checkpoint signature from the given outgoing tx batch
-func (b OutgoingTxBatch) GetCheckpoint(gravityIDstring string) []byte {
+func (i InternalOutgoingTxBatch) GetCheckpoint(gravityIDstring string) []byte {
 
 	abi, err := abi.JSON(strings.NewReader(OutgoingBatchTxCheckpointABIJSON))
 	if err != nil {
@@ -33,13 +201,13 @@ func (b OutgoingTxBatch) GetCheckpoint(gravityIDstring string) []byte {
 	copy(batchMethodName[:], methodNameBytes[:])
 
 	// Run through the elements of the batch and serialize them
-	txAmounts := make([]*big.Int, len(b.Transactions))
-	txDestinations := make([]gethcommon.Address, len(b.Transactions))
-	txFees := make([]*big.Int, len(b.Transactions))
-	for i, tx := range b.Transactions {
-		txAmounts[i] = tx.Erc20Token.Amount.BigInt()
-		txDestinations[i] = gethcommon.HexToAddress(tx.DestAddress)
-		txFees[i] = tx.Erc20Fee.Amount.BigInt()
+	txAmounts := make([]*big.Int, len(i.Transactions))
+	txDestinations := make([]gethcommon.Address, len(i.Transactions))
+	txFees := make([]*big.Int, len(i.Transactions))
+	for j, tx := range i.Transactions {
+		txAmounts[j] = tx.Erc20Token.Amount.BigInt()
+		txDestinations[j] = gethcommon.HexToAddress(tx.DestAddress.GetAddress())
+		txFees[j] = tx.Erc20Fee.Amount.BigInt()
 	}
 
 	// the methodName needs to be the same as the 'name' above in the checkpointAbiJson
@@ -51,9 +219,9 @@ func (b OutgoingTxBatch) GetCheckpoint(gravityIDstring string) []byte {
 		txAmounts,
 		txDestinations,
 		txFees,
-		big.NewInt(int64(b.BatchNonce)),
-		gethcommon.HexToAddress(b.TokenContract),
-		big.NewInt(int64(b.BatchTimeout)),
+		big.NewInt(int64(i.BatchNonce)),
+		gethcommon.HexToAddress(i.TokenContract.GetAddress()),
+		big.NewInt(int64(i.BatchTimeout)),
 	)
 
 	// this should never happen outside of test since any case that could crash on encoding
