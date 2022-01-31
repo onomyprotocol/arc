@@ -259,7 +259,11 @@ func SetupFiveValChain(t *testing.T) (TestInput, sdk.Context) {
 
 	// Register eth addresses for each validator
 	for i, addr := range ValAddrs {
-		input.GravityKeeper.SetEthAddressForValidator(input.Context, addr, EthAddrs[i].String())
+		ethAddr, err := types.NewEthAddress(EthAddrs[i].String())
+		if err != nil {
+			panic("found invalid address in EthAddrs")
+		}
+		input.GravityKeeper.SetEthAddressForValidator(input.Context, addr, *ethAddr)
 	}
 
 	// Return the test input
@@ -433,7 +437,7 @@ func CreateTestEnv(t *testing.T) TestInput {
 		getSubspace(paramsKeeper, slashingtypes.ModuleName).WithKeyTable(slashingtypes.ParamKeyTable()),
 	)
 
-	k := NewKeeper(marshaler, gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), stakingKeeper, bankKeeper, slashingKeeper)
+	k := NewKeeper(marshaler, gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), stakingKeeper, bankKeeper, distKeeper, slashingKeeper)
 
 	stakingKeeper = *stakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(
@@ -492,7 +496,7 @@ func MakeTestMarshaler() codec.Marshaler {
 }
 
 // MintVouchersFromAir creates new gravity vouchers given erc20tokens
-func MintVouchersFromAir(t *testing.T, ctx sdk.Context, k Keeper, dest sdk.AccAddress, amount types.ERC20Token) sdk.Coin {
+func MintVouchersFromAir(t *testing.T, ctx sdk.Context, k Keeper, dest sdk.AccAddress, amount types.InternalERC20Token) sdk.Coin {
 	coin := amount.GravityCoin()
 	vouchers := sdk.Coins{coin}
 	err := k.bankKeeper.MintCoins(ctx, types.ModuleName, vouchers)

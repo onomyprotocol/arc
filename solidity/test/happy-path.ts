@@ -34,13 +34,12 @@ describe("Gravity happy path valset update + batch submit", function () {
     }
 
 
-    const powerThreshold = 6666;
 
     const {
       gravity,
       testERC20,
       checkpoint: deployCheckpoint
-    } = await deployContracts(gravityId, powerThreshold, valset0.validators, valset0.powers);
+    } = await deployContracts(gravityId, valset0.validators, valset0.powers);
 
 
 
@@ -96,9 +95,7 @@ describe("Gravity happy path valset update + batch submit", function () {
 
       valset0_str,
 
-      sigs1.v,
-      sigs1.r,
-      sigs1.s
+      sigs1,
     );
 
     expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint1);
@@ -169,9 +166,7 @@ describe("Gravity happy path valset update + batch submit", function () {
     let batchSubmitTx = await gravity.submitBatch(
       valset1_str,
 
-      sigs.v,
-      sigs.r,
-      sigs.s,
+      sigs,
 
       txAmounts,
       txDestinations,

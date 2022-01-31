@@ -9,6 +9,7 @@ import {
     examplePowers,
     ZeroAddress
 } from "../test-utils/pure";
+import { BigNumber, BigNumberish } from "ethers";
 
 chai.use(solidity);
 const { expect } = chai;
@@ -22,13 +23,11 @@ describe("Gas tests", function () {
         let powers = examplePowers();
         let validators = signers.slice(0, powers.length);
 
-        const powerThreshold = 6666;
-
         const {
             gravity,
             testERC20,
             checkpoint: deployCheckpoint
-        } = await deployContracts(gravityId, powerThreshold, validators, powers);
+        } = await deployContracts(gravityId, validators, powers);
 
         let valset = {
             validators: await getSignerAddresses(validators),
@@ -52,25 +51,24 @@ describe("Gas tests", function () {
         let powers = examplePowers();
         let validators = signers.slice(0, powers.length);
 
-        const powerThreshold = 6666;
-
         const {
             gravity,
             testERC20,
             checkpoint: deployCheckpoint
-        } = await deployContracts(gravityId, powerThreshold, validators, powers);
+        } = await deployContracts(gravityId, validators, powers);
 
         let sigs = await signHash(
             validators,
             "0x7bc422a00c175cae98cf2f4c36f2f8b63ec51ab8c57fecda9bccf0987ae2d67d"
         );
 
+
+        let v = {
+            validators: await getSignerAddresses(validators), powers: powers, valsetNonce: 0, rewardAmount: 0, rewardToken: ZeroAddress
+        };
         await gravity.testCheckValidatorSignatures(
-            await getSignerAddresses(validators),
-            powers,
-            sigs.v,
-            sigs.r,
-            sigs.s,
+            v,
+            sigs,
             "0x7bc422a00c175cae98cf2f4c36f2f8b63ec51ab8c57fecda9bccf0987ae2d67d",
             6666
         );

@@ -33,4 +33,4 @@ serde_json = "1.0"
 tokio = {version = "1.4", features = ["macros", "rt-multi-thread"]}
 tonic = "0.4"
 url = "2"
-web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "7dd3533a3690a54c56ec79f72df2c8f6c858625b"}
+web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4"}

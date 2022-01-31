@@ -146,7 +146,9 @@ func TestLastValsetRequests(t *testing.T) {
 		for j := 0; j <= i; j++ {
 			// add an validator each block
 			valAddr := bytes.Repeat([]byte{byte(j)}, sdk.AddrLen)
-			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			require.NoError(t, err)
+			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, *ethAddr)
 			validators = append(validators, valAddr)
 		}
 		input.GravityKeeper.StakingKeeper = NewStakingKeeperMock(validators...)
@@ -226,19 +228,19 @@ func TestLastValsetRequests(t *testing.T) {
   "reward_token": "0x0000000000000000000000000000000000000000",
   "members": [
     {
-      "power": "1073741823",
+      "power": "1073741824",
       "ethereum_address": "0x0101010101010101010101010101010101010101"
     },
     {
-      "power": "1073741823",
+      "power": "1073741824",
       "ethereum_address": "0x0202020202020202020202020202020202020202"
     },
     {
-      "power": "1073741823",
+      "power": "1073741824",
       "ethereum_address": "0x0303030303030303030303030303030303030303"
     },
     {
-      "power": "1073741823",
+      "power": "1073741824",
       "ethereum_address": "0x0404040404040404040404040404040404040404"
     }
   ]
@@ -270,11 +272,11 @@ func TestLastValsetRequests(t *testing.T) {
   "reward_token": "0x0000000000000000000000000000000000000000",
   "members": [
     {
-      "power": "2147483647",
+      "power": "2147483648",
       "ethereum_address": "0x0101010101010101010101010101010101010101"
     },
     {
-      "power": "2147483647",
+      "power": "2147483648",
       "ethereum_address": "0x0202020202020202020202020202020202020202"
     }
   ]
@@ -304,7 +306,9 @@ func TestPendingValsetRequests(t *testing.T) {
 		for j := 0; j <= i; j++ {
 			// add an validator each block
 			valAddr := bytes.Repeat([]byte{byte(j)}, sdk.AddrLen)
-			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			require.NoError(t, err)
+			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, *ethAddr)
 			validators = append(validators, valAddr)
 		}
 		input.GravityKeeper.StakingKeeper = NewStakingKeeperMock(validators...)
@@ -381,19 +385,19 @@ func TestPendingValsetRequests(t *testing.T) {
                                     "nonce": "4",
                                     "members": [
                                       {
-                                        "power": "1073741823",
+                                        "power": "1073741824",
                                         "ethereum_address": "0x0101010101010101010101010101010101010101"
                                       },
                                       {
-                                        "power": "1073741823",
+                                        "power": "1073741824",
                                         "ethereum_address": "0x0202020202020202020202020202020202020202"
                                       },
                                       {
-                                        "power": "1073741823",
+                                        "power": "1073741824",
                                         "ethereum_address": "0x0303030303030303030303030303030303030303"
                                       },
                                       {
-                                        "power": "1073741823",
+                                        "power": "1073741824",
                                         "ethereum_address": "0x0404040404040404040404040404040404040404"
                                       }
                                     ],
@@ -425,11 +429,11 @@ func TestPendingValsetRequests(t *testing.T) {
                                     "nonce": "2",
                                     "members": [
                                       {
-                                        "power": "2147483647",
+                                        "power": "2147483648",
                                         "ethereum_address": "0x0101010101010101010101010101010101010101"
                                       },
                                       {
-                                        "power": "2147483647",
+                                        "power": "2147483648",
                                         "ethereum_address": "0x0202020202020202020202020202020202020202"
                                       }
                                     ],
@@ -441,7 +445,7 @@ func TestPendingValsetRequests(t *testing.T) {
                                     "nonce": "1",
                                     "members": [
                                       {
-                                        "power": "4294967295",
+                                        "power": "4294967296",
                                         "ethereum_address": "0x0101010101010101010101010101010101010101"
                                       }
                                     ],
@@ -476,7 +480,9 @@ func TestLastPendingBatchRequest(t *testing.T) {
 			// add an validator each block
 			// TODO: replace with real SDK addresses
 			valAddr := bytes.Repeat([]byte{byte(j)}, sdk.AddrLen)
-			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			require.NoError(t, err)
+			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, *ethAddr)
 			validators = append(validators, valAddr)
 		}
 		input.GravityKeeper.StakingKeeper = NewStakingKeeperMock(validators...)
@@ -546,9 +552,15 @@ func createTestBatch(t *testing.T, input TestInput) {
 		myTokenContractAddr = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 		now                 = time.Now().UTC()
 	)
+	receiver, err := types.NewEthAddress(myReceiver)
+	require.NoError(t, err)
+	tokenContract, err := types.NewEthAddress(myTokenContractAddr)
+	require.NoError(t, err)
 	// mint some voucher first
-	allVouchers := sdk.Coins{types.NewERC20Token(99999, myTokenContractAddr).GravityCoin()}
-	err := input.BankKeeper.MintCoins(input.Context, types.ModuleName, allVouchers)
+	token, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
+	require.NoError(t, err)
+	allVouchers := sdk.Coins{token.GravityCoin()}
+	err = input.BankKeeper.MintCoins(input.Context, types.ModuleName, allVouchers)
 	require.NoError(t, err)
 
 	// set senders balance
@@ -558,9 +570,13 @@ func createTestBatch(t *testing.T, input TestInput) {
 
 	// add some TX to the pool
 	for i, v := range []uint64{2, 3, 2, 1} {
-		amount := types.NewERC20Token(uint64(i+100), myTokenContractAddr).GravityCoin()
-		fee := types.NewERC20Token(v, myTokenContractAddr).GravityCoin()
-		_, err = input.GravityKeeper.AddToOutgoingPool(input.Context, mySender, myReceiver, amount, fee)
+		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
+		require.NoError(t, err)
+		amount := amountToken.GravityCoin()
+		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
+		require.NoError(t, err)
+		fee := feeToken.GravityCoin()
+		_, err = input.GravityKeeper.AddToOutgoingPool(input.Context, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
 		// Should create:
 		// 1: amount 100, fee 2
@@ -572,7 +588,7 @@ func createTestBatch(t *testing.T, input TestInput) {
 	input.Context = input.Context.WithBlockTime(now)
 
 	// tx batch size is 2, so that some of them stay behind
-	_, err = input.GravityKeeper.BuildOutgoingTXBatch(input.Context, myTokenContractAddr, 2)
+	_, err = input.GravityKeeper.BuildOutgoingTXBatch(input.Context, *tokenContract, 2)
 	require.NoError(t, err)
 	// Should have 2 and 3 from above
 	// 1 and 4 should be unbatched
@@ -625,7 +641,9 @@ func TestQueryLogicCalls(t *testing.T) {
 			// add an validator each block
 			// TODO: replace with real SDK addresses
 			valAddr := bytes.Repeat([]byte{byte(j)}, sdk.AddrLen)
-			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			require.NoError(t, err)
+			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, *ethAddr)
 			validators = append(validators, valAddr)
 		}
 		input.GravityKeeper.StakingKeeper = NewStakingKeeperMock(validators...)
@@ -682,7 +700,9 @@ func TestQueryLogicCallsConfirms(t *testing.T) {
 			// add an validator each block
 			// TODO: replace with real SDK addresses
 			valAddr := bytes.Repeat([]byte{byte(j)}, sdk.AddrLen)
-			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
+			require.NoError(t, err)
+			input.GravityKeeper.SetEthAddressForValidator(ctx, valAddr, *ethAddr)
 			validators = append(validators, valAddr)
 		}
 		input.GravityKeeper.StakingKeeper = NewStakingKeeperMock(validators...)
@@ -869,33 +889,40 @@ func TestQueryCurrentValset(t *testing.T) {
 		ethAddress                = "0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255"
 		valAddress sdk.ValAddress = bytes.Repeat([]byte{0x2}, sdk.AddrLen)
 	)
+	addr, err := types.NewEthAddress(ethAddress)
+	require.NoError(t, err)
 	input := CreateTestEnv(t)
 	input.GravityKeeper.StakingKeeper = NewStakingKeeperMock(valAddress)
 	ctx := input.Context
-	input.GravityKeeper.SetEthAddressForValidator(ctx, valAddress, ethAddress)
+	input.GravityKeeper.SetEthAddressForValidator(ctx, valAddress, *addr)
 
 	currentValset := input.GravityKeeper.GetCurrentValset(ctx)
 
-	bridgeVal := types.BridgeValidator{EthereumAddress: ethAddress, Power: 4294967295}
-	expectedValset := types.NewValset(1, 1234567, []*types.BridgeValidator{&bridgeVal}, sdk.NewIntFromUint64(0), "0x0000000000000000000000000000000000000000")
+	bridgeVal := types.BridgeValidator{EthereumAddress: ethAddress, Power: 4294967296}
+	internalBridgeVal, err := bridgeVal.ToInternal()
+	require.NoError(t, err)
+	internalBridgeVals := types.InternalBridgeValidators([]*types.InternalBridgeValidator{internalBridgeVal})
+	expectedValset, err := types.NewValset(1, 1234567, internalBridgeVals, sdk.NewIntFromUint64(0), *types.ZeroAddress())
+	require.NoError(t, err)
 	assert.Equal(t, expectedValset, currentValset)
 }
 
 //nolint: exhaustivestruct
 func TestQueryERC20ToDenom(t *testing.T) {
 	var (
-		erc20 = "0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255"
-		denom = "uatom"
+		erc20, err = types.NewEthAddress("0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255")
+		denom      = "uatom"
 	)
+	require.NoError(t, err)
 	response := types.QueryERC20ToDenomResponse{
 		Denom:            denom,
 		CosmosOriginated: true,
 	}
 	input := CreateTestEnv(t)
 	ctx := input.Context
-	input.GravityKeeper.setCosmosOriginatedDenomToERC20(ctx, denom, erc20)
+	input.GravityKeeper.setCosmosOriginatedDenomToERC20(ctx, denom, *erc20)
 
-	queriedDenom, err := queryERC20ToDenom(ctx, erc20, input.GravityKeeper)
+	queriedDenom, err := queryERC20ToDenom(ctx, erc20.GetAddress(), input.GravityKeeper)
 	require.NoError(t, err)
 	correctBytes, err := codec.MarshalJSONIndent(types.ModuleCdc, response)
 	require.NoError(t, err)
@@ -906,16 +933,17 @@ func TestQueryERC20ToDenom(t *testing.T) {
 //nolint: exhaustivestruct
 func TestQueryDenomToERC20(t *testing.T) {
 	var (
-		erc20 = "0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255"
-		denom = "uatom"
+		erc20, err = types.NewEthAddress("0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255")
+		denom      = "uatom"
 	)
+	require.NoError(t, err)
 	response := types.QueryDenomToERC20Response{
-		Erc20:            erc20,
+		Erc20:            erc20.GetAddress(),
 		CosmosOriginated: true,
 	}
 	input := CreateTestEnv(t)
 	ctx := input.Context
-	input.GravityKeeper.setCosmosOriginatedDenomToERC20(ctx, denom, erc20)
+	input.GravityKeeper.setCosmosOriginatedDenomToERC20(ctx, denom, *erc20)
 
 	queriedERC20, err := queryDenomToERC20(ctx, denom, input.GravityKeeper)
 	require.NoError(t, err)
@@ -935,10 +963,14 @@ func TestQueryPendingSendToEth(t *testing.T) {
 		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
-		allVouchers         = sdk.NewCoins(
-			types.NewERC20Token(99999, myTokenContractAddr).GravityCoin(),
-		)
+		token, err          = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
+		allVouchers         = sdk.NewCoins(token.GravityCoin())
 	)
+	require.NoError(t, err)
+	receiver, err := types.NewEthAddress(myReceiver)
+	require.NoError(t, err)
+	tokenContract, err := types.NewEthAddress(myTokenContractAddr)
+	require.NoError(t, err)
 
 	// mint some voucher first
 	require.NoError(t, input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers))
@@ -951,9 +983,13 @@ func TestQueryPendingSendToEth(t *testing.T) {
 
 	// add some TX to the pool
 	for i, v := range []uint64{2, 3, 2, 1} {
-		amount := types.NewERC20Token(uint64(i+100), myTokenContractAddr).GravityCoin()
-		fee := types.NewERC20Token(v, myTokenContractAddr).GravityCoin()
-		_, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, myReceiver, amount, fee)
+		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
+		require.NoError(t, err)
+		amount := amountToken.GravityCoin()
+		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
+		require.NoError(t, err)
+		fee := feeToken.GravityCoin()
+		_, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
 		// Should create:
 		// 1: amount 100, fee 2
@@ -967,7 +1003,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 
 	// tx batch size is 2, so that some of them stay behind
 	// Should contain 2 and 3 from above
-	_, err := input.GravityKeeper.BuildOutgoingTXBatch(ctx, myTokenContractAddr, 2)
+	_, err = input.GravityKeeper.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
 	require.NoError(t, err)
 
 	// Should receive 1 and 4 unbatched, 2 and 3 batched in response

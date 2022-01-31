@@ -41,7 +41,7 @@ pub async fn deploy_erc20(
             )?,
             0u32.into(),
             sender_address,
-            sender_secret,
+            &sender_secret,
             options,
         )
         .await?;

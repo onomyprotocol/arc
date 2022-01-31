@@ -40,12 +40,11 @@ async function runTest(opts: {
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
   let validators = signers.slice(0, powers.length);
-  const powerThreshold = 6666;
   const {
     gravity,
     testERC20,
     checkpoint: deployCheckpoint
-  } = await deployContracts(gravityId,  powerThreshold, validators, powers);
+  } = await deployContracts(gravityId, validators, powers);
 
   // First we deploy the logic batch middleware contract. This makes it easy to call a logic 
   // contract a bunch of times in a batch.
@@ -153,7 +152,7 @@ async function runTest(opts: {
   ));
 
   const sigs = await signHash(validators, digest);
-  
+
   let currentValsetNonce = 0;
   if (opts.nonMatchingCurrentValset) {
     // Wrong nonce
@@ -165,40 +164,40 @@ async function runTest(opts: {
   }
   if (opts.badValidatorSig) {
     // Switch the first sig for the second sig to screw things up
-    sigs.v[1] = sigs.v[0];
-    sigs.r[1] = sigs.r[0];
-    sigs.s[1] = sigs.s[0];
+    sigs[1].v = sigs[0].v;
+    sigs[1].r = sigs[0].r;
+    sigs[1].s = sigs[0].s;
   }
   if (opts.zeroedValidatorSig) {
     // Switch the first sig for the second sig to screw things up
-    sigs.v[1] = sigs.v[0];
-    sigs.r[1] = sigs.r[0];
-    sigs.s[1] = sigs.s[0];
+    sigs[1].v = sigs[0].v;
+    sigs[1].r = sigs[0].r;
+    sigs[1].s = sigs[0].s;
     // Then zero it out to skip evaluation
-    sigs.v[1] = 0;
+    sigs[1].v = 0;
   }
   if (opts.notEnoughPower) {
     // zero out enough signatures that we dip below the threshold
-    sigs.v[1] = 0;
-    sigs.v[2] = 0;
-    sigs.v[3] = 0;
-    sigs.v[5] = 0;
-    sigs.v[6] = 0;
-    sigs.v[7] = 0;
-    sigs.v[9] = 0;
-    sigs.v[11] = 0;
-    sigs.v[13] = 0;
+    sigs[1].v = 0;
+    sigs[2].v = 0;
+    sigs[3].v = 0;
+    sigs[5].v = 0;
+    sigs[6].v = 0;
+    sigs[7].v = 0;
+    sigs[9].v = 0;
+    sigs[11].v = 0;
+    sigs[13].v = 0;
   }
   if (opts.barelyEnoughPower) {
     // Stay just above the threshold
-    sigs.v[1] = 0;
-    sigs.v[2] = 0;
-    sigs.v[3] = 0;
-    sigs.v[5] = 0;
-    sigs.v[6] = 0;
-    sigs.v[7] = 0;
-    sigs.v[9] = 0;
-    sigs.v[11] = 0;
+    sigs[1].v = 0;
+    sigs[2].v = 0;
+    sigs[3].v = 0;
+    sigs[5].v = 0;
+    sigs[6].v = 0;
+    sigs[7].v = 0;
+    sigs[9].v = 0;
+    sigs[11].v = 0;
   }
 
   let valset = {
@@ -212,22 +211,20 @@ async function runTest(opts: {
   let logicCallSubmitResult = await gravity.submitLogicCall(
     valset,
 
-    sigs.v,
-    sigs.r,
-    sigs.s,
+    sigs,
     logicCallArgs
   );
 
 
-    // check that the relayer was paid
-    expect(
-      await (
-        await testERC20.functions.balanceOf(await logicCallSubmitResult.from)
-      )[0].toNumber()
-    ).to.equal(9010);
+  // check that the relayer was paid
+  expect(
+    await (
+      await testERC20.functions.balanceOf(await logicCallSubmitResult.from)
+    )[0].toNumber()
+  ).to.equal(9010);
 
   expect(
-      (await testERC20.functions.balanceOf(await signers[20].getAddress()))[0].toNumber()
+    (await testERC20.functions.balanceOf(await signers[20].getAddress()))[0].toNumber()
   ).to.equal(40);
 
   expect(
@@ -235,9 +232,9 @@ async function runTest(opts: {
   ).to.equal(940);
 
   expect(
-      (await testERC20.functions.balanceOf(logicContract.address))[0].toNumber()
+    (await testERC20.functions.balanceOf(logicContract.address))[0].toNumber()
   ).to.equal(10);
-  
+
   expect(
     (await testERC20.functions.balanceOf(await signers[0].getAddress()))[0].toNumber()
   ).to.equal(9010);
@@ -246,13 +243,13 @@ async function runTest(opts: {
 describe("submitLogicCall tests", function () {
   it("throws on malformed current valset", async function () {
     await expect(runTest({ malformedCurrentValset: true })).to.be.revertedWith(
-      "Malformed current validator set"
+      "MalformedCurrentValidatorSet()"
     );
   });
 
   it("throws on invalidation nonce not incremented", async function () {
     await expect(runTest({ invalidationNonceNotHigher: true })).to.be.revertedWith(
-      "New invalidation nonce must be greater than the current nonce"
+      "InvalidLogicCallNonce(0, 0)"
     );
   });
 
@@ -260,14 +257,14 @@ describe("submitLogicCall tests", function () {
     await expect(
       runTest({ nonMatchingCurrentValset: true })
     ).to.be.revertedWith(
-      "Supplied current validators and powers do not match checkpoint"
+      "IncorrectCheckpoint()"
     );
   });
 
 
   it("throws on bad validator sig", async function () {
     await expect(runTest({ badValidatorSig: true })).to.be.revertedWith(
-      "Validator signature does not match"
+      "InvalidSignature()"
     );
   });
 
@@ -277,7 +274,7 @@ describe("submitLogicCall tests", function () {
 
   it("throws on not enough signatures", async function () {
     await expect(runTest({ notEnoughPower: true })).to.be.revertedWith(
-      "Submitted validator set signatures do not have enough power"
+      "InsufficientPower(2807621889, 2863311530)"
     );
   });
 
@@ -287,7 +284,7 @@ describe("submitLogicCall tests", function () {
 
   it("throws on timeout", async function () {
     await expect(runTest({ timedOut: true })).to.be.revertedWith(
-      "Timed out"
+      "LogicCallTimedOut()"
     );
   });
 
@@ -303,14 +300,13 @@ describe("logicCall Go test hash", function () {
     // ========================
     const signers = await ethers.getSigners();
     const gravityId = ethers.utils.formatBytes32String("foo");
-    const powers = [6667];
+    const powers = [2934678416];
     const validators = signers.slice(0, powers.length);
-    const powerThreshold = 6666;
     const {
       gravity,
       testERC20,
       checkpoint: deployCheckpoint
-    } = await deployContracts(gravityId, powerThreshold, validators, powers);
+    } = await deployContracts(gravityId, validators, powers);
 
 
 
@@ -327,56 +323,56 @@ describe("logicCall Go test hash", function () {
 
     // Call method
     // ===========
-  const methodName = ethers.utils.formatBytes32String(
-    "logicCall"
-  );
-  const numTxs = 10;
+    const methodName = ethers.utils.formatBytes32String(
+      "logicCall"
+    );
+    const numTxs = 10;
 
-  let invalidationNonce = 1
+    let invalidationNonce = 1
 
-  let timeOut = 4766922941000
+    let timeOut = 4766922941000
 
-  let logicCallArgs = {
-    transferAmounts: [1], // transferAmounts
-    transferTokenContracts: [testERC20.address], // transferTokenContracts
-    feeAmounts: [1], // feeAmounts
-    feeTokenContracts: [testERC20.address], // feeTokenContracts
-    logicContractAddress: "0x17c1736CcF692F653c433d7aa2aB45148C016F68", // logicContractAddress
-    payload: ethers.utils.formatBytes32String("testingPayload"), // payloads
-    timeOut,
-    invalidationId: ethers.utils.formatBytes32String("invalidationId"), // invalidationId
-    invalidationNonce: invalidationNonce // invalidationNonce
-  }
+    let logicCallArgs = {
+      transferAmounts: [1], // transferAmounts
+      transferTokenContracts: [testERC20.address], // transferTokenContracts
+      feeAmounts: [1], // feeAmounts
+      feeTokenContracts: [testERC20.address], // feeTokenContracts
+      logicContractAddress: "0x17c1736CcF692F653c433d7aa2aB45148C016F68", // logicContractAddress
+      payload: ethers.utils.formatBytes32String("testingPayload"), // payloads
+      timeOut,
+      invalidationId: ethers.utils.formatBytes32String("invalidationId"), // invalidationId
+      invalidationNonce: invalidationNonce // invalidationNonce
+    }
 
 
-  const abiEncodedLogicCall = ethers.utils.defaultAbiCoder.encode(
-    [
-      "bytes32", // gravityId
-      "bytes32", // methodName
-      "uint256[]", // transferAmounts
-      "address[]", // transferTokenContracts
-      "uint256[]", // feeAmounts
-      "address[]", // feeTokenContracts
-      "address", // logicContractAddress
-      "bytes", // payload
-      "uint256", // timeOut
-      "bytes32", // invalidationId
-      "uint256" // invalidationNonce
-    ],
-    [
-      gravityId,
-      methodName,
-      logicCallArgs.transferAmounts,
-      logicCallArgs.transferTokenContracts,
-      logicCallArgs.feeAmounts,
-      logicCallArgs.feeTokenContracts,
-      logicCallArgs.logicContractAddress,
-      logicCallArgs.payload,
-      logicCallArgs.timeOut,
-      logicCallArgs.invalidationId,
-      logicCallArgs.invalidationNonce
-    ]
-  );
+    const abiEncodedLogicCall = ethers.utils.defaultAbiCoder.encode(
+      [
+        "bytes32", // gravityId
+        "bytes32", // methodName
+        "uint256[]", // transferAmounts
+        "address[]", // transferTokenContracts
+        "uint256[]", // feeAmounts
+        "address[]", // feeTokenContracts
+        "address", // logicContractAddress
+        "bytes", // payload
+        "uint256", // timeOut
+        "bytes32", // invalidationId
+        "uint256" // invalidationNonce
+      ],
+      [
+        gravityId,
+        methodName,
+        logicCallArgs.transferAmounts,
+        logicCallArgs.transferTokenContracts,
+        logicCallArgs.feeAmounts,
+        logicCallArgs.feeTokenContracts,
+        logicCallArgs.logicContractAddress,
+        logicCallArgs.payload,
+        logicCallArgs.timeOut,
+        logicCallArgs.invalidationId,
+        logicCallArgs.invalidationNonce
+      ]
+    );
     const logicCallDigest = ethers.utils.keccak256(abiEncodedLogicCall);
 
 
@@ -398,9 +394,7 @@ describe("logicCall Go test hash", function () {
     var res = await gravity.populateTransaction.submitLogicCall(
       valset,
 
-      sigs.v,
-      sigs.r,
-      sigs.s,
+      sigs,
 
       logicCallArgs
     )
@@ -429,4 +423,5 @@ describe("logicCall Go test hash", function () {
     })
     console.log("Function call bytes:", res.data)
 
-})});
+  })
+});

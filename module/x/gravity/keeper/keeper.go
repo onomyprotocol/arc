@@ -6,6 +6,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/tendermint/tendermint/libs/log"
@@ -30,7 +31,7 @@ type Keeper struct {
 }
 
 // NewKeeper returns a new instance of the gravity keeper
-func NewKeeper(cdc codec.BinaryMarshaler, storeKey sdk.StoreKey, paramSpace paramtypes.Subspace, stakingKeeper types.StakingKeeper, bankKeeper types.BankKeeper, slashingKeeper types.SlashingKeeper) Keeper {
+func NewKeeper(cdc codec.BinaryMarshaler, storeKey sdk.StoreKey, paramSpace paramtypes.Subspace, stakingKeeper types.StakingKeeper, bankKeeper types.BankKeeper, distKeeper types.DistributionKeeper, slashingKeeper types.SlashingKeeper) Keeper {
 	// set KeyTable if it has not already been set
 	if !paramSpace.HasKeyTable() {
 		paramSpace = paramSpace.WithKeyTable(types.ParamKeyTable())
@@ -48,6 +49,7 @@ func NewKeeper(cdc codec.BinaryMarshaler, storeKey sdk.StoreKey, paramSpace para
 	k.AttestationHandler = AttestationHandler{
 		keeper:     k,
 		bankKeeper: bankKeeper,
+		distKeeper: distKeeper,
 	}
 
 	return k
@@ -69,10 +71,14 @@ func (k Keeper) SetParams(ctx sdk.Context, ps types.Params) {
 }
 
 // GetBridgeContractAddress returns the bridge contract address on ETH
-func (k Keeper) GetBridgeContractAddress(ctx sdk.Context) string {
+func (k Keeper) GetBridgeContractAddress(ctx sdk.Context) *types.EthAddress {
 	var a string
 	k.paramSpace.Get(ctx, types.ParamsStoreKeyBridgeContractAddress, &a)
-	return a
+	addr, err := types.NewEthAddress(a)
+	if err != nil {
+		panic(sdkerrors.Wrapf(err, "found invalid bridge contract address in store: %v", a))
+	}
+	return addr
 }
 
 // GetBridgeChainID returns the chain id of the ETH chain we are running against
@@ -152,9 +158,12 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddr
 		// of the actual key
 		key := iter.Key()[len(types.EthAddressByValidatorKey):]
 		value := iter.Value()
-		ethAddress := string(value)
+		ethAddress, err := types.NewEthAddress(string(value))
+		if err != nil {
+			panic(sdkerrors.Wrapf(err, "found invalid ethAddress %v under key %v", string(value), key))
+		}
 		valAddress := sdk.ValAddress(key)
-		ethAddresses[valAddress.String()] = ethAddress
+		ethAddresses[valAddress.String()] = ethAddress.GetAddress()
 	}
 
 	store = ctx.KVStore(k.storeKey)
@@ -199,6 +208,26 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddr
 	return result
 }
 
+func (k Keeper) GetResetBridgeState(ctx sdk.Context) bool {
+	var state bool
+	k.paramSpace.Get(ctx, types.ParamStoreResetBridgeState, &state)
+	return state
+}
+
+func (k Keeper) GetResetBridgeNonce(ctx sdk.Context) uint64 {
+	var nonce uint64
+	k.paramSpace.Get(ctx, types.ParamStoreResetBridgeNonce, &nonce)
+	return nonce
+}
+
+func (k Keeper) SetResetBridgeState(ctx sdk.Context, state bool) {
+	k.paramSpace.Set(ctx, types.ParamStoreResetBridgeState, state)
+}
+
+func (k Keeper) SetResetBridgeNonce(ctx sdk.Context, nonce uint64) {
+	k.paramSpace.Set(ctx, types.ParamStoreResetBridgeNonce, nonce)
+}
+
 /////////////////////////////
 //   Logic Call Slashing   //
 /////////////////////////////
@@ -206,13 +235,13 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddr
 // SetLastSlashedLogicCallBlock sets the latest slashed logic call block height
 func (k Keeper) SetLastSlashedLogicCallBlock(ctx sdk.Context, blockHeight uint64) {
 	store := ctx.KVStore(k.storeKey)
-	store.Set(types.LastSlashedLogicCallBlock, types.UInt64Bytes(blockHeight))
+	store.Set([]byte(types.LastSlashedLogicCallBlock), types.UInt64Bytes(blockHeight))
 }
 
 // GetLastSlashedLogicCallBlock returns the latest slashed logic call block
 func (k Keeper) GetLastSlashedLogicCallBlock(ctx sdk.Context) uint64 {
 	store := ctx.KVStore(k.storeKey)
-	bytes := store.Get(types.LastSlashedLogicCallBlock)
+	bytes := store.Get([]byte(types.LastSlashedLogicCallBlock))
 
 	if len(bytes) == 0 {
 		return 0

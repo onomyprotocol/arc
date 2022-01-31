@@ -63,11 +63,9 @@ async function prep() {
   let powers = examplePowers();
   let validators = signers.slice(0, powers.length);
 
-  const powerThreshold = 6666;
 
   const { gravity, testERC20 } = await deployContracts(
     gravityId,
-    powerThreshold,
     validators,
     powers
   );
@@ -164,9 +162,7 @@ async function runSubmitBatchTest(opts: { batchSize: number }) {
   await gravity.submitBatch(
     valset,
 
-    sigs.v,
-    sigs.r,
-    sigs.s,
+    sigs,
 
     txBatch.amounts,
     txBatch.destinations,
@@ -312,9 +308,7 @@ async function runLogicCallTest(opts: {
   await gravity.submitLogicCall(
     valset,
 
-    sigs.v,
-    sigs.r,
-    sigs.s,
+    sigs,
     logicCallArgs
   );
 

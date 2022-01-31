@@ -1,4 +1,5 @@
-pragma solidity ^0.6.6;
+//SPDX-License-Identifier: Apache-2.0
+pragma solidity 0.8.9;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Gravity.sol";
 
@@ -8,14 +9,13 @@ pragma experimental ABIEncoderV2;
 contract ReentrantERC20 {
 	address state_gravityAddress;
 
-	constructor(address _gravityAddress) public {
+	constructor(address _gravityAddress) {
 		state_gravityAddress = _gravityAddress;
 	}
 
-	function transfer(address _recipient, uint256 _amount) public returns (bool) {
-		// _currentValidators, _currentPowers, _currentValsetNonce, _v, _r, _s, _args);(
+	function transfer(address, uint256) public returns (bool) {
 		address[] memory addresses = new address[](0);
-		bytes32[] memory bytes32s = new bytes32[](0);
+		Signature[] memory sigs = new Signature[](0);
 		uint256[] memory uint256s = new uint256[](0);
 		address blankAddress = address(0);
 		bytes memory bytess = new bytes(0);
@@ -41,12 +41,7 @@ contract ReentrantERC20 {
 			valset = ValsetArgs(addresses, uint256s, zero, zero, blankAddress);
 		}
 
-		Gravity(state_gravityAddress).submitLogicCall(
-			valset,
-			new uint8[](0),
-			bytes32s,
-			bytes32s,
-			args
-		);
+		Gravity(state_gravityAddress).submitLogicCall(valset, sigs, args);
+		return true;
 	}
 }

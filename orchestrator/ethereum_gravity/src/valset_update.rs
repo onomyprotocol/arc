@@ -46,7 +46,7 @@ pub async fn send_eth_valset_update(
             payload,
             0u32.into(),
             eth_address,
-            our_eth_key,
+            &our_eth_key,
             vec![SendTxOption::GasPriceMultiplier(1.10f32)],
         )
         .await?;
@@ -142,17 +142,9 @@ pub fn encode_valset_update_payload(
     // address _currentRewardToken,
     //
     // // These are arrays of the parts of the current validator's signatures
-    // uint8[] memory _v,
-    // bytes32[] memory _r,
-    // bytes32[] memory _s
-    let tokens = &[
-        new_valset_token,
-        old_valset_token,
-        sig_arrays.v,
-        sig_arrays.r,
-        sig_arrays.s,
-    ];
-    let payload = clarity::abi::encode_call("updateValset((address[],uint256[],uint256,uint256,address),(address[],uint256[],uint256,uint256,address),uint8[],bytes32[],bytes32[])",
+    // Signature[] _sigs,
+    let tokens = &[new_valset_token, old_valset_token, sig_arrays.sigs];
+    let payload = clarity::abi::encode_call("updateValset((address[],uint256[],uint256,uint256,address),(address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[])",
     tokens).unwrap();
 
     Ok(payload)

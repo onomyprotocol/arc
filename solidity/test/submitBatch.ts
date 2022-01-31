@@ -36,12 +36,11 @@ async function runTest(opts: {
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
   let validators = signers.slice(0, powers.length);
-  const powerThreshold = 6666;
   const {
     gravity,
     testERC20,
     checkpoint: deployCheckpoint,
-  } = await deployContracts(gravityId, powerThreshold, validators, powers);
+  } = await deployContracts(gravityId, validators, powers);
 
   // Transfer out to Cosmos, locking coins
   // =====================================
@@ -117,40 +116,40 @@ async function runTest(opts: {
   }
   if (opts.badValidatorSig) {
     // Switch the first sig for the second sig to screw things up
-    sigs.v[1] = sigs.v[0];
-    sigs.r[1] = sigs.r[0];
-    sigs.s[1] = sigs.s[0];
+    sigs[1].v = sigs[0].v;
+    sigs[1].r = sigs[0].r;
+    sigs[1].s = sigs[0].s;
   }
   if (opts.zeroedValidatorSig) {
     // Switch the first sig for the second sig to screw things up
-    sigs.v[1] = sigs.v[0];
-    sigs.r[1] = sigs.r[0];
-    sigs.s[1] = sigs.s[0];
+    sigs[1].v = sigs[0].v;
+    sigs[1].r = sigs[0].r;
+    sigs[1].s = sigs[0].s;
     // Then zero it out to skip evaluation
-    sigs.v[1] = 0;
+    sigs[1].v = 0;
   }
   if (opts.notEnoughPower) {
     // zero out enough signatures that we dip below the threshold
-    sigs.v[1] = 0;
-    sigs.v[2] = 0;
-    sigs.v[3] = 0;
-    sigs.v[5] = 0;
-    sigs.v[6] = 0;
-    sigs.v[7] = 0;
-    sigs.v[9] = 0;
-    sigs.v[11] = 0;
-    sigs.v[13] = 0;
+    sigs[1].v = 0;
+    sigs[2].v = 0;
+    sigs[3].v = 0;
+    sigs[5].v = 0;
+    sigs[6].v = 0;
+    sigs[7].v = 0;
+    sigs[9].v = 0;
+    sigs[11].v = 0;
+    sigs[13].v = 0;
   }
   if (opts.barelyEnoughPower) {
     // Stay just above the threshold
-    sigs.v[1] = 0;
-    sigs.v[2] = 0;
-    sigs.v[3] = 0;
-    sigs.v[5] = 0;
-    sigs.v[6] = 0;
-    sigs.v[7] = 0;
-    sigs.v[9] = 0;
-    sigs.v[11] = 0;
+    sigs[1].v = 0;
+    sigs[2].v = 0;
+    sigs[3].v = 0;
+    sigs[5].v = 0;
+    sigs[6].v = 0;
+    sigs[7].v = 0;
+    sigs[9].v = 0;
+    sigs[11].v = 0;
   }
 
   let valset = {
@@ -164,9 +163,7 @@ async function runTest(opts: {
   let batchSubmitTx = await gravity.submitBatch(
     valset,
 
-    sigs.v,
-    sigs.r,
-    sigs.s,
+    sigs,
 
     txAmounts,
     txDestinations,
@@ -180,25 +177,25 @@ async function runTest(opts: {
 describe("submitBatch tests", function () {
   it("throws on malformed current valset", async function () {
     await expect(runTest({ malformedCurrentValset: true })).to.be.revertedWith(
-      "Malformed current validator set"
+      "MalformedCurrentValidatorSet()"
     );
   });
 
   it("throws on malformed txbatch", async function () {
     await expect(runTest({ malformedTxBatch: true })).to.be.revertedWith(
-      "Malformed batch of transactions"
+      "MalformedBatch()"
     );
   });
 
   it("throws on batch nonce not incremented", async function () {
     await expect(runTest({ batchNonceNotHigher: true })).to.be.revertedWith(
-      "New batch nonce must be greater than the current nonce"
+      "InvalidBatchNonce(0, 0)"
     );
   });
 
   it("throws on timeout batch", async function () {
     await expect(runTest({ batchTimeout: true })).to.be.revertedWith(
-      "Batch timeout must be greater than the current block height"
+      "BatchTimedOut()"
     );
   });
 
@@ -206,13 +203,13 @@ describe("submitBatch tests", function () {
     await expect(
       runTest({ nonMatchingCurrentValset: true })
     ).to.be.revertedWith(
-      "Supplied current validators and powers do not match checkpoint"
+      "IncorrectCheckpoint()"
     );
   });
 
   it("throws on bad validator sig", async function () {
     await expect(runTest({ badValidatorSig: true })).to.be.revertedWith(
-      "Validator signature does not match"
+      "InvalidSignature()"
     );
   });
 
@@ -222,7 +219,7 @@ describe("submitBatch tests", function () {
 
   it("throws on not enough signatures", async function () {
     await expect(runTest({ notEnoughPower: true })).to.be.revertedWith(
-      "Submitted validator set signatures do not have enough power"
+      "InsufficientPower(2807621889, 2863311530)"
     );
   });
 
@@ -239,14 +236,13 @@ describe("submitBatch Go test hash", function () {
     // ========================
     const signers = await ethers.getSigners();
     const gravityId = ethers.utils.formatBytes32String("foo");
-    const powers = [6667];
+    const powers = [2934678416];
     const validators = signers.slice(0, powers.length);
-    const powerThreshold = 6666;
     const {
       gravity,
       testERC20,
       checkpoint: deployCheckpoint,
-    } = await deployContracts(gravityId, powerThreshold, validators, powers);
+    } = await deployContracts(gravityId, validators, powers);
 
     // Prepare batch
     // ===============================
@@ -321,9 +317,7 @@ describe("submitBatch Go test hash", function () {
     await gravity.submitBatch(
       valset,
 
-      sigs.v,
-      sigs.r,
-      sigs.s,
+      sigs,
 
       txAmounts,
       txDestinations,

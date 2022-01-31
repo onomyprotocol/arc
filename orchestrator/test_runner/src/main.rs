@@ -7,10 +7,10 @@
 extern crate log;
 
 use crate::bootstrapping::*;
+use crate::invalid_events::invalid_events;
 use crate::tx_cancel::send_to_eth_and_cancel;
 use crate::utils::*;
 use crate::valset_rewards::valset_rewards_test;
-use arbitrary_logic::arbitrary_logic_test;
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::{Address as EthAddress, Uint256};
 use cosmos_gravity::utils::wait_for_cosmos_online;
@@ -26,17 +26,19 @@ use orch_keys::orch_keys;
 use relay_market::relay_market_test;
 use std::{env, time::Duration};
 use transaction_stress_test::transaction_stress_test;
+use unhalt_bridge::unhalt_bridge_test;
 use valset_stress::validator_set_stress_test;
 
-mod arbitrary_logic;
 mod bootstrapping;
 mod evidence_based_slashing;
 mod happy_path;
 mod happy_path_v2;
+mod invalid_events;
 mod orch_keys;
 mod relay_market;
 mod transaction_stress_test;
 mod tx_cancel;
+mod unhalt_bridge;
 mod utils;
 mod valset_rewards;
 mod valset_stress;
@@ -213,10 +215,6 @@ pub async fn main() {
             info!("Starting happy path for Gravity v2");
             happy_path_test_v2(&web30, grpc_client, &contact, keys, gravity_address, false).await;
             return;
-        } else if test_type == "ARBITRARY_LOGIC" {
-            info!("Starting arbitrary logic tests!");
-            arbitrary_logic_test(&web30, grpc_client, &contact, keys, gravity_address).await;
-            return;
         } else if test_type == "RELAY_MARKET" {
             info!("Starting relay market tests!");
             relay_market_test(&web30, grpc_client, &contact, keys, gravity_address).await;
@@ -238,6 +236,31 @@ pub async fn main() {
                 keys,
                 gravity_address,
                 erc20_addresses[0],
+            )
+            .await;
+            return;
+        } else if test_type == "INVALID_EVENTS" {
+            info!("Invalid events test!");
+            invalid_events(
+                &web30,
+                &contact,
+                keys,
+                gravity_address,
+                erc20_addresses[0],
+                grpc_client,
+            )
+            .await;
+            return;
+        } else if test_type == "UNHALT_BRIDGE" {
+            info!("Starting unhalt bridge tests");
+            unhalt_bridge_test(
+                &web30,
+                grpc_client,
+                &contact,
+                keys,
+                gravity_address,
+                erc20_addresses[0],
+                false,
             )
             .await;
             return;

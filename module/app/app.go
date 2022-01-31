@@ -382,6 +382,7 @@ func NewGravityApp(
 		app.GetSubspace(gravitytypes.ModuleName),
 		stakingKeeper,
 		app.bankKeeper,
+		app.distrKeeper,
 		app.slashingKeeper,
 	)
 

@@ -20,6 +20,11 @@ use tonic::transport::Channel;
 use web30::client::Web3;
 use web30::jsonrpc::error::Web3Error;
 
+pub struct CheckedNonces {
+    pub block_number: Uint256,
+    pub event_nonce: Uint256,
+}
+
 pub async fn check_for_events(
     web3: &Web3,
     contact: &Contact,
@@ -28,7 +33,7 @@ pub async fn check_for_events(
     our_private_key: CosmosPrivateKey,
     fee: Coin,
     starting_block: Uint256,
-) -> Result<Uint256, GravityError> {
+) -> Result<CheckedNonces, GravityError> {
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
     let latest_block = get_block_number_with_retry(web3).await;
     let latest_block = latest_block - get_block_delay(web3).await;
@@ -129,8 +134,8 @@ pub async fn check_for_events(
         }
         if !deposits.is_empty() {
             info!(
-                "Oracle observed deposit with sender {}, destination {}, amount {}, and event nonce {}",
-                deposits[0].sender, deposits[0].destination.to_bech32(contact.get_prefix()).unwrap(), deposits[0].amount, deposits[0].event_nonce
+                "Oracle observed deposit with sender {}, destination {:?}, amount {}, and event nonce {}",
+                deposits[0].sender, deposits[0].validated_destination, deposits[0].amount, deposits[0].event_nonce
             )
         }
         if !withdraws.is_empty() {
@@ -140,10 +145,18 @@ pub async fn check_for_events(
             )
         }
         if !erc20_deploys.is_empty() {
-            info!(
+            let v = erc20_deploys[0].clone();
+            if v.cosmos_denom.len() < 1000 && v.name.len() < 1000 && v.symbol.len() < 1000 {
+                info!(
                 "Oracle observed ERC20 deployment with denom {} erc20 name {} and symbol {} and event nonce {}",
                 erc20_deploys[0].cosmos_denom, erc20_deploys[0].name, erc20_deploys[0].symbol, erc20_deploys[0].event_nonce,
-            )
+                );
+            } else {
+                info!(
+                    "Oracle observed ERC20 deployment with  event nonce {}",
+                    erc20_deploys[0].event_nonce,
+                );
+            }
         }
         if !logic_calls.is_empty() {
             info!(
@@ -154,6 +167,7 @@ pub async fn check_for_events(
             )
         }
 
+        let new_event_nonce: Uint256 = last_event_nonce.into();
         if !deposits.is_empty()
             || !withdraws.is_empty()
             || !erc20_deploys.is_empty()
@@ -191,7 +205,10 @@ pub async fn check_for_events(
                 info!("Claims processed, new nonce {}", new_event_nonce);
             }
         }
-        Ok(latest_block)
+        Ok(CheckedNonces {
+            block_number: latest_block,
+            event_nonce: new_event_nonce,
+        })
     } else {
         error!("Failed to get events");
         Err(GravityError::RpcError(Box::new(Web3Error::BadResponse(

@@ -26,12 +26,11 @@ async function runTest(opts: {}) {
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
   let validators = signers.slice(0, powers.length);
-  const powerThreshold = 6666;
   const {
     gravity,
     testERC20,
     checkpoint: deployCheckpoint
-  } = await deployContracts(gravityId, powerThreshold, validators, powers);
+  } = await deployContracts(gravityId, validators, powers);
 
 
 
@@ -126,9 +125,7 @@ async function runTest(opts: {}) {
   await gravity.submitBatch(
     valset,
 
-    sigs.v,
-    sigs.r,
-    sigs.s,
+    sigs,
 
     txAmounts,
     txDestinations,

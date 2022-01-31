@@ -64,7 +64,7 @@ func (k Keeper) checkBadSignatureEvidenceInternal(ctx sdk.Context, subject types
 	}
 
 	// Find the offending validator by eth address
-	val, found := k.GetValidatorByEthAddress(ctx, ethAddress)
+	val, found := k.GetValidatorByEthAddress(ctx, *ethAddress)
 	if !found {
 		return sdkerrors.Wrap(types.ErrInvalid, fmt.Sprintf("Did not find validator for eth address %s from signature %s with checkpoint %s and GravityID %s", ethAddress, signature, hex.EncodeToString(checkpoint), gravityID))
 	}
@@ -88,13 +88,13 @@ func (k Keeper) checkBadSignatureEvidenceInternal(ctx sdk.Context, subject types
 // in order to prove later that it existed at one point.
 func (k Keeper) SetPastEthSignatureCheckpoint(ctx sdk.Context, checkpoint []byte) {
 	store := ctx.KVStore(k.storeKey)
-	store.Set(types.GetPastEthSignatureCheckpointKey(checkpoint), []byte{0x1})
+	store.Set([]byte(types.GetPastEthSignatureCheckpointKey(checkpoint)), []byte{0x1})
 }
 
 // GetPastEthSignatureCheckpoint tells you whether a given checkpoint has ever existed
 func (k Keeper) GetPastEthSignatureCheckpoint(ctx sdk.Context, checkpoint []byte) (found bool) {
 	store := ctx.KVStore(k.storeKey)
-	if bytes.Equal(store.Get(types.GetPastEthSignatureCheckpointKey(checkpoint)), []byte{0x1}) {
+	if bytes.Equal(store.Get([]byte(types.GetPastEthSignatureCheckpointKey(checkpoint))), []byte{0x1}) {
 		return true
 	} else {
 		return false
