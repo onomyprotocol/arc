@@ -17,7 +17,7 @@ func TestAddToOutgoingPool(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 	)
@@ -34,7 +34,7 @@ func TestAddToOutgoingPool(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SetBalances(ctx, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
 	require.NoError(t, err)
 
 	// when
@@ -105,7 +105,7 @@ func TestAddToOutgoingPoolEdgeCases(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 	)
@@ -132,7 +132,7 @@ func TestAddToOutgoingPoolEdgeCases(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SetBalances(ctx, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
 	require.NoError(t, err)
 
 	//////// Insufficient Balance from Amount ////////
@@ -165,7 +165,7 @@ func TestAddToOutgoingPoolEdgeCases(t *testing.T) {
 	mtSend := new(sdk.AccAddress)
 	var mtRecieve = types.ZeroAddress() // This address should not actually cause an issue
 	mtCoin := new(sdk.Coin)
-	r, err = input.GravityKeeper.AddToOutgoingPool(*mtCtx, *mtSend, *mtRecieve, *mtCoin, *mtCoin)
+	r, err = input.GravityKeeper.AddToOutgoingPool(*mtCtx, *mtSend, mtRecieve, *mtCoin, *mtCoin)
 	require.Error(t, err)
 	require.Zero(t, r)
 
@@ -185,7 +185,7 @@ func TestTotalBatchFeeInPool(t *testing.T) {
 
 	// token1
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 	)
@@ -200,7 +200,7 @@ func TestTotalBatchFeeInPool(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SetBalances(ctx, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
 	require.NoError(t, err)
 
 	// create outgoing pool
@@ -230,7 +230,7 @@ func TestTotalBatchFeeInPool(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SetBalances(ctx, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
 	require.NoError(t, err)
 
 	// Add
@@ -265,9 +265,9 @@ func TestGetBatchFeeByTokenType(t *testing.T) {
 
 	// token1
 	var (
-		mySender1, _                        = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
-		mySender2            sdk.AccAddress = []byte("cosmos1ahx7f8wyertus")
-		mySender3            sdk.AccAddress = []byte("cosmos1ahx7f8wyertut")
+		mySender1, _                        = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender2            sdk.AccAddress = []byte("gravity1ahx7f8wyertus")
+		mySender3            sdk.AccAddress = []byte("gravity1ahx7f8wyertut")
 		myReceiver                          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr1                = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 		myTokenContractAddr2                = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca6"
@@ -301,13 +301,13 @@ func TestGetBatchFeeByTokenType(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender1)
-	err = input.BankKeeper.SetBalances(ctx, mySender1, allVouchers1)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allVouchers1)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender2)
-	err = input.BankKeeper.SetBalances(ctx, mySender2, allVouchers2)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allVouchers2)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender3)
-	err = input.BankKeeper.SetBalances(ctx, mySender3, allVouchers3)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender3, allVouchers3)
 	require.NoError(t, err)
 
 	totalFee1 := int64(0)
@@ -375,7 +375,7 @@ func TestRemoveFromOutgoingPoolAndRefund(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 		myTokenDenom        = "gravity" + myTokenContractAddr
@@ -393,7 +393,7 @@ func TestRemoveFromOutgoingPoolAndRefund(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SetBalances(ctx, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
 	require.NoError(t, err)
 
 	// Create unbatched transactions
@@ -464,7 +464,7 @@ func TestRefundInconsistentTx(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
-		mySender, _            = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _            = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver, _          = types.NewEthAddress("0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7")
 		myTokenContractAddr, _ = types.NewEthAddress("0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5")
 	)
@@ -500,7 +500,7 @@ func TestRefundNonexistentTx(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
-		mySender, _ = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _ = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 	)
 
 	//////// Refund a tx which never existed ////////
@@ -515,7 +515,7 @@ func TestRefundTwice(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 	)
@@ -534,7 +534,7 @@ func TestRefundTwice(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SetBalances(ctx, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
 	require.NoError(t, err)
 
 	amountToken, err := types.NewInternalERC20Token(sdk.NewInt(100), myTokenContractAddr)
@@ -569,8 +569,8 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 
 	// token1
 	var (
-		mySender1, _                        = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
-		mySender2            sdk.AccAddress = []byte("cosmos1ahx7f8wyertus")
+		mySender1, _                        = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender2            sdk.AccAddress = []byte("gravity1ahx7f8wyertus")
 		myReceiver                          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr1                = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 		myTokenContractAddr2                = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca6"
@@ -596,10 +596,10 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender1)
-	err = input.BankKeeper.SetBalances(ctx, mySender1, allVouchers1)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allVouchers1)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender2)
-	err = input.BankKeeper.SetBalances(ctx, mySender2, allVouchers2)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allVouchers2)
 	require.NoError(t, err)
 
 	ids1 := make([]uint64, 4)
@@ -652,7 +652,7 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 	token1Id := ids1[0]
 	tx1, err1 := input.GravityKeeper.GetUnbatchedTxByFeeAndId(ctx, *token1Fee, token1Id)
 	require.NoError(t, err1)
-	expTx1, err1 := types.NewInternalOutgoingTransferTx(token1Id, mySender1.String(), myReceiver, *token1Amount.ToExternal(), *token1Fee.ToExternal())
+	expTx1, err1 := types.NewInternalOutgoingTransferTx(token1Id, mySender1.String(), myReceiver, token1Amount.ToExternal(), token1Fee.ToExternal())
 	require.NoError(t, err1)
 	require.Equal(t, *expTx1, *tx1)
 
@@ -664,7 +664,7 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 	token2Id := ids2[3]
 	tx2, err2 := input.GravityKeeper.GetUnbatchedTxByFeeAndId(ctx, *token2Fee, token2Id)
 	require.NoError(t, err2)
-	expTx2, err2 := types.NewInternalOutgoingTransferTx(token2Id, mySender2.String(), myReceiver, *token2Amount.ToExternal(), *token2Fee.ToExternal())
+	expTx2, err2 := types.NewInternalOutgoingTransferTx(token2Id, mySender2.String(), myReceiver, token2Amount.ToExternal(), token2Fee.ToExternal())
 	require.NoError(t, err2)
 	require.Equal(t, *expTx2, *tx2)
 
@@ -715,8 +715,8 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 
 	// token1
 	var (
-		mySender1, _                        = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
-		mySender2            sdk.AccAddress = []byte("cosmos1ahx7f8wyertus")
+		mySender1, _                        = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender2            sdk.AccAddress = []byte("gravity1ahx7f8wyertus")
 		myReceiver                          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr1                = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 		myTokenContractAddr2                = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca6"
@@ -742,10 +742,10 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender1)
-	err = input.BankKeeper.SetBalances(ctx, mySender1, allVouchers1)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allVouchers1)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender2)
-	err = input.BankKeeper.SetBalances(ctx, mySender2, allVouchers2)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allVouchers2)
 	require.NoError(t, err)
 
 	ids1 := make([]uint64, 4)
@@ -835,7 +835,7 @@ func TestAddToOutgoingPoolExportGenesis(t *testing.T) {
 	ctx := input.Context
 	k := input.GravityKeeper
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 	)
@@ -851,7 +851,7 @@ func TestAddToOutgoingPoolExportGenesis(t *testing.T) {
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SetBalances(ctx, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
 	require.NoError(t, err)
 
 	unbatchedTxMap := make(map[uint64]types.OutgoingTransferTx)
@@ -885,7 +885,7 @@ func TestAddToOutgoingPoolExportGenesis(t *testing.T) {
 	for _, tx := range got.UnbatchedTransfers {
 		cached := unbatchedTxMap[tx.Id]
 		require.NotNil(t, cached)
-		require.Equal(t, cached, *tx, "cached: %+v\nactual: %+v\n", cached, *tx)
+		require.Equal(t, cached, tx, "cached: %+v\nactual: %+v\n", cached, tx)
 		foundTxsMap[tx.Id] = true
 	}
 

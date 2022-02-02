@@ -1,19 +1,16 @@
 package gravity
 
 import (
-	"fmt"
-	"sort"
-
 	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/keeper"
 	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
 // EndBlocker is called at the end of every block
 func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 	params := k.GetParams(ctx)
-	unhaltBridge(ctx, k, params)
 	slashing(ctx, k)
 	attestationTally(ctx, k)
 	cleanupTimedOutBatches(ctx, k)
@@ -21,23 +18,6 @@ func EndBlocker(ctx sdk.Context, k keeper.Keeper) {
 	createValsets(ctx, k)
 	pruneValsets(ctx, k, params)
 	pruneAttestations(ctx, k)
-}
-
-// In the event the bridge is halted and governance has decided to reset oracle
-// history, we roll back oracle history and reset the parameters
-func unhaltBridge(ctx sdk.Context, k keeper.Keeper, params types.Params) {
-	if params.ResetBridgeState {
-		if params.ResetBridgeNonce == 0 {
-			ctx.Logger().Error("Attempted to reset the bridge to an invalid nonce", "nonce", params.ResetBridgeNonce)
-		} else {
-			ctx.Logger().Info("Gov vote passed: Resetting oracle history", "nonce", params.ResetBridgeNonce)
-			pruneAttestationsAfterNonce(ctx, k, uint64(params.ResetBridgeNonce))
-		}
-		// Reset the parameters now that the bridge is unhalted
-		reset := types.DefaultParams()
-		k.SetResetBridgeNonce(ctx, reset.ResetBridgeNonce)
-		k.SetResetBridgeState(ctx, reset.ResetBridgeState)
-	}
 }
 
 func createValsets(ctx sdk.Context, k keeper.Keeper) {
@@ -99,24 +79,22 @@ func slashing(ctx sdk.Context, k keeper.Keeper) {
 	params := k.GetParams(ctx)
 
 	// Slash validator for not confirming valset requests, batch requests, logic call requests
-	ValsetSlashing(ctx, k, params)
-	BatchSlashing(ctx, k, params)
-	LogicCallSlashing(ctx, k, params)
-
+	valsetSlashing(ctx, k, params)
+	batchSlashing(ctx, k, params)
+	logicCallSlashing(ctx, k, params)
 }
 
 // Iterate over all attestations currently being voted on in order of nonce and
 // "Observe" those who have passed the threshold. Break the loop once we see
 // an attestation that has not passed the threshold
 func attestationTally(ctx sdk.Context, k keeper.Keeper) {
-	attmap := k.GetAttestationMapping(ctx)
-	// We make a slice with all the event nonces that are in the attestation mapping
-	keys := make([]uint64, 0, len(attmap))
-	for k := range attmap {
-		keys = append(keys, k)
+	params := k.GetParams(ctx)
+	// bridge is currently disabled, do not process attestations from Ethereum
+	if !params.BridgeActive {
+		return
 	}
-	// Then we sort it
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+
+	attmap, keys := k.GetAttestationMapping(ctx)
 
 	// This iterates over all keys (event nonces) in the attestation mapping. Each value contains
 	// a slice with one or more attestations at that event nonce. There can be multiple attestations
@@ -187,7 +165,27 @@ func cleanupTimedOutLogicCalls(ctx sdk.Context, k keeper.Keeper) {
 	}
 }
 
-func ValsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
+// prepValsetConfirms loads all confirmations into a hashmap indexed by validatorAddr
+// reducing the lookup time dramatically and separating out the task of looking up
+// the orchestrator for each validator
+func prepValsetConfirms(ctx sdk.Context, k keeper.Keeper, nonce uint64) map[string]types.MsgValsetConfirm {
+	confirms := k.GetValsetConfirms(ctx, nonce)
+	// bytes are incomparable in go, so we convert the sdk.ValAddr bytes to a string
+	ret := make(map[string]types.MsgValsetConfirm)
+	for _, confirm := range confirms {
+		// TODO this presents problems for delegate key rotation see issue #344
+		confVal, _ := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
+		if !foundValidator {
+			panic("Confirm from validator we can't identify?")
+		}
+		ret[val.GetOperator().String()] = confirm
+	}
+	return ret
+}
+
+// valsetSlashing slashes validators who have not signed validator sets during the signing window
+func valsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 	// don't slash in the beginning before there aren't even SignedValsetsWindow blocks yet
 	if uint64(ctx.BlockHeight()) <= params.SignedValsetsWindow {
 		return
@@ -195,38 +193,38 @@ func ValsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 
 	unslashedValsets := k.GetUnSlashedValsets(ctx, params.SignedValsetsWindow)
 
-	// unslashedValsets are sorted by nonce in ASC order
-	// Question: do we need to sort each time? See if this can be epoched
+	currentBondedSet := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
+	unbondingValidators := getUnbondingValidators(ctx, k)
+
 	for _, vs := range unslashedValsets {
-		confirms := k.GetValsetConfirms(ctx, vs.Nonce)
+		confirms := prepValsetConfirms(ctx, k, vs.Nonce)
 
 		// SLASH BONDED VALIDTORS who didn't attest valset request
-		currentBondedSet := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
+
 		for _, val := range currentBondedSet {
 			consAddr, _ := val.GetConsAddr()
 			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, consAddr)
 
 			//  Slash validator ONLY if he joined before valset is created
-			if exist && uint64(valSigningInfo.StartHeight) < vs.Height {
+			startedBeforeValsetCreated := valSigningInfo.StartHeight < int64(vs.Height)
+
+			if exist && startedBeforeValsetCreated {
 				// Check if validator has confirmed valset or not
-				found := false
-				for _, conf := range confirms {
-					// problem site for delegate key rotation, see issue #344
-					ethAddress, foundEthAddress := k.GetEthAddressByValidator(ctx, val.GetOperator())
-					if foundEthAddress && conf.EthAddress == ethAddress.GetAddress() {
-						found = true
-						break
-					}
-				}
+				_, found := confirms[val.GetOperator().String()]
 				// slash validators for not confirming valsets
 				if !found {
-					cons, _ := val.GetConsAddr()
-					k.StakingKeeper.Slash(ctx, cons, ctx.BlockHeight(), val.ConsensusPower(), params.SlashFractionValset)
+					// refresh validator before slashing/jailing
+					val = updateValidator(ctx, k, val.GetOperator())
+					k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
+					ctx.EventManager().EmitEvent(
+						sdk.NewEvent(
+							sdk.EventTypeMessage,
+							sdk.NewAttribute("ValsetSignatureSlashing", consAddr.String()),
+						),
+					)
+
 					if !val.IsJailed() {
-						k.StakingKeeper.Jail(ctx, cons)
-						// Our unbonding hook SHOULD be triggered after the above jail
-						// but is not when triggered by the endblocker TODO investigate why
-						k.SetLastUnBondingBlockHeight(ctx, uint64(ctx.BlockHeight()))
+						k.StakingKeeper.Jail(ctx, consAddr)
 					}
 
 				}
@@ -234,47 +232,37 @@ func ValsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 		}
 
 		// SLASH UNBONDING VALIDATORS who didn't attest valset request
-		blockTime := ctx.BlockTime().Add(k.StakingKeeper.GetParams(ctx).UnbondingTime)
-		blockHeight := ctx.BlockHeight()
-		unbondingValIterator := k.StakingKeeper.ValidatorQueueIterator(ctx, blockTime, blockHeight)
-		defer unbondingValIterator.Close()
 
-		// All unbonding validators
-		for ; unbondingValIterator.Valid(); unbondingValIterator.Next() {
-			unbondingValidators := k.DeserializeValidatorIterator(unbondingValIterator.Value())
+		for _, valAddr := range unbondingValidators {
+			addr, err := sdk.ValAddressFromBech32(valAddr)
+			if err != nil {
+				panic(err)
+			}
+			validator, _ := k.StakingKeeper.GetValidator(ctx, sdk.ValAddress(addr))
+			valConsAddr, _ := validator.GetConsAddr()
+			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, valConsAddr)
 
-			for _, valAddr := range unbondingValidators.Addresses {
-				addr, err := sdk.ValAddressFromBech32(valAddr)
-				if err != nil {
-					panic(err)
-				}
-				validator, _ := k.StakingKeeper.GetValidator(ctx, sdk.ValAddress(addr))
-				valConsAddr, _ := validator.GetConsAddr()
-				valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, valConsAddr)
+			// Only slash validators who joined after valset is created and they are unbonding and UNBOND_SLASHING_WINDOW hasn't passed
+			startedBeforeValsetCreated := valSigningInfo.StartHeight < int64(vs.Height)
+			unbondingPeriodEndsAfterSlashingPeriod := vs.Height < uint64(validator.UnbondingHeight)+params.UnbondSlashingValsetsWindow
 
-				// Only slash validators who joined after valset is created and they are unbonding and UNBOND_SLASHING_WINDOW didn't passed
-				if exist && valSigningInfo.StartHeight < int64(vs.Height) && validator.IsUnbonding() && vs.Height < uint64(validator.UnbondingHeight)+params.UnbondSlashingValsetsWindow {
-					// Check if validator has confirmed valset or not
-					found := false
-					for _, conf := range confirms {
-						// TODO this presents problems for delegate key rotation see issue #344
-						confVal, _ := sdk.AccAddressFromBech32(conf.Orchestrator)
-						valAddr, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
-						if foundValidator && valAddr.GetOperator().Equals(validator.GetOperator()) {
-							found = true
-							break
-						}
-					}
+			if exist && startedBeforeValsetCreated && validator.IsUnbonding() && unbondingPeriodEndsAfterSlashingPeriod {
+				// Check if validator has confirmed valset or not
+				_, found := confirms[validator.GetOperator().String()]
 
-					// slash validators for not confirming valsets
-					if !found {
-						k.StakingKeeper.Slash(ctx, valConsAddr, ctx.BlockHeight(), validator.ConsensusPower(), params.SlashFractionValset)
-						if !validator.IsJailed() {
-							k.StakingKeeper.Jail(ctx, valConsAddr)
-							// Our unbonding hook SHOULD be triggered after the above jail
-							// but is not when triggered by the endblocker TODO investigate why
-							k.SetLastUnBondingBlockHeight(ctx, uint64(ctx.BlockHeight()))
-						}
+				// slash validators for not confirming valsets
+				if !found {
+					// refresh validator before slashing/jailing
+					validator = updateValidator(ctx, k, validator.GetOperator())
+					k.StakingKeeper.Slash(ctx, valConsAddr, ctx.BlockHeight(), validator.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
+					ctx.EventManager().EmitEvent(
+						sdk.NewEvent(
+							sdk.EventTypeMessage,
+							sdk.NewAttribute("ValsetSignatureSlashing", valConsAddr.String()),
+						),
+					)
+					if !validator.IsJailed() {
+						k.StakingKeeper.Jail(ctx, valConsAddr)
 					}
 				}
 			}
@@ -284,11 +272,62 @@ func ValsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 	}
 }
 
-func BatchSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
+// updateValidator is a very specific utility function, used to update the validator object during
+// slashing loops. This allows us to load the validators list at the start of our slashing and only
+// pull in individual validators as needed to check that we are not jailing them twice, or slashing
+// them improperly
+func updateValidator(ctx sdk.Context, k keeper.Keeper, val sdk.ValAddress) stakingtypes.Validator {
+	valObj, found := k.StakingKeeper.GetValidator(ctx, val)
+	if !found {
+		// this should be impossible, we haven't even progressed a single block since we got the list
+		panic("Validator exited set during endblocker?")
+	}
+	return valObj
+}
+
+// getUnbondingValidators gets all currently unbonding validators in groups based on
+// the block at which they will finish validating.
+func getUnbondingValidators(ctx sdk.Context, k keeper.Keeper) (addresses []string) {
+	blockTime := ctx.BlockTime().Add(k.StakingKeeper.GetParams(ctx).UnbondingTime)
+	blockHeight := ctx.BlockHeight()
+	unbondingValIterator := k.StakingKeeper.ValidatorQueueIterator(ctx, blockTime, blockHeight)
+	defer unbondingValIterator.Close()
+
+	// All unbonding validators
+	for ; unbondingValIterator.Valid(); unbondingValIterator.Next() {
+		unbondingValidators := k.DeserializeValidatorIterator(unbondingValIterator.Value())
+		addresses = append(addresses, unbondingValidators.Addresses...)
+	}
+	return addresses
+}
+
+// prepBatchConfirms loads all confirmations into a hashmap indexed by validatorAddr
+// reducing the lookup time dramatically and separating out the task of looking up
+// the orchestrator for each validator
+func prepBatchConfirms(ctx sdk.Context, k keeper.Keeper, batch types.InternalOutgoingTxBatch) map[string]types.MsgConfirmBatch {
+	confirms := k.GetBatchConfirmByNonceAndTokenContract(ctx, batch.BatchNonce, batch.TokenContract)
+	// bytes are incomparable in go, so we convert the sdk.ValAddr bytes to a string (note this is NOT bech32)
+	ret := make(map[string]types.MsgConfirmBatch)
+	for _, confirm := range confirms {
+		// TODO this presents problems for delegate key rotation see issue #344
+		confVal, _ := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
+		if !foundValidator {
+			panic("Confirm from validator we can't identify?")
+		}
+		ret[val.GetOperator().String()] = confirm
+	}
+	return ret
+}
+
+// batchSlashing slashes currently bonded validators who have not submitted batch
+// signatures. This is distinct from validator sets, which includes unbonding validators
+// because validator set updates must succeed as validators leave the set, batches will just be re-created
+func batchSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 
 	// We look through the full bonded set (the active set)
 	// and we slash users who haven't signed a batch confirmation that is >15hrs in blocks old
-	maxHeight := uint64(0)
+	var maxHeight uint64
 
 	// don't slash in the beginning before there aren't even SignedBatchesWindow blocks yet
 	if uint64(ctx.BlockHeight()) > params.SignedBatchesWindow {
@@ -298,38 +337,34 @@ func BatchSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 		return
 	}
 
+	currentBondedSet := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
 	unslashedBatches := k.GetUnSlashedBatches(ctx, maxHeight)
 	for _, batch := range unslashedBatches {
-
 		// SLASH BONDED VALIDTORS who didn't attest batch requests
-		currentBondedSet := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
-		confirms := k.GetBatchConfirmByNonceAndTokenContract(ctx, batch.BatchNonce, batch.TokenContract)
+		confirms := prepBatchConfirms(ctx, k, batch)
 		for _, val := range currentBondedSet {
-			// Don't slash validators who joined after batch is created
 			consAddr, _ := val.GetConsAddr()
 			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, consAddr)
-			if exist && valSigningInfo.StartHeight > int64(batch.Block) {
-				continue
-			}
 
-			found := false
-			for _, conf := range confirms {
-				// TODO this presents problems for delegate key rotation see issue #344
-				confVal, _ := sdk.AccAddressFromBech32(conf.Orchestrator)
-				valAddr, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
-				if foundValidator && valAddr.GetOperator().Equals(val.GetOperator()) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				cons, _ := val.GetConsAddr()
-				k.StakingKeeper.Slash(ctx, cons, ctx.BlockHeight(), val.ConsensusPower(), params.SlashFractionBatch)
-				if !val.IsJailed() {
-					k.StakingKeeper.Jail(ctx, cons)
-					// Our unbonding hook SHOULD be triggered after the above jail
-					// but is not when triggered by the endblocker TODO investigate why
-					k.SetLastUnBondingBlockHeight(ctx, uint64(ctx.BlockHeight()))
+			// Don't slash validators who joined after batch is created
+			startedBeforeBatchCreated := valSigningInfo.StartHeight < int64(batch.Block)
+			if exist && startedBeforeBatchCreated {
+				// check if validator confirmed the batch
+				_, found := confirms[val.GetOperator().String()]
+				// slashing for not confirming the batch
+				if !found {
+					// refresh validator before slashing/jailing
+					val = updateValidator(ctx, k, val.GetOperator())
+					k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBatch)
+					ctx.EventManager().EmitEvent(
+						sdk.NewEvent(
+							sdk.EventTypeMessage,
+							sdk.NewAttribute("BatchSignatureSlashing", consAddr.String()),
+						),
+					)
+					if !val.IsJailed() {
+						k.StakingKeeper.Jail(ctx, consAddr)
+					}
 				}
 			}
 		}
@@ -338,11 +373,33 @@ func BatchSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 	}
 }
 
-func LogicCallSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
+// prepLogicCallConfirms loads all confirmations into a hashmap indexed by validatorAddr
+// reducing the lookup time dramatically and separating out the task of looking up
+// the orchestrator for each validator
+func prepLogicCallConfirms(ctx sdk.Context, k keeper.Keeper, call types.OutgoingLogicCall) map[string]*types.MsgConfirmLogicCall {
+	confirms := k.GetLogicConfirmByInvalidationIDAndNonce(ctx, call.InvalidationId, call.InvalidationNonce)
+	// bytes are incomparable in go, so we convert the sdk.ValAddr bytes to a string (note this is NOT bech32)
+	ret := make(map[string]*types.MsgConfirmLogicCall)
+	for _, confirm := range confirms {
+		// TODO this presents problems for delegate key rotation see issue #344
+		confVal, _ := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
+		if !foundValidator {
+			panic("Confirm from validator we can't identify?")
+		}
+		ret[val.GetOperator().String()] = &confirm
+	}
+	return ret
+}
+
+// logicCallSlashing slashes currently bonded validators who have not submitted logicCall
+// signatures. This is distinct from validator sets, which includes unbonding validators
+// because validator set updates must succeed as validators leave the set, logicCalls will just be re-created
+func logicCallSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 
 	// We look through the full bonded set (the active set)
 	// and we slash users who haven't signed a batch confirmation that is >15hrs in blocks old
-	maxHeight := uint64(0)
+	var maxHeight uint64
 
 	// don't slash in the beginning before there aren't even SignedBatchesWindow blocks yet
 	if uint64(ctx.BlockHeight()) > params.SignedLogicCallsWindow {
@@ -352,38 +409,33 @@ func LogicCallSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 		return
 	}
 
+	currentBondedSet := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
 	unslashedLogicCalls := k.GetUnSlashedLogicCalls(ctx, maxHeight)
 	for _, call := range unslashedLogicCalls {
 
 		// SLASH BONDED VALIDTORS who didn't attest batch requests
-		currentBondedSet := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
-		confirms := k.GetLogicConfirmByInvalidationIDAndNonce(ctx, call.InvalidationId, call.InvalidationNonce)
+		confirms := prepLogicCallConfirms(ctx, k, call)
 		for _, val := range currentBondedSet {
 			// Don't slash validators who joined after batch is created
 			consAddr, _ := val.GetConsAddr()
 			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, consAddr)
-			if exist && valSigningInfo.StartHeight > int64(call.Block) {
-				continue
-			}
-
-			found := false
-			for _, conf := range confirms {
-				// TODO this presents problems for delegate key rotation see issue #344
-				confVal, _ := sdk.AccAddressFromBech32(conf.Orchestrator)
-				valAddr, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
-				if foundValidator && valAddr.GetOperator().Equals(val.GetOperator()) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				cons, _ := val.GetConsAddr()
-				k.StakingKeeper.Slash(ctx, cons, ctx.BlockHeight(), val.ConsensusPower(), params.SlashFractionLogicCall)
-				if !val.IsJailed() {
-					k.StakingKeeper.Jail(ctx, cons)
-					// Our unbonding hook SHOULD be triggered after the above jail
-					// but is not when triggered by the endblocker TODO investigate why
-					k.SetLastUnBondingBlockHeight(ctx, uint64(ctx.BlockHeight()))
+			startedBeforeCallCreated := valSigningInfo.StartHeight < int64(call.Block)
+			if exist && startedBeforeCallCreated {
+				// check that the validator confirmed the logic call
+				_, found := confirms[val.GetOperator().String()]
+				if !found {
+					// refresh validator before slashing/jailing
+					val = updateValidator(ctx, k, val.GetOperator())
+					k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionLogicCall)
+					ctx.EventManager().EmitEvent(
+						sdk.NewEvent(
+							sdk.EventTypeMessage,
+							sdk.NewAttribute("LogicCallSignatureSlashing", consAddr.String()),
+						),
+					)
+					if !val.IsJailed() {
+						k.StakingKeeper.Jail(ctx, consAddr)
+					}
 				}
 			}
 		}
@@ -398,14 +450,7 @@ func LogicCallSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 // but (A) pruning keeps the iteration small in the first place and (B) there is
 // already enough nuance in the other handler that it's best not to complicate it further
 func pruneAttestations(ctx sdk.Context, k keeper.Keeper) {
-	attmap := k.GetAttestationMapping(ctx)
-	// We make a slice with all the event nonces that are in the attestation mapping
-	keys := make([]uint64, 0, len(attmap))
-	for k := range attmap {
-		keys = append(keys, k)
-	}
-	// Then we sort it
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	attmap, keys := k.GetAttestationMapping(ctx)
 
 	// we delete all attestations earlier than the current event nonce
 	// minus some buffer value. This buffer value is purely to allow
@@ -431,65 +476,6 @@ func pruneAttestations(ctx sdk.Context, k keeper.Keeper) {
 			if nonce < cutoff {
 				k.DeleteAttestation(ctx, att)
 			}
-		}
-	}
-}
-
-// Iterate over all attestations currently being voted on in order of nonce
-// and prune those that are older than nonceCutoff
-func pruneAttestationsAfterNonce(ctx sdk.Context, k keeper.Keeper, nonceCutoff uint64) {
-	// Decide on the most recent nonce we can actually roll back to
-	lastObserved := k.GetLastObservedEventNonce(ctx)
-	if nonceCutoff < lastObserved {
-		ctx.Logger().Error("Attempted to reset to a nonce before the last \"observed\" event, which is not allowed", "lastObserved", lastObserved, "nonce", nonceCutoff)
-		return
-	}
-
-	// Get relevant event nonces
-	attmap := k.GetAttestationMapping(ctx)
-	keys := make([]uint64, 0, len(attmap))
-	for k := range attmap {
-		keys = append(keys, k)
-	}
-	// Sort the nonces for iteration
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-
-	// Discover all affected validators whose LastEventNonce must be reset to nonceCutoff
-
-	numValidators := len(k.StakingKeeper.GetBondedValidatorsByPower(ctx))
-	// void and setMember are necessary for sets to work
-	type void struct{}
-	var setMember void
-	// Initialize a Set of validators
-	affectedValidatorsSet := make(map[string]void, numValidators)
-
-	// Delete all reverted attestations, keeping track of the validators who attested to any of them
-	for _, nonce := range keys {
-		for _, att := range attmap[nonce] {
-			// we delete all attestations earlier than the cutoff event nonce
-			if nonce > nonceCutoff {
-				ctx.Logger().Info(fmt.Sprintf("Deleting attestation at height %v", att.Height))
-				for _, vote := range att.Votes {
-					if _, ok := affectedValidatorsSet[vote]; !ok { // if set does not contain vote
-						affectedValidatorsSet[vote] = setMember // add key to set
-					}
-				}
-
-				k.DeleteAttestation(ctx, att)
-			}
-		}
-	}
-
-	// Reset the last event nonce for all validators affected by history deletion
-	for vote, _ := range affectedValidatorsSet {
-		val, err := sdk.ValAddressFromBech32(vote)
-		if err != nil {
-			panic(sdkerrors.Wrap(err, "invalid validator address affected by bridge reset"));
-		}
-		valLastNonce := k.GetLastEventNonceByValidator(ctx, val)
-		if valLastNonce > nonceCutoff {
-			ctx.Logger().Info("Resetting validator's last event nonce due to bridge unhalt", "validator", vote, "lastEventNonce", valLastNonce, "resetNonce", nonceCutoff);
-			k.SetLastEventNonceByValidator(ctx, val, nonceCutoff)
 		}
 	}
 }

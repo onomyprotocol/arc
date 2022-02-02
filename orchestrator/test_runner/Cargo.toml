@@ -13,7 +13,7 @@ path = "src/main.rs"
 bytes = "1"
 clarity = "0.5"
 cosmos_gravity = {path = "../cosmos_gravity"}
-deep_space = "2.4"
+deep_space = "2.6"
 docopt = "1"
 env_logger = "0.9"
 ethereum_gravity = {path = "../ethereum_gravity"}
@@ -22,15 +22,16 @@ gravity_proto = {path = "../gravity_proto/"}
 gravity_utils = {path = "../gravity_utils"}
 lazy_static = "1"
 log = "0.4"
+num = "0.4.0"
 num256 = "0.3"
 orchestrator = {path = "../orchestrator/"}
-prost = "0.7"
-prost-types = "0.7"
+prost = "0.9"
+prost-types = "0.9"
 rand = "0.8"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 tokio = {version = "1.4", features = ["macros", "rt-multi-thread"]}
-tonic = "0.4"
+tonic = "0.6"
 url = "2"
 web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4"}

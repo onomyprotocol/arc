@@ -6,6 +6,8 @@ use crate::happy_path::test_erc20_deposit_panic;
 use crate::happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption;
 use crate::one_eth;
 use crate::utils::create_default_test_config;
+use crate::utils::footoken_metadata;
+use crate::utils::get_event_nonce_safe;
 use crate::utils::get_user_key;
 use crate::utils::start_orchestrators;
 use crate::utils::ValidatorKeys;
@@ -18,7 +20,6 @@ use clarity::Address as EthAddress;
 use clarity::Address;
 use deep_space::Contact;
 use ethereum_gravity::send_to_cosmos::SEND_TO_COSMOS_GAS_LIMIT;
-use ethereum_gravity::utils::get_event_nonce;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use rand::distributions::Alphanumeric;
 use rand::thread_rng;
@@ -106,9 +107,6 @@ pub async fn invalid_events(
 
     web30.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
 
-    let token_to_send_to_eth = "footoken".to_string();
-    let token_to_send_to_eth_display_name = "mfootoken".to_string();
-
     // make sure this actual deployment works after all the bad ones
     let _ = deploy_cosmos_representing_erc20_and_check_adoption(
         gravity_address,
@@ -116,8 +114,7 @@ pub async fn invalid_events(
         None,
         &mut grpc_client,
         false,
-        token_to_send_to_eth.clone(),
-        token_to_send_to_eth_display_name.clone(),
+        footoken_metadata(),
     )
     .await;
 
@@ -321,7 +318,7 @@ async fn deploy_invalid_erc20(
     erc20_params: Erc20Params,
 ) {
     let starting_event_nonce =
-        get_event_nonce(gravity_address, keys[0].eth_key.to_address(), web30)
+        get_event_nonce_safe(gravity_address, web30, keys[0].eth_key.to_address())
             .await
             .unwrap();
 
@@ -351,9 +348,10 @@ async fn deploy_invalid_erc20(
         .await
         .unwrap();
 
-    let ending_event_nonce = get_event_nonce(gravity_address, keys[0].eth_key.to_address(), web30)
-        .await
-        .unwrap();
+    let ending_event_nonce =
+        get_event_nonce_safe(gravity_address, web30, keys[0].eth_key.to_address())
+            .await
+            .unwrap();
 
     assert!(starting_event_nonce != ending_event_nonce);
     info!(

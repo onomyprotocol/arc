@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"sort"
 
+	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
+
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -21,9 +25,11 @@ type Keeper struct {
 	storeKey   sdk.StoreKey // Unexposed key to access store from sdk.Context
 	paramSpace paramtypes.Subspace
 
-	cdc            codec.BinaryMarshaler // The wire codec for binary encoding/decoding.
-	bankKeeper     types.BankKeeper
+	cdc            codec.BinaryCodec // The wire codec for binary encoding/decoding.
+	bankKeeper     bankkeeper.BaseKeeper
 	SlashingKeeper types.SlashingKeeper
+	DistKeeper     types.DistributionKeeper
+	accountKeeper  authkeeper.AccountKeeper
 
 	AttestationHandler interface {
 		Handle(sdk.Context, types.Attestation, types.EthereumClaim) error
@@ -31,7 +37,16 @@ type Keeper struct {
 }
 
 // NewKeeper returns a new instance of the gravity keeper
-func NewKeeper(cdc codec.BinaryMarshaler, storeKey sdk.StoreKey, paramSpace paramtypes.Subspace, stakingKeeper types.StakingKeeper, bankKeeper types.BankKeeper, distKeeper types.DistributionKeeper, slashingKeeper types.SlashingKeeper) Keeper {
+func NewKeeper(
+	cdc codec.BinaryCodec,
+	storeKey sdk.StoreKey,
+	paramSpace paramtypes.Subspace,
+	stakingKeeper types.StakingKeeper,
+	bankKeeper bankkeeper.BaseKeeper,
+	distKeeper types.DistributionKeeper,
+	slashingKeeper types.SlashingKeeper,
+	accKeeper authkeeper.AccountKeeper,
+) Keeper {
 	// set KeyTable if it has not already been set
 	if !paramSpace.HasKeyTable() {
 		paramSpace = paramSpace.WithKeyTable(types.ParamKeyTable())
@@ -44,6 +59,8 @@ func NewKeeper(cdc codec.BinaryMarshaler, storeKey sdk.StoreKey, paramSpace para
 		cdc:                cdc,
 		bankKeeper:         bankKeeper,
 		SlashingKeeper:     slashingKeeper,
+		DistKeeper:         distKeeper,
+		accountKeeper:      accKeeper,
 		AttestationHandler: nil,
 	}
 	k.AttestationHandler = AttestationHandler{
@@ -143,7 +160,7 @@ func (k Keeper) UnpackAttestationClaim(att *types.Attestation) (types.EthereumCl
 // address mapping will mean having to keep two of the same data around just to provide lookups.
 //
 // For the time being this will serve
-func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddress {
+func (k Keeper) GetDelegateKeys(ctx sdk.Context) []types.MsgSetOrchestratorAddress {
 	store := ctx.KVStore(k.storeKey)
 	prefix := []byte(types.EthAddressByValidatorKey)
 	iter := store.Iterator(prefixRange(prefix))
@@ -163,6 +180,9 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddr
 			panic(sdkerrors.Wrapf(err, "found invalid ethAddress %v under key %v", string(value), key))
 		}
 		valAddress := sdk.ValAddress(key)
+		if err := sdk.VerifyAddressFormat(valAddress); err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid valAddress in key %v", valAddress))
+		}
 		ethAddresses[valAddress.String()] = ethAddress.GetAddress()
 	}
 
@@ -176,12 +196,19 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddr
 	for ; iter.Valid(); iter.Next() {
 		key := iter.Key()[len(types.KeyOrchestratorAddress):]
 		value := iter.Value()
-		orchAddress := sdk.AccAddress(key).String()
+		orchAddress := sdk.AccAddress(key)
+		if err := sdk.VerifyAddressFormat(orchAddress); err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid orchAddress in key %v", orchAddresses))
+		}
 		valAddress := sdk.ValAddress(value)
-		orchAddresses[valAddress.String()] = orchAddress
+		if err := sdk.VerifyAddressFormat(valAddress); err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid val address stored for orchestrator %s", valAddress.String()))
+		}
+
+		orchAddresses[valAddress.String()] = orchAddress.String()
 	}
 
-	var result []*types.MsgSetOrchestratorAddress
+	var result []types.MsgSetOrchestratorAddress
 
 	for valAddr, ethAddr := range ethAddresses {
 		orch, ok := orchAddresses[valAddr]
@@ -190,7 +217,7 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddr
 			// is somehow inconsistent
 			panic("Can't find address")
 		}
-		result = append(result, &types.MsgSetOrchestratorAddress{
+		result = append(result, types.MsgSetOrchestratorAddress{
 			Orchestrator: orch,
 			Validator:    valAddr,
 			EthAddress:   ethAddr,
@@ -206,26 +233,6 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []*types.MsgSetOrchestratorAddr
 	})
 
 	return result
-}
-
-func (k Keeper) GetResetBridgeState(ctx sdk.Context) bool {
-	var state bool
-	k.paramSpace.Get(ctx, types.ParamStoreResetBridgeState, &state)
-	return state
-}
-
-func (k Keeper) GetResetBridgeNonce(ctx sdk.Context) uint64 {
-	var nonce uint64
-	k.paramSpace.Get(ctx, types.ParamStoreResetBridgeNonce, &nonce)
-	return nonce
-}
-
-func (k Keeper) SetResetBridgeState(ctx sdk.Context, state bool) {
-	k.paramSpace.Set(ctx, types.ParamStoreResetBridgeState, state)
-}
-
-func (k Keeper) SetResetBridgeNonce(ctx sdk.Context, nonce uint64) {
-	k.paramSpace.Set(ctx, types.ParamStoreResetBridgeNonce, nonce)
 }
 
 /////////////////////////////
@@ -244,13 +251,13 @@ func (k Keeper) GetLastSlashedLogicCallBlock(ctx sdk.Context) uint64 {
 	bytes := store.Get([]byte(types.LastSlashedLogicCallBlock))
 
 	if len(bytes) == 0 {
-		return 0
+		panic("Last slashed logic call block not initialized in genesis")
 	}
 	return types.UInt64FromBytes(bytes)
 }
 
 // GetUnSlashedLogicCalls returns all the unslashed logic calls in state
-func (k Keeper) GetUnSlashedLogicCalls(ctx sdk.Context, maxHeight uint64) (out []*types.OutgoingLogicCall) {
+func (k Keeper) GetUnSlashedLogicCalls(ctx sdk.Context, maxHeight uint64) (out []types.OutgoingLogicCall) {
 	lastSlashedLogicCallBlock := k.GetLastSlashedLogicCallBlock(ctx)
 	calls := k.GetOutgoingLogicCalls(ctx)
 	for _, call := range calls {
@@ -307,6 +314,34 @@ func (k Keeper) DeserializeValidatorIterator(vals []byte) stakingtypes.ValAddres
 	validators := stakingtypes.ValAddresses{
 		Addresses: []string{},
 	}
-	k.cdc.MustUnmarshalBinaryBare(vals, &validators)
+	k.cdc.MustUnmarshal(vals, &validators)
 	return validators
+}
+
+// Checks if the provided Ethereum address is on the Governance blacklist
+func (k Keeper) IsOnBlacklist(ctx sdk.Context, addr types.EthAddress) bool {
+	params := k.GetParams(ctx)
+	// Checks the address if it's inside the blacklisted address list and marks
+	// if it's inside the list.
+	for index := 0; index < len(params.EthereumBlacklist); index++ {
+		baddr, err := types.NewEthAddress(params.EthereumBlacklist[index])
+		if err != nil {
+			// this should not be possible we validate on genesis load
+			panic("unvalidated black list address!")
+		}
+		if *baddr == addr {
+			return true
+		}
+	}
+	return false
+}
+
+// Returns true if the provided address is invalid to send to Ethereum this could be
+// for one of several reasons. (1) it is invalid in general like the Zero address, (2)
+// it is invalid for a subset of ERC20 addresses or (3) it is on the governance deposit/withdraw
+// blacklist. (2) is not yet implemented
+// Blocking some addresses is technically motivated, if any ERC20 transfers in a batch fail the entire batch
+// becomes impossible to execute.
+func (k Keeper) InvalidSendToEthAddress(ctx sdk.Context, addr types.EthAddress, _erc20Addr types.EthAddress) bool {
+	return k.IsOnBlacklist(ctx, addr) || addr == types.ZeroAddress()
 }

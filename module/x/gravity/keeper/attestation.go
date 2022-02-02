@@ -18,11 +18,17 @@ func (k Keeper) Attest(
 	claim types.EthereumClaim,
 	anyClaim *codectypes.Any,
 ) (*types.Attestation, error) {
+	if err := sdk.VerifyAddressFormat(claim.GetClaimer()); err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid claimer address")
+	}
 	val, found := k.GetOrchestratorValidator(ctx, claim.GetClaimer())
 	if !found {
 		panic("Could not find ValAddr for delegate key, should be checked by now")
 	}
 	valAddr := val.GetOperator()
+	if err := sdk.VerifyAddressFormat(valAddr); err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid orchestrator validator address")
+	}
 	// Check that the nonce of this event is exactly one higher than the last nonce stored by this validator.
 	// We check the event nonce in processAttestation as well,
 	// but checking it here gives individual eth signers a chance to retry,
@@ -163,7 +169,7 @@ func (k Keeper) emitObservedEvent(ctx sdk.Context, att *types.Attestation, claim
 func (k Keeper) SetAttestation(ctx sdk.Context, eventNonce uint64, claimHash []byte, att *types.Attestation) {
 	store := ctx.KVStore(k.storeKey)
 	aKey := []byte(types.GetAttestationKey(eventNonce, claimHash))
-	store.Set(aKey, k.cdc.MustMarshalBinaryBare(att))
+	store.Set(aKey, k.cdc.MustMarshal(att))
 }
 
 // GetAttestation return an attestation given a nonce
@@ -175,7 +181,7 @@ func (k Keeper) GetAttestation(ctx sdk.Context, eventNonce uint64, claimHash []b
 		return nil
 	}
 	var att types.Attestation
-	k.cdc.MustUnmarshalBinaryBare(bz, &att)
+	k.cdc.MustUnmarshal(bz, &att)
 	return &att
 }
 
@@ -195,21 +201,30 @@ func (k Keeper) DeleteAttestation(ctx sdk.Context, att types.Attestation) {
 }
 
 // GetAttestationMapping returns a mapping of eventnonce -> attestations at that nonce
-func (k Keeper) GetAttestationMapping(ctx sdk.Context) (out map[uint64][]types.Attestation) {
-	out = make(map[uint64][]types.Attestation)
+// it also returns a pre-sorted array of the keys, this assists callers of this function
+// by providing a deterministic iteration order. You should always iterate over ordered keys
+// if you are iterating this map at all.
+func (k Keeper) GetAttestationMapping(ctx sdk.Context) (attestationMapping map[uint64][]types.Attestation, orderedKeys []uint64) {
+	attestationMapping = make(map[uint64][]types.Attestation)
 	k.IterateAttestaions(ctx, func(_ []byte, att types.Attestation) bool {
 		claim, err := k.UnpackAttestationClaim(&att)
 		if err != nil {
 			panic("couldn't cast to claim")
 		}
 
-		if val, ok := out[claim.GetEventNonce()]; !ok {
-			out[claim.GetEventNonce()] = []types.Attestation{att}
+		if val, ok := attestationMapping[claim.GetEventNonce()]; !ok {
+			attestationMapping[claim.GetEventNonce()] = []types.Attestation{att}
 		} else {
-			out[claim.GetEventNonce()] = append(val, att)
+			attestationMapping[claim.GetEventNonce()] = append(val, att)
 		}
 		return false
 	})
+	orderedKeys = make([]uint64, 0, len(attestationMapping))
+	for k := range attestationMapping {
+		orderedKeys = append(orderedKeys, k)
+	}
+	sort.Slice(orderedKeys, func(i, j int) bool { return orderedKeys[i] < orderedKeys[j] })
+
 	return
 }
 
@@ -233,7 +248,7 @@ func (k Keeper) IterateAttestaions(ctx sdk.Context, cb func([]byte, types.Attest
 				XXX_sizecache:        0,
 			},
 		}
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &att)
+		k.cdc.MustUnmarshal(iter.Value(), &att)
 		// cb returns true to stop early
 		if cb(iter.Key(), att) {
 			return
@@ -244,15 +259,9 @@ func (k Keeper) IterateAttestaions(ctx sdk.Context, cb func([]byte, types.Attest
 // GetMostRecentAttestations returns sorted (by nonce) attestations up to a provided limit number of attestations
 // Note: calls GetAttestationMapping in the hopes that there are potentially many attestations
 // which are distributed between few nonces to minimize sorting time
-func (k Keeper) GetMostRecentAttestations(ctx sdk.Context, limit uint64) []*types.Attestation {
-	attestationMapping := k.GetAttestationMapping(ctx)
-	attestations := make([]*types.Attestation, 0, limit)
-
-	keys := make([]uint64, 0, len(attestationMapping))
-	for k := range attestationMapping {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+func (k Keeper) GetMostRecentAttestations(ctx sdk.Context, limit uint64) []types.Attestation {
+	attestationMapping, keys := k.GetAttestationMapping(ctx)
+	attestations := make([]types.Attestation, 0, limit)
 
 	// Iterate the nonces and collect the attestations
 	count := 0
@@ -264,7 +273,7 @@ func (k Keeper) GetMostRecentAttestations(ctx sdk.Context, limit uint64) []*type
 			if count >= int(limit) {
 				break
 			}
-			attestations = append(attestations, &att)
+			attestations = append(attestations, att)
 			count++
 		}
 	}
@@ -299,7 +308,7 @@ func (k Keeper) GetLastObservedEthereumBlockHeight(ctx sdk.Context) types.LastOb
 		CosmosBlockHeight:   0,
 		EthereumBlockHeight: 0,
 	}
-	k.cdc.MustUnmarshalBinaryBare(bytes, &height)
+	k.cdc.MustUnmarshal(bytes, &height)
 	return height
 }
 
@@ -310,7 +319,7 @@ func (k Keeper) SetLastObservedEthereumBlockHeight(ctx sdk.Context, ethereumHeig
 		EthereumBlockHeight: ethereumHeight,
 		CosmosBlockHeight:   uint64(ctx.BlockHeight()),
 	}
-	store.Set([]byte(types.LastObservedEthereumBlockHeightKey), k.cdc.MustMarshalBinaryBare(&height))
+	store.Set([]byte(types.LastObservedEthereumBlockHeightKey), k.cdc.MustMarshal(&height))
 }
 
 // GetLastObservedValset retrieves the last observed validator set from the store
@@ -326,19 +335,19 @@ func (k Keeper) GetLastObservedValset(ctx sdk.Context) *types.Valset {
 	}
 	valset := types.Valset{
 		Nonce:        0,
-		Members:      []*types.BridgeValidator{},
+		Members:      []types.BridgeValidator{},
 		Height:       0,
 		RewardAmount: sdk.Int{},
 		RewardToken:  "",
 	}
-	k.cdc.MustUnmarshalBinaryBare(bytes, &valset)
+	k.cdc.MustUnmarshal(bytes, &valset)
 	return &valset
 }
 
 // SetLastObservedValset updates the last observed validator set in the store
 func (k Keeper) SetLastObservedValset(ctx sdk.Context, valset types.Valset) {
 	store := ctx.KVStore(k.storeKey)
-	store.Set([]byte(types.LastObservedValsetKey), k.cdc.MustMarshalBinaryBare(&valset))
+	store.Set([]byte(types.LastObservedValsetKey), k.cdc.MustMarshal(&valset))
 }
 
 // setLastObservedEventNonce sets the latest observed event nonce
@@ -349,6 +358,9 @@ func (k Keeper) setLastObservedEventNonce(ctx sdk.Context, nonce uint64) {
 
 // GetLastEventNonceByValidator returns the latest event nonce for a given validator
 func (k Keeper) GetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress) uint64 {
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid validator address"))
+	}
 	store := ctx.KVStore(k.storeKey)
 	bytes := store.Get([]byte(types.GetLastEventNonceByValidatorKey(validator)))
 
@@ -369,6 +381,9 @@ func (k Keeper) GetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValA
 
 // setLastEventNonceByValidator sets the latest event nonce for a give validator
 func (k Keeper) SetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress, nonce uint64) {
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid validator address"))
+	}
 	store := ctx.KVStore(k.storeKey)
 	store.Set([]byte(types.GetLastEventNonceByValidatorKey(validator)), types.UInt64Bytes(nonce))
 }

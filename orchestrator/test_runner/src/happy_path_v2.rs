@@ -1,6 +1,9 @@
 //! This is the happy path test for Cosmos to Ethereum asset transfers, meaning assets originated on Cosmos
 
 use crate::utils::create_default_test_config;
+use crate::utils::footoken_metadata;
+use crate::utils::get_erc20_balance_safe;
+use crate::utils::get_event_nonce_safe;
 use crate::utils::get_user_key;
 use crate::utils::send_one_eth;
 use crate::utils::start_orchestrators;
@@ -10,12 +13,11 @@ use crate::TOTAL_TIMEOUT;
 use crate::{get_fee, utils::ValidatorKeys};
 use clarity::Address as EthAddress;
 use clarity::Uint256;
-use cosmos_gravity::send::TIMEOUT;
 use cosmos_gravity::send::{send_request_batch, send_to_eth};
 use deep_space::coin::Coin;
 use deep_space::Contact;
+use ethereum_gravity::deploy_erc20::deploy_erc20;
 use ethereum_gravity::utils::get_valset_nonce;
-use ethereum_gravity::{deploy_erc20::deploy_erc20, utils::get_event_nonce};
 use gravity_proto::gravity::{
     query_client::QueryClient as GravityQueryClient, QueryDenomToErc20Request,
 };
@@ -35,8 +37,6 @@ pub async fn happy_path_test_v2(
     validator_out: bool,
 ) {
     let mut grpc_client = grpc_client;
-    let token_to_send_to_eth = "footoken".to_string();
-    let token_to_send_to_eth_display_name = "mfootoken".to_string();
 
     let erc20_contract = deploy_cosmos_representing_erc20_and_check_adoption(
         gravity_address,
@@ -44,10 +44,11 @@ pub async fn happy_path_test_v2(
         Some(keys.clone()),
         &mut grpc_client,
         validator_out,
-        token_to_send_to_eth.clone(),
-        token_to_send_to_eth_display_name.clone(),
+        footoken_metadata(),
     )
     .await;
+
+    let token_to_send_to_eth = footoken_metadata().denom;
 
     // one foo token
     let amount_to_bridge: Uint256 = 1_000_000u64.into();
@@ -63,12 +64,12 @@ pub async fn happy_path_test_v2(
     let user = get_user_key();
     // send the user some footoken
     contact
-        .send_tokens(
+        .send_coins(
             send_to_user_coin.clone(),
             Some(get_fee()),
             user.cosmos_address,
-            keys[0].validator_key,
             Some(TOTAL_TIMEOUT),
+            keys[0].validator_key,
         )
         .await
         .unwrap();
@@ -117,7 +118,6 @@ pub async fn happy_path_test_v2(
         token_to_send_to_eth.clone(),
         get_fee(),
         contact,
-        Some(TIMEOUT),
     )
     .await
     .unwrap();
@@ -129,7 +129,7 @@ pub async fn happy_path_test_v2(
     let verify_asset_is_bridged_to_eth = async {
         loop {
             match web30
-                .get_erc20_balance(erc20_contract, user.eth_address)
+                .get_erc20_balance_safe(erc20_contract, web30, user.eth_address)
                 .await
             {
                 Err(_) => {}
@@ -139,6 +139,7 @@ pub async fn happy_path_test_v2(
                             "Successfully bridged {} Cosmos asset {} to Ethereum!",
                             amount_to_bridge, token_to_send_to_eth
                         );
+                        assert!(balance == amount_to_bridge.clone());
                         break;
                     } else if balance != 0u8.into() {
                         panic!(
@@ -161,6 +162,15 @@ pub async fn happy_path_test_v2(
     }
 }
 
+pub struct CosmosRepresentationMetadata {
+    /// the denom for the token, as you interact with it on the Cosmos command line
+    pub denom: String,
+    /// the name for the token, as defined by the cosmos denom metadata
+    pub name: String,
+    /// the symbol for the token, as defined by the cosmos denom metadata
+    pub symbol: String,
+}
+
 /// This segment is broken out because it's used in two different tests
 /// once here where we verify that tokens bridge correctly and once in valset_rewards
 /// where we do a governance update to enable rewards
@@ -170,22 +180,22 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
     keys: Option<Vec<ValidatorKeys>>,
     grpc_client: &mut GravityQueryClient<Channel>,
     validator_out: bool,
-    token_to_send_to_eth: String,
-    token_to_send_to_eth_display_name: String,
+    token_metadata: CosmosRepresentationMetadata,
 ) -> EthAddress {
     get_valset_nonce(gravity_address, *MINER_ADDRESS, web30)
         .await
         .expect("Incorrect Gravity Address or otherwise unable to contact Gravity");
 
-    let starting_event_nonce = get_event_nonce(gravity_address, *MINER_ADDRESS, web30)
+    let starting_event_nonce = get_event_nonce_safe(gravity_address, web30, *MINER_ADDRESS)
         .await
         .unwrap();
 
+    let cosmos_decimals = 6;
     deploy_erc20(
-        token_to_send_to_eth.clone(),
-        token_to_send_to_eth_display_name.clone(),
-        token_to_send_to_eth_display_name.clone(),
-        6,
+        token_metadata.denom.clone(),
+        token_metadata.name.clone(),
+        token_metadata.symbol.clone(),
+        cosmos_decimals,
         gravity_address,
         web30,
         Some(TOTAL_TIMEOUT),
@@ -197,7 +207,7 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
     )
     .await
     .unwrap();
-    let ending_event_nonce = get_event_nonce(gravity_address, *MINER_ADDRESS, web30)
+    let ending_event_nonce = get_event_nonce_safe(gravity_address, web30, *MINER_ADDRESS)
         .await
         .unwrap();
 
@@ -248,4 +258,32 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
         ),
         Ok(erc20_contract) => erc20_contract.parse().unwrap(),
     }
+    let erc20_contract: EthAddress = erc20_contract.unwrap().parse().unwrap();
+
+    // now that we have the contract, validate that it has the properties we want
+    let got_decimals = web30
+        .get_erc20_decimals(erc20_contract, *MINER_ADDRESS)
+        .await
+        .unwrap();
+    assert_eq!(Uint256::from(cosmos_decimals), got_decimals);
+
+    let got_name = web30
+        .get_erc20_name(erc20_contract, *MINER_ADDRESS)
+        .await
+        .unwrap();
+    assert_eq!(got_name, token_metadata.name);
+
+    let got_symbol = web30
+        .get_erc20_symbol(erc20_contract, *MINER_ADDRESS)
+        .await
+        .unwrap();
+    assert_eq!(got_symbol, token_metadata.symbol);
+
+    let got_supply = web30
+        .get_erc20_supply(erc20_contract, *MINER_ADDRESS)
+        .await
+        .unwrap();
+    assert_eq!(got_supply, 0u8.into());
+
+    erc20_contract
 }

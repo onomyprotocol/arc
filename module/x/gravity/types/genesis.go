@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -72,6 +73,15 @@ var (
 	// ResetBridgeHeight stores the nonce after which oracle events should be discarded when resetting the bridge
 	ParamStoreResetBridgeNonce = []byte("ResetBridgeNonce")
 
+	// ParamBridgeActive allows governance to temporarily halt the bridge via vote, in this context halting
+	// means no more batches will be created and no oracle events executed. Valset creation will continue
+	// to be allowed as it must continue to ensure bridge continuity.
+	ParamStoreBridgeActive = []byte("BridgeActive")
+
+	// ParamStoreEthereumBlacklist allows storage of blocked Ethereum addresses blocked for use with the bridge
+	// this could be for technical reasons (zero address) or non-technical reasons, these apply across all ERC20 tokens
+	ParamStoreEthereumBlacklist = []byte("EthereumBlacklist")
+
 	// ParamStoreErc20ToDenomPermanentSwap the key of Erc20ToDenomPair for store.
 	ParamStoreErc20ToDenomPermanentSwap = []byte("Erc20ToDenomPermanentSwap")
 
@@ -96,8 +106,8 @@ var (
 			Denom:  "",
 			Amount: sdk.Int{},
 		},
-		ResetBridgeState:          false,
-		ResetBridgeNonce:          0,
+		BridgeActive:      true,
+		EthereumBlacklist: []string{},
 		Erc20ToDenomPermanentSwap: ERC20ToDenom{},
 	}
 )
@@ -112,21 +122,20 @@ func (s GenesisState) ValidateBasic() error {
 }
 
 // DefaultGenesisState returns empty genesis state
-// TODO: set some better defaults here
 func DefaultGenesisState() *GenesisState {
 	return &GenesisState{
 		Params:             DefaultParams(),
-		LastObservedNonce:  0,
-		Valsets:            []*Valset{},
-		ValsetConfirms:     []*MsgValsetConfirm{},
-		Batches:            []*OutgoingTxBatch{},
+		GravityNonces:      GravityNonces{},
+		Valsets:            []Valset{},
+		ValsetConfirms:     []MsgValsetConfirm{},
+		Batches:            []OutgoingTxBatch{},
 		BatchConfirms:      []MsgConfirmBatch{},
-		LogicCalls:         []*OutgoingLogicCall{},
+		LogicCalls:         []OutgoingLogicCall{},
 		LogicCallConfirms:  []MsgConfirmLogicCall{},
 		Attestations:       []Attestation{},
-		DelegateKeys:       []*MsgSetOrchestratorAddress{},
-		Erc20ToDenoms:      []*ERC20ToDenom{},
-		UnbatchedTransfers: []*OutgoingTransferTx{},
+		DelegateKeys:       []MsgSetOrchestratorAddress{},
+		Erc20ToDenoms:      []ERC20ToDenom{},
+		UnbatchedTransfers: []OutgoingTransferTx{},
 	}
 }
 
@@ -149,6 +158,8 @@ func DefaultParams() *Params {
 		UnbondSlashingValsetsWindow:  10000,
 		SlashFractionBadEthSignature: sdk.NewDec(1).Quo(sdk.NewDec(1000)),
 		ValsetReward:                 sdk.Coin{Denom: "", Amount: sdk.ZeroInt()},
+		BridgeActive:                 true,
+		EthereumBlacklist:            []string{},
 		Erc20ToDenomPermanentSwap:    ERC20ToDenom{},
 	}
 }
@@ -203,16 +214,9 @@ func (p Params) ValidateBasic() error {
 	if err := validateValsetRewardAmount(p.ValsetReward); err != nil {
 		return sdkerrors.Wrap(err, "ValsetReward amount")
 	}
-	if err := validateResetBridgeState(p.ResetBridgeState); err != nil {
-		return sdkerrors.Wrap(err, "Reset Bridge State")
-	}
-	if err := validateResetBridgeNonce(p.ResetBridgeNonce); err != nil {
-		return sdkerrors.Wrap(err, "Reset Bridge Nonce")
-	}
 	if err := validateErc20ToDenomPermanentSwap(p.Erc20ToDenomPermanentSwap); err != nil {
 		return sdkerrors.Wrap(err, "Erc20ToDenomPermanentSwap")
 	}
-
 	return nil
 }
 
@@ -261,16 +265,16 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 		paramtypes.NewParamSetPair(ParamStoreUnbondSlashingValsetsWindow, &p.UnbondSlashingValsetsWindow, validateUnbondSlashingValsetsWindow),
 		paramtypes.NewParamSetPair(ParamStoreSlashFractionBadEthSignature, &p.SlashFractionBadEthSignature, validateSlashFractionBadEthSignature),
 		paramtypes.NewParamSetPair(ParamStoreValsetRewardAmount, &p.ValsetReward, validateValsetRewardAmount),
-		paramtypes.NewParamSetPair(ParamStoreResetBridgeState, &p.ResetBridgeState, validateResetBridgeState),
-		paramtypes.NewParamSetPair(ParamStoreResetBridgeNonce, &p.ResetBridgeNonce, validateResetBridgeNonce),
+		paramtypes.NewParamSetPair(ParamStoreBridgeActive, &p.BridgeActive, validateBridgeActive),
+		paramtypes.NewParamSetPair(ParamStoreEthereumBlacklist, &p.EthereumBlacklist, validateEthereumBlacklistAddresses),
 		paramtypes.NewParamSetPair(ParamStoreErc20ToDenomPermanentSwap, &p.Erc20ToDenomPermanentSwap, validateErc20ToDenomPermanentSwap),
 	}
 }
 
 // Equal returns a boolean determining if two Params types are identical.
 func (p Params) Equal(p2 Params) bool {
-	bz1 := ModuleCdc.MustMarshalBinaryLengthPrefixed(&p)
-	bz2 := ModuleCdc.MustMarshalBinaryLengthPrefixed(&p2)
+	bz1 := ModuleCdc.MustMarshalLengthPrefixed(&p)
+	bz2 := ModuleCdc.MustMarshalLengthPrefixed(&p2)
 	return bytes.Equal(bz1, bz2)
 }
 
@@ -416,16 +420,25 @@ func validateValsetRewardAmount(i interface{}) error {
 	return nil
 }
 
-func validateResetBridgeState(i interface{}) error {
+func validateBridgeActive(i interface{}) error {
 	if _, ok := i.(bool); !ok {
-		return fmt.Errorf("invalid parameter type %T", i)
+		return fmt.Errorf("invalid parameter type: %T", i)
 	}
 	return nil
 }
 
-func validateResetBridgeNonce(i interface{}) error {
-	if _, ok := i.(uint64); !ok {
-		return fmt.Errorf("invalid parameter type %T", i)
+func validateEthereumBlacklistAddresses(i interface{}) error {
+	strArr, ok := i.([]string)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+	for index, value := range strArr {
+		if err := ValidateEthAddress(value); err != nil {
+
+			if !strings.Contains(err.Error(), "empty, index is"+strconv.Itoa(index)) {
+				return err
+			}
+		}
 	}
 	return nil
 }

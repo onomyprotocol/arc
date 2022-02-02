@@ -2,9 +2,10 @@ package types
 
 import (
 	"fmt"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"math/big"
 	"strings"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -13,7 +14,7 @@ import (
 )
 
 func (o OutgoingTransferTx) ToInternal() (*InternalOutgoingTransferTx, error) {
-	return NewInternalOutgoingTransferTx(o.Id, o.Sender, o.DestAddress, *o.Erc20Token, *o.Erc20Fee)
+	return NewInternalOutgoingTransferTx(o.Id, o.Sender, o.DestAddress, o.Erc20Token, o.Erc20Fee)
 }
 
 // InternalOutgoingTransferTx is an internal duplicate of OutgoingTransferTx with validation
@@ -58,8 +59,8 @@ func NewInternalOutgoingTransferTx(
 	}, nil
 }
 
-func (i InternalOutgoingTransferTx) ToExternal() *OutgoingTransferTx {
-	return &OutgoingTransferTx{
+func (i InternalOutgoingTransferTx) ToExternal() OutgoingTransferTx {
+	return OutgoingTransferTx{
 		Id:          i.Id,
 		Sender:      i.Sender.String(),
 		DestAddress: i.DestAddress.GetAddress(),
@@ -86,6 +87,9 @@ func (i InternalOutgoingTransferTx) ValidateBasic() error {
 	return nil
 }
 
+// InternalOutgoingTxBatch is an internal duplicate array of OutgoingTxBatch with validation
+type InternalOutgoingTxBatches []InternalOutgoingTxBatch
+
 // InternalOutgoingTxBatch is an internal duplicate of OutgoingTxBatch with validation
 type InternalOutgoingTxBatch struct {
 	BatchNonce    uint64
@@ -103,11 +107,11 @@ func NewInternalOutgingTxBatch(
 	block uint64) (*InternalOutgoingTxBatch, error) {
 
 	ret := &InternalOutgoingTxBatch{
-		BatchNonce: nonce,
-		BatchTimeout: timeout,
-		Transactions: transactions,
+		BatchNonce:    nonce,
+		BatchTimeout:  timeout,
+		Transactions:  transactions,
 		TokenContract: contract,
-		Block: block,
+		Block:         block,
 	}
 	if err := ret.ValidateBasic(); err != nil {
 		return nil, err
@@ -130,11 +134,11 @@ func NewInternalOutgingTxBatchFromExternalBatch(batch OutgoingTxBatch) (*Interna
 	}
 
 	return &InternalOutgoingTxBatch{
-		BatchNonce: batch.BatchNonce,
-		BatchTimeout: batch.BatchTimeout,
-		Transactions: txs,
+		BatchNonce:    batch.BatchNonce,
+		BatchTimeout:  batch.BatchTimeout,
+		Transactions:  txs,
 		TokenContract: *contractAddr,
-		Block: batch.Block,
+		Block:         batch.Block,
 	}, nil
 }
 
@@ -142,18 +146,39 @@ func (o *OutgoingTxBatch) ToInternal() (*InternalOutgoingTxBatch, error) {
 	return NewInternalOutgingTxBatchFromExternalBatch(*o)
 }
 
-func (i *InternalOutgoingTxBatch) ToExternal() *OutgoingTxBatch {
-	txs := make([]*OutgoingTransferTx, len(i.Transactions))
+func (i *InternalOutgoingTxBatch) ToExternal() OutgoingTxBatch {
+	txs := make([]OutgoingTransferTx, len(i.Transactions))
 	for i, tx := range i.Transactions {
 		txs[i] = tx.ToExternal()
 	}
-	return &OutgoingTxBatch{
-		BatchNonce: i.BatchNonce,
-		BatchTimeout: i.BatchTimeout,
-		Transactions: txs,
+	return OutgoingTxBatch{
+		BatchNonce:    i.BatchNonce,
+		BatchTimeout:  i.BatchTimeout,
+		Transactions:  txs,
 		TokenContract: i.TokenContract.GetAddress(),
-		Block: i.Block,
+		Block:         i.Block,
 	}
+}
+
+func (i *InternalOutgoingTxBatches) ToExternalArray() []OutgoingTxBatch {
+	var arr []OutgoingTxBatch
+
+	for index, val := range *i {
+		txs := make([]OutgoingTransferTx, len((*i)[index].Transactions))
+		for i, tx := range (*i)[index].Transactions {
+			txs[i] = tx.ToExternal()
+		}
+
+		arr = append(arr, OutgoingTxBatch{
+			BatchNonce:    val.BatchNonce,
+			BatchTimeout:  val.BatchTimeout,
+			Transactions:  txs,
+			TokenContract: val.TokenContract.GetAddress(),
+			Block:         val.Block,
+		})
+	}
+
+	return arr
 }
 
 func (i *InternalOutgoingTxBatch) ValidateBasic() error {

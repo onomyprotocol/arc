@@ -1,4 +1,5 @@
 use crate::get_fee;
+use crate::happy_path_v2::CosmosRepresentationMetadata;
 use crate::ADDRESS_PREFIX;
 use crate::COSMOS_NODE_GRPC;
 use crate::ETH_NODE;
@@ -11,7 +12,8 @@ use deep_space::address::Address as CosmosAddress;
 use deep_space::coin::Coin;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
 use deep_space::utils::encode_any;
-use deep_space::Contact;
+use deep_space::{Contact, Fee, Msg};
+use ethereum_gravity::utils::get_event_nonce;
 use futures::future::join_all;
 use gravity_proto::cosmos_sdk_proto::cosmos::gov::v1beta1::VoteOption;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::{
@@ -19,6 +21,7 @@ use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::{
 };
 use gravity_proto::cosmos_sdk_proto::cosmos::staking::v1beta1::QueryValidatorsRequest;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
+use gravity_proto::gravity::MsgSendToCosmosClaim;
 use gravity_utils::types::GravityBridgeToolsConfig;
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
@@ -26,6 +29,17 @@ use std::panic;
 use std::time::Duration;
 use web30::jsonrpc::error::Web3Error;
 use web30::{client::Web3, types::SendTxOption};
+
+/// returns the required denom metadata for deployed the Footoken
+/// token defined in our test environment, you could get this same
+/// data using the denom metadata endpoints.
+pub fn footoken_metadata() -> CosmosRepresentationMetadata {
+    CosmosRepresentationMetadata {
+        denom: "footoken".to_string(),
+        name: "Foo Token".to_string(),
+        symbol: "FOO".to_string(),
+    }
+}
 
 pub fn create_default_test_config() -> GravityBridgeToolsConfig {
     let mut no_relay_market_config = GravityBridgeToolsConfig::default();
@@ -60,6 +74,15 @@ pub async fn send_one_eth(dest: EthAddress, web30: &Web3) {
     send_eth_bulk(one_eth(), &[dest], web30).await;
 }
 
+pub fn get_coins(denom: &str, balances: &[Coin]) -> Option<Coin> {
+    for coin in balances {
+        if coin.denom.starts_with(denom) {
+            return Some(coin.clone());
+        }
+    }
+    None
+}
+
 pub async fn check_cosmos_balance(
     denom: &str,
     address: CosmosAddress,
@@ -90,8 +113,7 @@ pub async fn send_erc20_bulk(
     destinations: &[EthAddress],
     web3: &Web3,
 ) {
-    let miner_balance = web3.get_erc20_balance(erc20, *MINER_ADDRESS).await.unwrap();
-    assert!(miner_balance > amount.clone() * destinations.len().into());
+    check_erc20_balance(erc20, amount.clone(), *MINER_ADDRESS, web3).await;
     let mut nonce = web3
         .eth_get_transaction_count(*MINER_ADDRESS)
         .await
@@ -117,7 +139,7 @@ pub async fn send_erc20_bulk(
     wait_for_txids(txids, web3).await;
     let mut balance_checks = Vec::new();
     for address in destinations {
-        let check = check_erc20_balance(*address, erc20, amount.clone(), web3);
+        let check = check_erc20_balance(erc20, *address,amount.clone(),  web3);
         balance_checks.push(check);
     }
     join_all(balance_checks).await;
@@ -167,10 +189,20 @@ async fn wait_for_txids(txids: Vec<Result<Uint256, Web3Error>>, web3: &Web3) {
 }
 
 /// utility function for bulk checking erc20 balances, used to provide
-/// a single future that contains the assert as well qs the request
+/// a single future that contains the assert as well as the request
 async fn check_erc20_balance(address: EthAddress, erc20: EthAddress, amount: Uint256, web3: &Web3) {
-    // overly complicated retry logic allows us to handle the possibility that gas prices change between blocks
-    // and cause any individual request to fail.
+    let new_balance = get_erc20_balance_safe(erc20, web3, address).await;
+    let new_balance = new_balance.unwrap();
+    assert!(new_balance >= amount.clone());
+}
+
+/// utility function for bulk checking erc20 balances, used to provide
+/// a single future that contains the assert as well s the request
+pub async fn get_erc20_balance_safe(
+    erc20: EthAddress,
+    web3: &Web3,
+    address: EthAddress,
+) -> Result<Uint256, Web3Error> {
     let get_erc20_balance = async {
         loop {
             match web3.get_erc20_balance(erc20, address).await {
@@ -186,11 +218,8 @@ async fn check_erc20_balance(address: EthAddress, erc20: EthAddress, amount: Uin
     };
 
     match tokio::time::timeout(TOTAL_TIMEOUT, get_erc20_balance).await {
-        Err(_) => panic!("get_erc20_balance timedout"),
-        Ok(new_balance) => {
-            let new_balance = new_balance.unwrap();
-            assert!(new_balance >= amount.clone());
-        }
+        Err(_) => Err(Web3Error::BadInput("Intentional Error".to_string())),
+        Ok(new_balance) => Ok(new_balance.unwrap()),
     }
 }
 
@@ -303,35 +332,59 @@ pub async fn start_orchestrators(
     }
 }
 
+// Submits a false send to cosmos for every orchestrator key in keys, sending amount of erc20_address
+// tokens to cosmos_receiver, claiming to come from ethereum_sender for the given fee.
+// If a timeout is supplied, contact.send_message() will block waiting for the tx to appear
+// Note: These sends to cosmos are false, meaning the ethereum side will have a lower nonce than the
+// cosmos side and the bridge will effectively break.
+#[allow(clippy::too_many_arguments)]
+pub async fn submit_false_claims(
+    keys: &[CosmosPrivateKey],
+    nonce: u64,
+    height: u64,
+    amount: Uint256,
+    cosmos_receiver: CosmosAddress,
+    ethereum_sender: EthAddress,
+    erc20_address: EthAddress,
+    contact: &Contact,
+    fee: &Fee,
+    timeout: Option<Duration>,
+) {
+    for (i, k) in keys.iter().enumerate() {
+        let orch_addr = k.to_address(&contact.get_prefix()).unwrap();
+        let claim = MsgSendToCosmosClaim {
+            event_nonce: nonce,
+            block_height: height,
+            token_contract: erc20_address.to_string(),
+            amount: amount.to_string(),
+            cosmos_receiver: cosmos_receiver.to_string(),
+            ethereum_sender: ethereum_sender.to_string(),
+            orchestrator: orch_addr.to_string(),
+        };
+        info!("Oracle number {} submitting false deposit {:?}", i, claim);
+        let msg_url = "/gravity.v1.MsgSendToCosmosClaim";
+        let msg = Msg::new(msg_url, claim.clone());
+        let res = contact
+            .send_message(
+                &[msg],
+                Some("All your bridge are belong to us".to_string()),
+                fee.amount.as_slice(),
+                timeout,
+                *k,
+            )
+            .await
+            .expect("Failed to submit false claim");
+        info!("Oracle {} false claim response {:?}", i, res);
+    }
+}
+
 /// Creates a proposal to change the params of our test chain
 pub async fn create_parameter_change_proposal(
     contact: &Contact,
     key: CosmosPrivateKey,
     deposit: Coin,
-    gravity_address: EthAddress,
-    valset_reward: Coin,
+    params_to_change: Vec<ParamChange>,
 ) {
-    let mut params_to_change = Vec::new();
-    // this does not
-    let gravity_address = ParamChange {
-        subspace: "gravity".to_string(),
-        key: "BridgeContractAddress".to_string(),
-        value: format!("\"{}\"", gravity_address),
-    };
-    params_to_change.push(gravity_address);
-    let json_value = serde_json::to_string(&valset_reward).unwrap().to_string();
-    let valset_reward = ParamChange {
-        subspace: "gravity".to_string(),
-        key: "ValsetReward".to_string(),
-        value: json_value.clone(),
-    };
-    params_to_change.push(valset_reward);
-    let chain_id = ParamChange {
-        subspace: "gravity".to_string(),
-        key: "BridgeChainID".to_string(),
-        value: format!("\"{}\"", 1),
-    };
-    params_to_change.push(chain_id);
     let proposal = ParameterChangeProposal {
         title: "Set gravity settings!".to_string(),
         description: "test proposal".to_string(),
@@ -388,10 +441,9 @@ pub async fn vote_yes_on_proposals(
         .get_governance_proposals_in_voting_period()
         .await
         .unwrap();
-    info!("Found proposals: {:?}", proposals.proposals);
+    trace!("Found proposals: {:?}", proposals.proposals);
     for proposal in proposals.proposals {
         for key in keys.iter() {
-            info!("Voting yes on governance proposal");
             let res = contact
                 .vote_on_gov_proposal(
                     proposal.proposal_id,
@@ -402,7 +454,93 @@ pub async fn vote_yes_on_proposals(
                 )
                 .await
                 .unwrap();
-            contact.wait_for_tx(res, TOTAL_TIMEOUT).await.unwrap();
+            let res = contact.wait_for_tx(res, TOTAL_TIMEOUT).await.unwrap();
+            info!(
+                "Voting yes on governance proposal costing {} gas",
+                res.gas_used
+            );
         }
     }
+}
+
+// Checks that cosmos_account has each balance specified in expected_cosmos_coins.
+// Note: ignores balances not in expected_cosmos_coins
+pub async fn check_cosmos_balances(
+    contact: &Contact,
+    cosmos_account: CosmosAddress,
+    expected_cosmos_coins: &[Coin],
+) {
+    let mut num_found = 0;
+
+    let start = Instant::now();
+
+    while Instant::now() - start < TOTAL_TIMEOUT {
+        let mut good = true;
+        let curr_balances = contact.get_balances(cosmos_account).await.unwrap();
+        // These loops use loop labels, see the documentation on loop labels here for more information
+        // https://doc.rust-lang.org/reference/expressions/loop-expr.html#loop-labels
+        'outer: for bal in curr_balances.iter() {
+            if num_found == expected_cosmos_coins.len() {
+                break 'outer; // done searching entirely
+            }
+            'inner: for j in 0..expected_cosmos_coins.len() {
+                if num_found == expected_cosmos_coins.len() {
+                    break 'outer; // done searching entirely
+                }
+                if expected_cosmos_coins[j].denom != bal.denom {
+                    continue;
+                }
+                let check = expected_cosmos_coins[j].amount == bal.amount;
+                good = check;
+                if !check {
+                    warn!(
+                        "found balance {}! expected {} trying again",
+                        bal, expected_cosmos_coins[j].amount
+                    );
+                }
+                num_found += 1;
+                break 'inner; // done searching for this particular balance
+            }
+        }
+
+        let check = num_found == curr_balances.len();
+        // if it's already false don't set to true
+        good = check || good;
+        if !check {
+            warn!(
+                "did not find the correct balance for each expected coin! found {} of {}, trying again",
+                num_found,
+                curr_balances.len()
+            );
+        }
+        if good {
+            return;
+        } else {
+            sleep(Duration::from_secs(1)).await;
+        }
+    }
+    panic!("Failed to find correct balances in check_cosmos_balances")
+}
+
+/// utility function for bulk checking erc20 balances, used to provide
+/// a single future that contains the assert as well s the request
+pub async fn get_event_nonce_safe(
+    gravity_contract_address: EthAddress,
+    web3: &Web3,
+    caller_address: EthAddress,
+) -> Result<u64, Web3Error> {
+    let start = Instant::now();
+    // overly complicated retry logic allows us to handle the possibility that gas prices change between blocks
+    // and cause any individual request to fail.
+    let mut new_balance = Err(Web3Error::BadInput("Intentional Error".to_string()));
+    while new_balance.is_err() && Instant::now() - start < TOTAL_TIMEOUT {
+        new_balance = get_event_nonce(gravity_contract_address, caller_address, web3).await;
+        // only keep trying if our error is gas related
+        if let Err(ref e) = new_balance {
+            if !e.to_string().contains("maxFeePerGas") {
+                break;
+            }
+        }
+    }
+    Ok(new_balance.unwrap())
 }

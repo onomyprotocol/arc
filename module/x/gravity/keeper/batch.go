@@ -27,6 +27,10 @@ func (k Keeper) BuildOutgoingTXBatch(
 	if maxElements == 0 {
 		return nil, sdkerrors.Wrap(types.ErrInvalid, "max elements value")
 	}
+	params := k.GetParams(ctx)
+	if !params.BridgeActive {
+		return nil, sdkerrors.Wrap(types.ErrInvalid, "bridge paused")
+	}
 
 	lastBatch := k.GetLastOutgoingBatchByTokenType(ctx, contract)
 
@@ -55,7 +59,9 @@ func (k Keeper) BuildOutgoingTXBatch(
 	if err != nil {
 		panic(sdkerrors.Wrap(err, "unable to create batch"))
 	}
-	k.StoreBatch(ctx, batch)
+	// set the current block height when storing the batch
+	batch.Block = uint64(ctx.BlockHeight())
+	k.StoreBatch(ctx, *batch)
 
 	// Get the checkpoint and store it as a legit past batch
 	checkpoint := batch.GetCheckpoint(k.GetGravityID(ctx))
@@ -101,9 +107,26 @@ func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.Eth
 	if b == nil {
 		panic(fmt.Sprintf("unknown batch nonce for outgoing tx batch %s %d", tokenContract, nonce))
 	}
+	contract := b.TokenContract
+	// Burn tokens if they're Ethereum originated
+	if isCosmosOriginated, _ := k.ERC20ToDenomLookup(ctx, contract); !isCosmosOriginated {
+		totalToBurn := sdk.NewInt(0)
+		for _, tx := range b.Transactions {
+			totalToBurn = totalToBurn.Add(tx.Erc20Token.Amount.Add(tx.Erc20Fee.Amount))
+		}
+		// burn vouchers to send them back to ETH
+		erc20, err := types.NewInternalERC20Token(totalToBurn, contract.GetAddress())
+		if err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid ERC20 address in executed batch"))
+		}
+		burnVouchers := sdk.NewCoins(erc20.GravityCoin())
+		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnVouchers); err != nil {
+			panic(err)
+		}
+	}
 
 	// Iterate through remaining batches
-	k.IterateOutgoingTXBatches(ctx, func(key []byte, iter_batch *types.InternalOutgoingTxBatch) bool {
+	k.IterateOutgoingTXBatches(ctx, func(key []byte, iter_batch types.InternalOutgoingTxBatch) bool {
 		// If the iterated batches nonce is lower than the one that was just executed, cancel it
 		if iter_batch.BatchNonce < b.BatchNonce && iter_batch.TokenContract.GetAddress() == tokenContract.GetAddress() {
 			err := k.CancelOutgoingTXBatch(ctx, tokenContract, iter_batch.BatchNonce)
@@ -116,36 +139,28 @@ func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.Eth
 
 	// Delete batch since it is finished
 	k.DeleteBatch(ctx, *b)
-
 }
 
 // StoreBatch stores a transaction batch
-func (k Keeper) StoreBatch(ctx sdk.Context, batch *types.InternalOutgoingTxBatch) {
+func (k Keeper) StoreBatch(ctx sdk.Context, batch types.InternalOutgoingTxBatch) {
 	if err := batch.ValidateBasic(); err != nil {
 		panic(sdkerrors.Wrap(err, "attempted to store invalid batch"))
 	}
+	externalBatch := batch.ToExternal()
 	store := ctx.KVStore(k.storeKey)
-	// set the current block height when storing the batch
-	batch.Block = uint64(ctx.BlockHeight())
 	key := []byte(types.GetOutgoingTxBatchKey(batch.TokenContract, batch.BatchNonce))
-	store.Set(key, k.cdc.MustMarshalBinaryBare(batch.ToExternal()))
-
-	blockKey := []byte(types.GetOutgoingTxBatchBlockKey(batch.Block))
-	store.Set(blockKey, k.cdc.MustMarshalBinaryBare(batch.ToExternal()))
+	store.Set(key, k.cdc.MustMarshal(&externalBatch))
 }
 
 // StoreBatchUnsafe stores a transaction batch w/o setting the height
-func (k Keeper) StoreBatchUnsafe(ctx sdk.Context, batch *types.InternalOutgoingTxBatch) {
+func (k Keeper) StoreBatchUnsafe(ctx sdk.Context, batch types.InternalOutgoingTxBatch) {
 	if err := batch.ValidateBasic(); err != nil {
 		panic(sdkerrors.Wrap(err, "attempted to store invalid batch"))
 	}
 	batchExt := batch.ToExternal()
 	store := ctx.KVStore(k.storeKey)
 	key := []byte(types.GetOutgoingTxBatchKey(batch.TokenContract, batchExt.BatchNonce))
-	store.Set(key, k.cdc.MustMarshalBinaryBare(batchExt))
-
-	blockKey := []byte(types.GetOutgoingTxBatchBlockKey(batchExt.Block))
-	store.Set(blockKey, k.cdc.MustMarshalBinaryBare(batchExt))
+	store.Set(key, k.cdc.MustMarshal(&batchExt))
 }
 
 // DeleteBatch deletes an outgoing transaction batch
@@ -155,7 +170,6 @@ func (k Keeper) DeleteBatch(ctx sdk.Context, batch types.InternalOutgoingTxBatch
 	}
 	store := ctx.KVStore(k.storeKey)
 	store.Delete([]byte(types.GetOutgoingTxBatchKey(batch.TokenContract, batch.BatchNonce)))
-	store.Delete([]byte(types.GetOutgoingTxBatchBlockKey(batch.Block)))
 }
 
 // pickUnbatchedTX find TX in pool and remove from "available" second index
@@ -167,13 +181,31 @@ func (k Keeper) pickUnbatchedTX(
 	var err error
 	k.IterateUnbatchedTransactionsByContract(ctx, contractAddress, func(_ []byte, tx *types.InternalOutgoingTransferTx) bool {
 		if tx != nil && tx.Erc20Fee != nil {
-			selectedTx = append(selectedTx, tx)
-			err = k.removeUnbatchedTX(ctx, *tx.Erc20Fee, tx.Id)
-			oldTx, oldTxErr := k.GetUnbatchedTxByFeeAndId(ctx, *tx.Erc20Fee, tx.Id)
-			if oldTx != nil || oldTxErr == nil {
-				panic("picked a duplicate transaction from the pool, duplicates should never exist!")
+			// check the blacklist before picking this tx, this was already
+			// checked on MsgSendToEth, but we want to double check. For example
+			// a major erc20 throws on send to address X a MsgSendToEth is made with that destination
+			// batches with that tx will forever panic, blocking that erc20. With this check governance
+			// can add that address to the blacklist and quickly eliminate the issue. Note this is
+			// very inefficient, IsOnBlacklist is O(blacklist-length) and should be made faster
+			if !k.IsOnBlacklist(ctx, *tx.DestAddress) {
+				selectedTx = append(selectedTx, tx)
+				err = k.removeUnbatchedTX(ctx, *tx.Erc20Fee, tx.Id)
+				if err != nil {
+					panic("Failed to remote tx from unbatched queue")
+				}
+
+				// double check that no duplicates exist in the index
+				oldTx, oldTxErr := k.GetUnbatchedTxByFeeAndId(ctx, *tx.Erc20Fee, tx.Id)
+				if oldTx != nil || oldTxErr == nil {
+					panic("picked a duplicate transaction from the pool, duplicates should never exist!")
+				}
+
+				return uint(len(selectedTx)) == maxElements
+			} else {
+				// if the tx was on the blacklist we return false
+				// to continue to the next loop iteration
+				return false
 			}
-			return err != nil || uint(len(selectedTx)) == maxElements
 		} else {
 			panic("tx and fee should never be nil!")
 		}
@@ -190,7 +222,7 @@ func (k Keeper) GetOutgoingTXBatch(ctx sdk.Context, tokenContract types.EthAddre
 		return nil
 	}
 	var b types.OutgoingTxBatch
-	k.cdc.MustUnmarshalBinaryBare(bz, &b)
+	k.cdc.MustUnmarshal(bz, &b)
 	for _, tx := range b.Transactions {
 		tx.Erc20Token.Contract = tokenContract.GetAddress()
 		tx.Erc20Fee.Contract = tokenContract.GetAddress()
@@ -231,27 +263,27 @@ func (k Keeper) CancelOutgoingTXBatch(ctx sdk.Context, tokenContract types.EthAd
 }
 
 // IterateOutgoingTXBatches iterates through all outgoing batches in DESC order.
-func (k Keeper) IterateOutgoingTXBatches(ctx sdk.Context, cb func(key []byte, batch *types.InternalOutgoingTxBatch) bool) {
+func (k Keeper) IterateOutgoingTXBatches(ctx sdk.Context, cb func(key []byte, batch types.InternalOutgoingTxBatch) bool) {
 	prefixStore := prefix.NewStore(ctx.KVStore(k.storeKey), []byte(types.OutgoingTXBatchKey))
 	iter := prefixStore.ReverseIterator(nil, nil)
 	defer iter.Close()
 	for ; iter.Valid(); iter.Next() {
 		var batch types.OutgoingTxBatch
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &batch)
+		k.cdc.MustUnmarshal(iter.Value(), &batch)
 		intBatch, err := batch.ToInternal()
-		if err != nil {
+		if err != nil || intBatch == nil {
 			panic(sdkerrors.Wrap(err, "found invalid batch in store"))
 		}
 		// cb returns true to stop early
-		if cb(iter.Key(), intBatch) {
+		if cb(iter.Key(), *intBatch) {
 			break
 		}
 	}
 }
 
 // GetOutgoingTxBatches returns the outgoing tx batches
-func (k Keeper) GetOutgoingTxBatches(ctx sdk.Context) (out []*types.InternalOutgoingTxBatch) {
-	k.IterateOutgoingTXBatches(ctx, func(_ []byte, batch *types.InternalOutgoingTxBatch) bool {
+func (k Keeper) GetOutgoingTxBatches(ctx sdk.Context) (out []types.InternalOutgoingTxBatch) {
+	k.IterateOutgoingTXBatches(ctx, func(_ []byte, batch types.InternalOutgoingTxBatch) bool {
 		out = append(out, batch)
 		return false
 	})
@@ -265,14 +297,15 @@ func (k Keeper) GetLastOutgoingBatchByTokenType(ctx sdk.Context, token types.Eth
 	lastNonce := uint64(0)
 	for _, batch := range batches {
 		if batch.TokenContract.GetAddress() == token.GetAddress() && batch.BatchNonce > lastNonce {
-			lastBatch = batch
+			lastBatch = &batch
 			lastNonce = batch.BatchNonce
 		}
 	}
 	return lastBatch
 }
 
-// SetLastSlashedBatchBlock sets the latest slashed Batch block height
+// SetLastSlashedBatchBlock sets the latest slashed Batch block height this is done by
+// block height instead of nonce because batches could have individual nonces for each token type
 func (k Keeper) SetLastSlashedBatchBlock(ctx sdk.Context, blockHeight uint64) {
 	store := ctx.KVStore(k.storeKey)
 	store.Set([]byte(types.LastSlashedBatchBlock), types.UInt64Bytes(blockHeight))
@@ -284,47 +317,19 @@ func (k Keeper) GetLastSlashedBatchBlock(ctx sdk.Context) uint64 {
 	bytes := store.Get([]byte(types.LastSlashedBatchBlock))
 
 	if len(bytes) == 0 {
-		return 0
+		panic("Last slashed batch block not initialized from genesis")
 	}
 	return types.UInt64FromBytes(bytes)
 }
 
 // GetUnSlashedBatches returns all the unslashed batches in state
-func (k Keeper) GetUnSlashedBatches(ctx sdk.Context, maxHeight uint64) (out []*types.InternalOutgoingTxBatch) {
+func (k Keeper) GetUnSlashedBatches(ctx sdk.Context, maxHeight uint64) (out []types.InternalOutgoingTxBatch) {
 	lastSlashedBatchBlock := k.GetLastSlashedBatchBlock(ctx)
-	k.IterateBatchBySlashedBatchBlock(ctx,
-		lastSlashedBatchBlock,
-		maxHeight,
-		func(_ []byte, batch *types.InternalOutgoingTxBatch) bool {
-			if batch.Block > lastSlashedBatchBlock {
-				out = append(out, batch)
-			}
-			return false
-		})
-	return
-}
-
-// IterateBatchBySlashedBatchBlock iterates through all Batch by last slashed Batch block in ASC order
-func (k Keeper) IterateBatchBySlashedBatchBlock(
-	ctx sdk.Context,
-	lastSlashedBatchBlock uint64,
-	maxHeight uint64,
-	cb func([]byte, *types.InternalOutgoingTxBatch) bool) {
-	prefixStore := prefix.NewStore(ctx.KVStore(k.storeKey), []byte(types.OutgoingTXBatchBlockKey))
-	iter := prefixStore.Iterator(types.UInt64Bytes(lastSlashedBatchBlock), types.UInt64Bytes(maxHeight))
-	defer iter.Close()
-
-	for ; iter.Valid(); iter.Next() {
-		var batch types.OutgoingTxBatch
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &batch)
-		intBatch, err := batch.ToInternal()
-		if err != nil {
-			panic(sdkerrors.Wrap(err, "found invalid batch in store"))
-		}
-
-		// cb returns true to stop early
-		if cb(iter.Key(), intBatch) {
-			break
+	batches := k.GetOutgoingTxBatches(ctx)
+	for _, batch := range batches {
+		if batch.Block > lastSlashedBatchBlock && batch.Block < maxHeight {
+			out = append(out, batch)
 		}
 	}
+	return
 }

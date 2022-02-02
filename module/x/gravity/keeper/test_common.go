@@ -142,6 +142,33 @@ var (
 		sdk.ValAddress(AccPubKeys[4].Address()),
 	}
 
+	// AccPubKeys holds the pub keys for the account keys
+	OrchPubKeys = []ccrypto.PubKey{
+		OrchPrivKeys[0].PubKey(),
+		OrchPrivKeys[1].PubKey(),
+		OrchPrivKeys[2].PubKey(),
+		OrchPrivKeys[3].PubKey(),
+		OrchPrivKeys[4].PubKey(),
+	}
+
+	// Orchestrator private keys
+	OrchPrivKeys = []ccrypto.PrivKey{
+		secp256k1.GenPrivKey(),
+		secp256k1.GenPrivKey(),
+		secp256k1.GenPrivKey(),
+		secp256k1.GenPrivKey(),
+		secp256k1.GenPrivKey(),
+	}
+
+	// AccAddrs holds the sdk.AccAddresses
+	OrchAddrs = []sdk.AccAddress{
+		sdk.AccAddress(OrchPubKeys[0].Address()),
+		sdk.AccAddress(OrchPubKeys[1].Address()),
+		sdk.AccAddress(OrchPubKeys[2].Address()),
+		sdk.AccAddress(OrchPubKeys[3].Address()),
+		sdk.AccAddress(OrchPubKeys[4].Address()),
+	}
+
 	// TODO: generate the eth priv keys here and
 	// derive the address from them.
 
@@ -164,13 +191,13 @@ var (
 	}
 
 	// InitTokens holds the number of tokens to initialize an account with
-	InitTokens = sdk.TokensFromConsensusPower(110)
+	InitTokens = sdk.TokensFromConsensusPower(110, sdk.DefaultPowerReduction)
 
 	// InitCoins holds the number of coins to initialize an account with
 	InitCoins = sdk.NewCoins(sdk.NewCoin(TestingStakeParams.BondDenom, InitTokens))
 
 	// StakingAmount holds the staking power to start a validator with
-	StakingAmount = sdk.TokensFromConsensusPower(10)
+	StakingAmount = sdk.TokensFromConsensusPower(10, sdk.DefaultPowerReduction)
 
 	// StakingCoins holds the staking coins to start a validator with
 	StakingCoins = sdk.NewCoins(sdk.NewCoin(TestingStakeParams.BondDenom, StakingAmount))
@@ -202,6 +229,7 @@ var (
 		UnbondSlashingValsetsWindow:  15,
 		SlashFractionBadEthSignature: sdk.NewDecWithPrec(1, 2),
 		ValsetReward:                 sdk.Coin{Denom: "", Amount: sdk.ZeroInt()},
+		BridgeActive:                 true,
 	}
 )
 
@@ -215,7 +243,7 @@ type TestInput struct {
 	BankKeeper     bankkeeper.BaseKeeper
 	GovKeeper      govkeeper.Keeper
 	Context        sdk.Context
-	Marshaler      codec.Marshaler
+	Marshaler      codec.Codec
 	LegacyAmino    *codec.LegacyAmino
 }
 
@@ -238,7 +266,8 @@ func SetupFiveValChain(t *testing.T) (TestInput, sdk.Context) {
 		)
 
 		// Set the balance for the account
-		input.BankKeeper.SetBalances(input.Context, acc.GetAddress(), InitCoins)
+		require.NoError(t, input.BankKeeper.MintCoins(input.Context, types.ModuleName, InitCoins))
+		input.BankKeeper.SendCoinsFromModuleToAccount(input.Context, types.ModuleName, acc.GetAddress(), InitCoins)
 
 		// Set the account in state
 		input.AccountKeeper.SetAccount(input.Context, acc)
@@ -257,13 +286,15 @@ func SetupFiveValChain(t *testing.T) (TestInput, sdk.Context) {
 	// Run the staking endblocker to ensure valset is correct in state
 	staking.EndBlocker(input.Context, input.StakingKeeper)
 
-	// Register eth addresses for each validator
+	// Register eth addresses and orchestrator address for each validator
 	for i, addr := range ValAddrs {
 		ethAddr, err := types.NewEthAddress(EthAddrs[i].String())
 		if err != nil {
 			panic("found invalid address in EthAddrs")
 		}
 		input.GravityKeeper.SetEthAddressForValidator(input.Context, addr, *ethAddr)
+
+		input.GravityKeeper.SetOrchestratorValidator(input.Context, addr, OrchAddrs[i])
 	}
 
 	// Return the test input
@@ -384,17 +415,21 @@ func CreateTestEnv(t *testing.T) TestInput {
 
 	// total supply to track this
 	totalSupply := sdk.NewCoins(sdk.NewInt64Coin("stake", 100000000))
-	bankKeeper.SetSupply(ctx, banktypes.NewSupply(totalSupply))
 
 	// set up initial accounts
 	for name, perms := range maccPerms {
 		mod := authtypes.NewEmptyModuleAccount(name, perms...)
 		if name == stakingtypes.NotBondedPoolName {
-			err = bankKeeper.SetBalances(ctx, mod.GetAddress(), totalSupply)
+			err = bankKeeper.MintCoins(ctx, types.ModuleName, totalSupply)
+			require.NoError(t, err)
+			err = bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, mod.Name, totalSupply)
 			require.NoError(t, err)
 		} else if name == distrtypes.ModuleName {
 			// some big pot to pay out
-			err = bankKeeper.SetBalances(ctx, mod.GetAddress(), sdk.NewCoins(sdk.NewInt64Coin("stake", 500000)))
+			amt := sdk.NewCoins(sdk.NewInt64Coin("stake", 500000))
+			err = bankKeeper.MintCoins(ctx, types.ModuleName, amt)
+			require.NoError(t, err)
+			err = bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, mod.Name, amt)
 			require.NoError(t, err)
 		}
 		accountKeeper.SetModuleAccount(ctx, mod)
@@ -437,7 +472,7 @@ func CreateTestEnv(t *testing.T) TestInput {
 		getSubspace(paramsKeeper, slashingtypes.ModuleName).WithKeyTable(slashingtypes.ParamKeyTable()),
 	)
 
-	k := NewKeeper(marshaler, gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), stakingKeeper, bankKeeper, distKeeper, slashingKeeper)
+	k := NewKeeper(marshaler, gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), stakingKeeper, bankKeeper, distKeeper, slashingKeeper, accountKeeper)
 
 	stakingKeeper = *stakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(
@@ -446,6 +481,15 @@ func CreateTestEnv(t *testing.T) TestInput {
 			k.Hooks(),
 		),
 	)
+
+	// set gravityIDs for batches and tx items, simulating genesis setup
+	k.SetLatestValsetNonce(ctx, 0)
+	k.setLastObservedEventNonce(ctx, 0)
+	k.SetLastSlashedValsetNonce(ctx, 0)
+	k.SetLastSlashedBatchBlock(ctx, 0)
+	k.SetLastSlashedLogicCallBlock(ctx, 0)
+	k.setID(ctx, 0, []byte(types.KeyLastTXPoolID))
+	k.setID(ctx, 0, []byte(types.KeyLastOutgoingBatchID))
 
 	k.SetParams(ctx, TestingGravityParams)
 	params := k.GetParams(ctx)
@@ -487,7 +531,7 @@ func MakeTestCodec() *codec.LegacyAmino {
 }
 
 // MakeTestMarshaler creates a proto codec for use in testing
-func MakeTestMarshaler() codec.Marshaler {
+func MakeTestMarshaler() codec.Codec {
 	interfaceRegistry := codectypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(interfaceRegistry)
 	ModuleBasics.RegisterInterfaces(interfaceRegistry)

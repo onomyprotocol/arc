@@ -3,8 +3,8 @@
 //! and determine whether relays should happen or not
 use crate::happy_path::test_erc20_deposit_panic;
 use crate::utils::{
-    check_cosmos_balance, create_market_test_config, send_one_eth, start_orchestrators,
-    ValidatorKeys,
+    check_cosmos_balance, create_market_test_config, get_erc20_balance_safe, send_one_eth,
+    start_orchestrators, ValidatorKeys,
 };
 use crate::MINER_PRIVATE_KEY;
 use crate::TOTAL_TIMEOUT;
@@ -12,8 +12,8 @@ use crate::{one_eth, MINER_ADDRESS};
 use crate::{ADDRESS_PREFIX, OPERATION_TIMEOUT};
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::{Address as EthAddress, Uint256};
-use cosmos_gravity::send::{send_to_eth, TIMEOUT};
-use cosmos_gravity::{query::get_oldest_unsigned_transaction_batch, send::send_request_batch};
+use cosmos_gravity::send::send_to_eth;
+use cosmos_gravity::{query::get_oldest_unsigned_transaction_batches, send::send_request_batch};
 use deep_space::coin::Coin;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
 use deep_space::{Address, Contact};
@@ -95,21 +95,29 @@ async fn setup_batch_test(
         weth_acquired
     );
     // Acquire 1,000 WETH worth of DAI (probably ~23,000 DAI)
-    let token_acquired = web30
-        .swap_uniswap(
-            *MINER_PRIVATE_KEY,
-            *WETH_CONTRACT_ADDRESS,
-            erc20_contract,
-            None,
-            one_eth() * 1000u16.into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(TOTAL_TIMEOUT),
-        )
-        .await;
+    info!("Starting swap!");
+    let start = Instant::now();
+    let mut token_acquired = Err(Web3Error::BadInput("Dummy Error".to_string()));
+    while Instant::now() - start < TOTAL_TIMEOUT {
+        token_acquired = web30
+            .swap_uniswap(
+                *MINER_PRIVATE_KEY,
+                *WETH_CONTRACT_ADDRESS,
+                erc20_contract,
+                None,
+                one_eth() * 1000u16.into(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(TOTAL_TIMEOUT),
+            )
+            .await;
+        if token_acquired.is_ok() {
+            break;
+        }
+    }
     info!("Swap result is {:?}", token_acquired);
     assert!(
         !token_acquired.is_err(),
@@ -296,7 +304,6 @@ async fn test_good_batch(
         request_batch_fee.denom.clone(),
         request_batch_fee,
         contact,
-        Some(TIMEOUT),
     )
     .await
     .unwrap();
@@ -330,8 +337,7 @@ async fn test_good_batch(
 
     // we have to send this address one eth so that it can perform contract calls
     send_one_eth(dest_eth_address, web30).await;
-    let dest_eth_bal = web30
-        .get_erc20_balance(erc20_contract, dest_eth_address)
+    let dest_eth_bal = get_erc20_balance_safe(erc20_contract, web30, dest_eth_address)
         .await
         .unwrap();
 
@@ -379,7 +385,6 @@ async fn test_bad_batch(
         request_batch_fee.denom.clone(),
         request_batch_fee,
         contact,
-        Some(TIMEOUT),
     )
     .await
     .unwrap();
@@ -397,8 +402,7 @@ async fn test_bad_batch(
 
     // we have to send this address one eth so that it can perform contract calls
     send_one_eth(dest_eth_address, web30).await;
-    let dest_eth_bal = web30
-        .get_erc20_balance(erc20_contract, dest_eth_address)
+    let dest_eth_bal = get_erc20_balance_safe(erc20_contract, web30, dest_eth_address)
         .await
         .unwrap();
 
@@ -407,6 +411,7 @@ async fn test_bad_batch(
         "destination eth balance {} == {}",
         dest_eth_bal, send_amount,
     );
+
     info!(
         "Successfully updated txbatch nonce to {} and sent {}{} tokens to Ethereum!",
         current_eth_batch_nonce, cdai_held.amount, cdai_held.denom
