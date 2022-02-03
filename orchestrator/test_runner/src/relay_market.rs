@@ -20,11 +20,12 @@ use deep_space::{Address, Contact};
 use ethereum_gravity::utils::get_tx_batch_nonce;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use rand::Rng;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS};
 use web30::client::Web3;
+use web30::jsonrpc::error::Web3Error;
 
 pub async fn relay_market_test(
     web30: &Web3,
@@ -222,7 +223,7 @@ async fn wait_for_batch(
 ) -> u64 {
     contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
 
-    get_oldest_unsigned_transaction_batch(grpc_client, requester_address, contact.get_prefix())
+    get_oldest_unsigned_transaction_batches(grpc_client, requester_address, contact.get_prefix())
         .await
         .expect("Failed to get batch to sign");
 

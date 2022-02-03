@@ -26,7 +26,8 @@ use gravity_utils::types::GravityBridgeToolsConfig;
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
 use std::panic;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use tokio::time::sleep;
 use web30::jsonrpc::error::Web3Error;
 use web30::{client::Web3, types::SendTxOption};
 
@@ -139,7 +140,7 @@ pub async fn send_erc20_bulk(
     wait_for_txids(txids, web3).await;
     let mut balance_checks = Vec::new();
     for address in destinations {
-        let check = check_erc20_balance(erc20, *address,amount.clone(),  web3);
+        let check = check_erc20_balance(erc20, amount.clone(), *address, web3);
         balance_checks.push(check);
     }
     join_all(balance_checks).await;
@@ -190,7 +191,12 @@ async fn wait_for_txids(txids: Vec<Result<Uint256, Web3Error>>, web3: &Web3) {
 
 /// utility function for bulk checking erc20 balances, used to provide
 /// a single future that contains the assert as well as the request
-async fn check_erc20_balance(address: EthAddress, erc20: EthAddress, amount: Uint256, web3: &Web3) {
+pub async fn check_erc20_balance(
+    erc20: EthAddress,
+    amount: Uint256,
+    address: EthAddress,
+    web3: &Web3,
+) {
     let new_balance = get_erc20_balance_safe(erc20, web3, address).await;
     let new_balance = new_balance.unwrap();
     assert!(new_balance >= amount.clone());

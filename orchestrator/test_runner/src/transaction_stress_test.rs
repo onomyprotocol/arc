@@ -299,12 +299,10 @@ pub async fn transaction_stress_test(
         .await
         .is_err()
     {
-        if !(good && found_canceled) {
-            panic!(
-                "Failed to perform all {} withdraws to Ethereum!",
-                NUM_USERS * erc20_addresses.len()
-            );
-        }
+        panic!(
+            "Failed to perform all {} withdraws to Ethereum!",
+            NUM_USERS * erc20_addresses.len()
+        );
     }
 
     // we should find a batch nonce greater than zero since all the batches

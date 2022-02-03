@@ -260,7 +260,7 @@ pub async fn eth_signer_main_loop(
                     (Ok(_latest_eth_block), Ok(ChainStatus::Syncing)) => {
                         warn!("Cosmos node syncing, Eth signer paused");
                         sleep(DELAY).await;
-                        return Ok::<(), GravityError>(());
+                        return Ok(());
                     }
                     (Ok(_latest_eth_block), Ok(ChainStatus::WaitingToStart)) => {
                         warn!("Cosmos node syncing waiting for chain start, Eth signer paused");
@@ -311,10 +311,10 @@ pub async fn eth_signer_main_loop(
                             )
                             .await;
                             trace!("Valset confirm result is {:?}", res);
-                            check_for_fee_error(res, &fee)?;
+                            return check_for_fee_error(res, &fee);
                         }
                     }
-                    Err(e) => error!(
+                    Err(e) => trace!(
                         "Failed to get unsigned valsets, check your Cosmos gRPC {:?}",
                         e
                     ),
@@ -348,7 +348,7 @@ pub async fn eth_signer_main_loop(
                             )
                             .await;
                             trace!("Batch confirm result is {:?}", res);
-                            check_for_fee_error(res, &fee);
+                            return check_for_fee_error(res, &fee);
                         }
                     }
                     Err(e) => trace!(
@@ -383,7 +383,7 @@ pub async fn eth_signer_main_loop(
                             )
                             .await;
                             trace!("call confirm result is {:?}", res);
-                            check_for_fee_error(res, &fee);
+                            return check_for_fee_error(res, &fee);
                         }
                     }
                     Err(e) => info!(

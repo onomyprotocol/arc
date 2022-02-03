@@ -128,10 +128,7 @@ pub async fn happy_path_test_v2(
 
     let verify_asset_is_bridged_to_eth = async {
         loop {
-            match web30
-                .get_erc20_balance_safe(erc20_contract, web30, user.eth_address)
-                .await
-            {
+            match get_erc20_balance_safe(erc20_contract, web30, user.eth_address).await {
                 Err(_) => {}
                 Ok(balance) => {
                     if balance == amount_to_bridge {
@@ -230,6 +227,7 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
         .await;
     }
 
+    let token_to_send_to_eth = footoken_metadata().denom;
     let get_cosmos_asset_on_eth = async {
         loop {
             // the erc20 representing the cosmos asset on Ethereum
@@ -251,14 +249,13 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
         }
     };
 
-    match tokio::time::timeout(TOTAL_TIMEOUT, get_cosmos_asset_on_eth).await {
+    let erc20_contract = match tokio::time::timeout(TOTAL_TIMEOUT, get_cosmos_asset_on_eth).await {
         Err(_) => panic!(
             "Cosmos did not adopt the ERC20 contract for {} it must be invalid in some way",
             token_to_send_to_eth
         ),
         Ok(erc20_contract) => erc20_contract.parse().unwrap(),
-    }
-    let erc20_contract: EthAddress = erc20_contract.unwrap().parse().unwrap();
+    };
 
     // now that we have the contract, validate that it has the properties we want
     let got_decimals = web30
