@@ -23,7 +23,7 @@ const (
 
 var (
 	// EthAddressByValidatorKey indexes cosmos validator account addresses
-	// i.e. cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn
+	// i.e. gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm
 	EthAddressByValidatorKey = "EthAddressValidatorKey"
 
 	// ValidatorByEthAddressKey indexes ethereum addresses
@@ -34,11 +34,11 @@ var (
 	ValsetRequestKey = "ValsetRequestKey"
 
 	// ValsetConfirmKey indexes valset confirmations by nonce and the validator account address
-	// i.e cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn
+	// i.e gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm
 	ValsetConfirmKey = "ValsetConfirmKey"
 
 	// OracleClaimKey Claim details by nonce and validator address
-	// i.e. cosmosvaloper1ahx7f8wyertuus9r20284ej0asrs085case3kn
+	// i.e. gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm
 	// A claim is named more intuitively than an Attestation, it is literally
 	// a validator making a claim to have seen something happen. Claims are
 	// attached to attestations which can be thought of as 'the event' that
@@ -46,7 +46,7 @@ var (
 	OracleClaimKey = "OracleClaimKey"
 
 	// OracleAttestationKey attestation details by nonce and validator address
-	// i.e. cosmosvaloper1ahx7f8wyertuus9r20284ej0asrs085case3kn
+	// i.e. gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm
 	// An attestation can be thought of as the 'event to be executed' while
 	// the Claims are an individual validator saying that they saw an event
 	// occur the Attestation is 'the event' that multiple claims vote on and
@@ -61,9 +61,6 @@ var (
 
 	// OutgoingTXBatchKey indexes outgoing tx batches under a nonce and token address
 	OutgoingTXBatchKey = "OutgoingTXBatchKey"
-
-	// OutgoingTXBatchBlockKey indexes outgoing tx batches under a block height and token address
-	OutgoingTXBatchBlockKey = "OutgoingTXBatchBlockKey"
 
 	// BatchConfirmKey indexes validator confirmations by token contract address
 	BatchConfirmKey = "BatchConfirmKey"
@@ -131,15 +128,21 @@ var (
 
 // GetOrchestratorAddressKey returns the following key format
 // prefix
-// [0xe8][cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn]
+// [0xe8][gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm]
 func GetOrchestratorAddressKey(orc sdk.AccAddress) string {
+	if err := sdk.VerifyAddressFormat(orc); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid orchestrator address"))
+	}
 	return KeyOrchestratorAddress + string(orc.Bytes())
 }
 
 // GetEthAddressByValidatorKey returns the following key format
 // prefix              cosmos-validator
-// [0x0][cosmosvaloper1ahx7f8wyertuus9r20284ej0asrs085case3kn]
+// [0x0][gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm]
 func GetEthAddressByValidatorKey(validator sdk.ValAddress) string {
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid validator address"))
+	}
 	return EthAddressByValidatorKey + string(validator.Bytes())
 }
 
@@ -159,15 +162,18 @@ func GetValsetKey(nonce uint64) string {
 
 // GetValsetConfirmKey returns the following key format
 // prefix   nonce                    validator-address
-// [0x0][0 0 0 0 0 0 0 1][cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn]
+// [0x0][0 0 0 0 0 0 0 1][gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm]
 // MARK finish-batches: this is where the key is created in the old (presumed working) code
 func GetValsetConfirmKey(nonce uint64, validator sdk.AccAddress) string {
-	return ValsetConfirmKey + convertByteArrToString(UInt64Bytes(nonce)) + convertByteArrToString(validator.Bytes())
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid validator address"))
+	}
+	return ValsetConfirmKey + convertByteArrToString(UInt64Bytes(nonce)) + string(validator.Bytes())
 }
 
 // GetClaimKey returns the following key format
 // prefix type               cosmos-validator-address                       nonce                             attestation-details-hash
-// [0x0][0 0 0 1][cosmosvaloper1ahx7f8wyertuus9r20284ej0asrs085case3kn][0 0 0 0 0 0 0 1][fd1af8cec6c67fcf156f1b61fdf91ebc04d05484d007436e75342fc05bbff35a]
+// [0x0][0 0 0 1][gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm][0 0 0 0 0 0 0 1][fd1af8cec6c67fcf156f1b61fdf91ebc04d05484d007436e75342fc05bbff35a]
 // The Claim hash identifies a unique event, for example it would have a event nonce, a sender and a receiver. Or an event nonce and a batch nonce. But
 // the Claim is stored indexed with the claimer key to make sure that it is unique.
 func GetClaimKey(details EthereumClaim) string {
@@ -183,13 +189,19 @@ func GetClaimKey(details EthereumClaim) string {
 	}
 	claimTypeLen := len([]byte{byte(details.GetType())})
 	nonceBz := UInt64Bytes(details.GetEventNonce())
-	key := make([]byte, len(OracleClaimKey)+claimTypeLen+sdk.AddrLen+len(nonceBz)+len(detailsHash))
+	if err := sdk.VerifyAddressFormat(details.GetClaimer()); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid claimer address"))
+	}
+
+	addrLen := len(details.GetClaimer())
+
+	key := make([]byte, len(OracleClaimKey)+claimTypeLen+addrLen+len(nonceBz)+len(detailsHash))
 	copy(key[0:], OracleClaimKey)
 	copy(key[len(OracleClaimKey):], []byte{byte(details.GetType())})
 	// TODO this is the delegate address, should be stored by the valaddress
 	copy(key[len(OracleClaimKey)+claimTypeLen:], details.GetClaimer())
-	copy(key[len(OracleClaimKey)+claimTypeLen+sdk.AddrLen:], nonceBz)
-	copy(key[len(OracleClaimKey)+claimTypeLen+sdk.AddrLen+len(nonceBz):], detailsHash)
+	copy(key[len(OracleClaimKey)+claimTypeLen+addrLen:], nonceBz)
+	copy(key[len(OracleClaimKey)+claimTypeLen+addrLen+len(nonceBz):], detailsHash)
 	return convertByteArrToString(key)
 }
 
@@ -238,18 +250,14 @@ func GetOutgoingTxBatchKey(tokenContract EthAddress, nonce uint64) string {
 	return OutgoingTXBatchKey + tokenContract.GetAddress() + string(UInt64Bytes(nonce))
 }
 
-// GetOutgoingTxBatchBlockKey returns the following key format
-// prefix     blockheight
-// [0xb][0 0 0 0 2 1 4 3]
-func GetOutgoingTxBatchBlockKey(block uint64) string {
-	return OutgoingTXBatchBlockKey + string(UInt64Bytes(block))
-}
-
 // GetBatchConfirmKey returns the following key format
 // prefix           eth-contract-address                BatchNonce                       Validator-address
-// [0xe1][0xc783df8a850f42e7F7e57013759C285caa701eB6][0 0 0 0 0 0 0 1][cosmosvaloper1ahx7f8wyertuus9r20284ej0asrs085case3kn]
+// [0xe1][0xc783df8a850f42e7F7e57013759C285caa701eB6][0 0 0 0 0 0 0 1][gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm]
 // TODO this should be a sdk.ValAddress
 func GetBatchConfirmKey(tokenContract EthAddress, batchNonce uint64, validator sdk.AccAddress) string {
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid validator address"))
+	}
 	a := append(UInt64Bytes(batchNonce), validator.Bytes()...)
 	b := append([]byte(tokenContract.GetAddress()), a...)
 	c := BatchConfirmKey + string(b)
@@ -259,8 +267,11 @@ func GetBatchConfirmKey(tokenContract EthAddress, batchNonce uint64, validator s
 // GetLastEventNonceByValidatorKey indexes lateset event nonce by validator
 // GetLastEventNonceByValidatorKey returns the following key format
 // prefix              cosmos-validator
-// [0x0][cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn]
+// [0x0][gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm]
 func GetLastEventNonceByValidatorKey(validator sdk.ValAddress) string {
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid validator address"))
+	}
 	return LastEventNonceByValidatorKey + string(validator.Bytes())
 }
 
@@ -278,9 +289,12 @@ func GetOutgoingLogicCallKey(invalidationId []byte, invalidationNonce uint64) st
 }
 
 func GetLogicConfirmKey(invalidationId []byte, invalidationNonce uint64, validator sdk.AccAddress) string {
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid validator address"))
+	}
 	interm := KeyOutgoingLogicConfirm + string(invalidationId)
 	interm = interm + string(UInt64Bytes(invalidationNonce))
-	return interm + convertByteArrToString(validator.Bytes())
+	return interm + string(validator.Bytes())
 }
 
 // GetPastEthSignatureCheckpointKey returns the following key format

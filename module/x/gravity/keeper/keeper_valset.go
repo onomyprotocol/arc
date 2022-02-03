@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 	"strconv"
 
@@ -19,7 +20,7 @@ import (
 // SetValsetRequest returns a new instance of the Gravity BridgeValidatorSet
 // by taking a snapshot of the current set
 // i.e. {"nonce": 1, "memebers": [{"eth_addr": "foo", "power": 11223}]}
-func (k Keeper) SetValsetRequest(ctx sdk.Context) *types.Valset {
+func (k Keeper) SetValsetRequest(ctx sdk.Context) types.Valset {
 	valset := k.GetCurrentValset(ctx)
 	k.StoreValset(ctx, valset)
 
@@ -46,17 +47,17 @@ func (k Keeper) SetValsetRequest(ctx sdk.Context) *types.Valset {
 }
 
 // StoreValset is for storing a valiator set at a given height
-func (k Keeper) StoreValset(ctx sdk.Context, valset *types.Valset) {
+func (k Keeper) StoreValset(ctx sdk.Context, valset types.Valset) {
 	store := ctx.KVStore(k.storeKey)
 	valset.Height = uint64(ctx.BlockHeight())
-	store.Set([]byte(types.GetValsetKey(valset.Nonce)), k.cdc.MustMarshalBinaryBare(valset))
+	store.Set([]byte(types.GetValsetKey(valset.Nonce)), k.cdc.MustMarshal(&valset))
 	k.SetLatestValsetNonce(ctx, valset.Nonce)
 }
 
 // StoreValsetUnsafe is for storing a valiator set at a given height
-func (k Keeper) StoreValsetUnsafe(ctx sdk.Context, valset *types.Valset) {
+func (k Keeper) StoreValsetUnsafe(ctx sdk.Context, valset types.Valset) {
 	store := ctx.KVStore(k.storeKey)
-	store.Set([]byte(types.GetValsetKey(valset.Nonce)), k.cdc.MustMarshalBinaryBare(valset))
+	store.Set([]byte(types.GetValsetKey(valset.Nonce)), k.cdc.MustMarshal(&valset))
 	k.SetLatestValsetNonce(ctx, valset.Nonce)
 }
 
@@ -77,7 +78,7 @@ func (k Keeper) GetLatestValsetNonce(ctx sdk.Context) uint64 {
 	bytes := store.Get([]byte(types.LatestValsetNonce))
 
 	if len(bytes) == 0 {
-		return 0
+		panic("Valset nonce not initialized from genesis")
 	}
 	return types.UInt64FromBytes(bytes)
 }
@@ -96,7 +97,7 @@ func (k Keeper) GetValset(ctx sdk.Context, nonce uint64) *types.Valset {
 		return nil
 	}
 	var valset types.Valset
-	k.cdc.MustUnmarshalBinaryBare(bz, &valset)
+	k.cdc.MustUnmarshal(bz, &valset)
 	return &valset
 }
 
@@ -107,7 +108,7 @@ func (k Keeper) IterateValsets(ctx sdk.Context, cb func(key []byte, val *types.V
 	defer iter.Close()
 	for ; iter.Valid(); iter.Next() {
 		var valset types.Valset
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &valset)
+		k.cdc.MustUnmarshal(iter.Value(), &valset)
 		// cb returns true to stop early
 		if cb(iter.Key(), &valset) {
 			break
@@ -116,9 +117,9 @@ func (k Keeper) IterateValsets(ctx sdk.Context, cb func(key []byte, val *types.V
 }
 
 // GetValsets returns all the validator sets in state
-func (k Keeper) GetValsets(ctx sdk.Context) (out []*types.Valset) {
+func (k Keeper) GetValsets(ctx sdk.Context) (out []types.Valset) {
 	k.IterateValsets(ctx, func(_ []byte, val *types.Valset) bool {
-		out = append(out, val)
+		out = append(out, *val)
 		return false
 	})
 	sort.Sort(types.Valsets(out))
@@ -152,13 +153,15 @@ func (k Keeper) GetLastSlashedValsetNonce(ctx sdk.Context) uint64 {
 	return types.UInt64FromBytes(bytes)
 }
 
-// SetLastUnBondingBlockHeight sets the last unbonding block height
+// SetLastUnBondingBlockHeight sets the last unbonding block height. Note this value is not saved and loaded in genesis
+// and is reset to zero on chain upgrade.
 func (k Keeper) SetLastUnBondingBlockHeight(ctx sdk.Context, unbondingBlockHeight uint64) {
 	store := ctx.KVStore(k.storeKey)
 	store.Set([]byte(types.LastUnBondingBlockHeight), types.UInt64Bytes(unbondingBlockHeight))
 }
 
-// GetLastUnBondingBlockHeight returns the last unbonding block height
+// GetLastUnBondingBlockHeight returns the last unbonding block height, returns zero if not set, this is not
+// saved or loaded ing enesis and is reset to zero on chain upgrade
 func (k Keeper) GetLastUnBondingBlockHeight(ctx sdk.Context) uint64 {
 	store := ctx.KVStore(k.storeKey)
 	bytes := store.Get([]byte(types.LastUnBondingBlockHeight))
@@ -194,7 +197,7 @@ func (k Keeper) IterateValsetBySlashedValsetNonce(ctx sdk.Context, lastSlashedVa
 
 	for ; iter.Valid(); iter.Next() {
 		var valset types.Valset
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &valset)
+		k.cdc.MustUnmarshal(iter.Value(), &valset)
 		// cb returns true to stop early
 		if cb(iter.Key(), &valset) {
 			break
@@ -227,33 +230,37 @@ func (k Keeper) IterateValsetBySlashedValsetNonce(ctx sdk.Context, lastSlashedVa
 // The function is intended to return what the valset would look like if you made one now
 // you should call this function, evaluate if you want to save this new valset, and discard
 // it or save
-func (k Keeper) GetCurrentValset(ctx sdk.Context) *types.Valset {
+func (k Keeper) GetCurrentValset(ctx sdk.Context) types.Valset {
 	validators := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
 	// allocate enough space for all validators, but len zero, we then append
 	// so that we have an array with extra capacity but the correct length depending
 	// on how many validators have keys set.
 	bridgeValidators := make([]*types.InternalBridgeValidator, 0, len(validators))
-	var totalPower uint64
+	totalPower := sdk.NewInt(0)
 	// TODO someone with in depth info on Cosmos staking should determine
 	// if this is doing what I think it's doing
-	for _, validator := range validators {
+	for i, validator := range validators {
 		val := validator.GetOperator()
+		if err := sdk.VerifyAddressFormat(val); err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid validator address in current valset %v", val))
+		}
 
-		p := uint64(k.StakingKeeper.GetLastValidatorPower(ctx, val))
+		p := sdk.NewInt(k.StakingKeeper.GetLastValidatorPower(ctx, val))
+		fmt.Println("validator", i, "power is", p.String())
 
 		if ethAddr, found := k.GetEthAddressByValidator(ctx, val); found {
-			bv := types.BridgeValidator{Power: p, EthereumAddress: ethAddr.GetAddress()}
+			bv := types.BridgeValidator{Power: p.Uint64(), EthereumAddress: ethAddr.GetAddress()}
 			ibv, err := types.NewInternalBridgeValidator(bv)
 			if err != nil {
 				panic(sdkerrors.Wrapf(err, "discovered invalid eth address stored for validator %v", val))
 			}
 			bridgeValidators = append(bridgeValidators, ibv)
-			totalPower += p
+			totalPower = totalPower.Add(p)
 		}
 	}
 	// normalize power values to the maximum bridge power which is 2^32
 	for i := range bridgeValidators {
-		bridgeValidators[i].Power = sdk.NewUint(bridgeValidators[i].Power).MulUint64(4294967296).QuoUint64(totalPower).Uint64()
+		bridgeValidators[i].Power = normalizeValidatorPower(bridgeValidators[i].Power, totalPower)
 	}
 
 	// get the reward from the params store
@@ -264,7 +271,8 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) *types.Valset {
 		// the case where a validator has 'no reward'. The 'no reward' value is interpreted as having a zero
 		// address for the ERC20 token and a zero value for the reward amount. Since we store a coin with the
 		// params, a coin with a blank denom and/or zero amount is interpreted in this way.
-		rewardToken = types.ZeroAddress()
+		za := types.ZeroAddress()
+		rewardToken = &za
 		rewardAmount = sdk.NewIntFromUint64(0)
 
 	} else {
@@ -278,7 +286,25 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) *types.Valset {
 	if err != nil {
 		panic(sdkerrors.Wrap(err, "generated invalid valset"))
 	}
-	return valset
+	return *valset
+}
+
+// normalizeValidatorPower scales rawPower with respect to totalValidatorPower to take a value between 0 and 2^32
+// Uses BigInt operations to avoid overflow errors
+// Example: rawPower = max (2^63 - 1), totalValidatorPower = 1 validator: (2^63 - 1)
+//   result: (2^63 - 1) * 2^32 / (2^63 - 1) = 2^32 = 4294967296 [this is the multiplier value below, our max output]
+// Example: rawPower = max (2^63 - 1), totalValidatorPower = 1000 validators with the same power: 1000*(2^63 - 1)
+//   result: (2^63 - 1) * 2^32 / (1000(2^63 - 1)) = 2^32 / 1000 = 4294967
+func normalizeValidatorPower(rawPower uint64, totalValidatorPower sdk.Int) uint64 {
+	// Compute rawPower * multiplier / quotient
+	// Set the upper limit to 2^32, which would happen if there is a single validator with all the power
+	multiplier := new(big.Int).SetUint64(4294967296)
+	// Scale by current validator powers, a particularly low-power validator (1 out of over 2^32) would have 0 power
+	quotient := new(big.Int).Set(totalValidatorPower.BigInt())
+	power := new(big.Int).SetUint64(rawPower)
+	power.Mul(power, multiplier)
+	power.Quo(power, quotient)
+	return power.Uint64()
 }
 
 /////////////////////////////
@@ -288,6 +314,10 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) *types.Valset {
 // GetValsetConfirm returns a valset confirmation by a nonce and validator address
 func (k Keeper) GetValsetConfirm(ctx sdk.Context, nonce uint64, validator sdk.AccAddress) *types.MsgValsetConfirm {
 	store := ctx.KVStore(k.storeKey)
+	if err := sdk.VerifyAddressFormat(validator); err != nil {
+		ctx.Logger().Error("invalid validator address")
+		return nil
+	}
 	entity := store.Get([]byte(types.GetValsetConfirmKey(nonce, validator)))
 	if entity == nil {
 		return nil
@@ -298,7 +328,7 @@ func (k Keeper) GetValsetConfirm(ctx sdk.Context, nonce uint64, validator sdk.Ac
 		EthAddress:   "",
 		Signature:    "",
 	}
-	k.cdc.MustUnmarshalBinaryBare(entity, &confirm)
+	k.cdc.MustUnmarshal(entity, &confirm)
 	return &confirm
 }
 
@@ -310,12 +340,12 @@ func (k Keeper) SetValsetConfirm(ctx sdk.Context, valsetConf types.MsgValsetConf
 		panic(err)
 	}
 	key := []byte(types.GetValsetConfirmKey(valsetConf.Nonce, addr))
-	store.Set(key, k.cdc.MustMarshalBinaryBare(&valsetConf))
+	store.Set(key, k.cdc.MustMarshal(&valsetConf))
 	return key
 }
 
 // GetValsetConfirms returns all validator set confirmations by nonce
-func (k Keeper) GetValsetConfirms(ctx sdk.Context, nonce uint64) (confirms []*types.MsgValsetConfirm) {
+func (k Keeper) GetValsetConfirms(ctx sdk.Context, nonce uint64) (confirms []types.MsgValsetConfirm) {
 	prefixStore := prefix.NewStore(ctx.KVStore(k.storeKey), []byte(types.ValsetConfirmKey))
 	start, end := prefixRange(types.UInt64Bytes(nonce))
 	iterator := prefixStore.Iterator(start, end)
@@ -329,8 +359,8 @@ func (k Keeper) GetValsetConfirms(ctx sdk.Context, nonce uint64) (confirms []*ty
 			EthAddress:   "",
 			Signature:    "",
 		}
-		k.cdc.MustUnmarshalBinaryBare(iterator.Value(), &confirm)
-		confirms = append(confirms, &confirm)
+		k.cdc.MustUnmarshal(iterator.Value(), &confirm)
+		confirms = append(confirms, confirm)
 	}
 
 	return confirms
@@ -349,7 +379,7 @@ func (k Keeper) IterateValsetConfirmByNonce(ctx sdk.Context, nonce uint64, cb fu
 			EthAddress:   "",
 			Signature:    "",
 		}
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &confirm)
+		k.cdc.MustUnmarshal(iter.Value(), &confirm)
 		// cb returns true to stop early
 		if cb(iter.Key(), confirm) {
 			break

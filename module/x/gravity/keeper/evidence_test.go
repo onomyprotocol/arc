@@ -19,7 +19,7 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 
 	var (
 		now                 = time.Now().UTC()
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
 		token, err          = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
@@ -35,7 +35,7 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 	require.NoError(t, input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers))
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	require.NoError(t, input.BankKeeper.SetBalances(ctx, mySender, allVouchers))
+	require.NoError(t, input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers))
 
 	// CREATE BATCH
 
@@ -56,9 +56,10 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 	ctx = ctx.WithBlockTime(now)
 
 	goodBatch, err := input.GravityKeeper.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
+	goodBatchExternal := goodBatch.ToExternal()
 	require.NoError(t, err)
 
-	any, _ := codectypes.NewAnyWithValue(goodBatch.ToExternal())
+	any, _ := codectypes.NewAnyWithValue(&goodBatchExternal)
 
 	msg := types.MsgSubmitBadSignatureEvidence{
 		Subject:   any,
@@ -77,7 +78,7 @@ func TestSubmitBadSignatureEvidenceValsetExists(t *testing.T) {
 
 	valset := input.GravityKeeper.SetValsetRequest(ctx)
 
-	any, _ := codectypes.NewAnyWithValue(valset)
+	any, _ := codectypes.NewAnyWithValue(&valset)
 
 	msg := types.MsgSubmitBadSignatureEvidence{
 		Subject:   any,
@@ -97,7 +98,7 @@ func TestSubmitBadSignatureEvidenceLogicCallExists(t *testing.T) {
 		Timeout: 420,
 	}
 
-	input.GravityKeeper.SetOutgoingLogicCall(ctx, &logicCall)
+	input.GravityKeeper.SetOutgoingLogicCall(ctx, logicCall)
 
 	any, _ := codectypes.NewAnyWithValue(&logicCall)
 
@@ -116,7 +117,7 @@ func TestSubmitBadSignatureEvidenceSlash(t *testing.T) {
 
 	batch := types.OutgoingTxBatch{
 		TokenContract: "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7",
-		BatchTimeout: 420,
+		BatchTimeout:  420,
 	}
 
 	checkpoint := batch.GetCheckpoint(input.GravityKeeper.GetGravityID(ctx))

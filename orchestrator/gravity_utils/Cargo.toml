@@ -8,7 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 clarity = "0.5"
-deep_space = "2.4"
+deep_space = "2.6"
 gravity_proto = {path = "../gravity_proto/"}
 log = "0.4"
 num-bigint = "0.4"
@@ -18,7 +18,7 @@ serde_derive = "1.0"
 sha3 = "0.9"
 thiserror = "1.0.30"
 tokio = {version = "1.4", features = ["macros", "rt-multi-thread"]}
-tonic = "0.4"
+tonic = "0.6"
 url = "2"
 web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4"}
 

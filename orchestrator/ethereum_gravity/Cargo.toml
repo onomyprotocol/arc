@@ -10,7 +10,7 @@ version = "0.1.0"
 gravity_utils = {path = "../gravity_utils"}
 
 clarity = "0.5"
-deep_space = "2.4"
+deep_space = "2.6"
 log = "0.4"
 num256 = "0.3"
 sha3 = "0.9"

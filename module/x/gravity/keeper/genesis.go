@@ -12,6 +12,16 @@ import (
 // InitGenesis starts a chain from a genesis state
 func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 	k.SetParams(ctx, *data.Params)
+
+	// restore various nonces, this MUST match GravityNonces in genesis
+	k.SetLatestValsetNonce(ctx, data.GravityNonces.LatestValsetNonce)
+	k.setLastObservedEventNonce(ctx, data.GravityNonces.LastObservedNonce)
+	k.SetLastSlashedValsetNonce(ctx, data.GravityNonces.LastSlashedValsetNonce)
+	k.SetLastSlashedBatchBlock(ctx, data.GravityNonces.LastSlashedBatchBlock)
+	k.SetLastSlashedLogicCallBlock(ctx, data.GravityNonces.LastSlashedLogicCallBlock)
+	k.setID(ctx, data.GravityNonces.LastTxPoolId, []byte(types.KeyLastTXPoolID))
+	k.setID(ctx, data.GravityNonces.LastBatchId, []byte(types.KeyLastOutgoingBatchID))
+
 	// reset valsets in state
 	for _, vs := range data.Valsets {
 		// TODO: block height?
@@ -20,7 +30,7 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 
 	// reset valset confirmations in state
 	for _, conf := range data.ValsetConfirms {
-		k.SetValsetConfirm(ctx, *conf)
+		k.SetValsetConfirm(ctx, conf)
 	}
 
 	// reset batches in state
@@ -30,7 +40,7 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		if err != nil {
 			panic(sdkerrors.Wrapf(err, "unable to make batch internal: %v", batch))
 		}
-		k.StoreBatchUnsafe(ctx, intBatch)
+		k.StoreBatchUnsafe(ctx, *intBatch)
 	}
 
 	// reset batch confirmations in state
@@ -44,7 +54,7 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		k.SetOutgoingLogicCall(ctx, call)
 	}
 
-	// reset batch confirmations in state
+	// reset logic call confirmations in state
 	for _, conf := range data.LogicCallConfirms {
 		conf := conf
 		k.SetLogicCallConfirm(ctx, &conf)
@@ -76,7 +86,6 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		}
 		k.SetAttestation(ctx, claim.GetEventNonce(), hash, &att)
 	}
-	k.setLastObservedEventNonce(ctx, data.LastObservedNonce)
 
 	// reset attestation state of specific validators
 	// this must be done after the above to be correct
@@ -150,11 +159,6 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		}
 	}
 
-	// reset bridge - ignore the genesis data as we do not want to reset immediately
-	resetBridgeState := false
-	k.SetResetBridgeState(ctx, resetBridgeState)
-	resetBridgeNonce := uint64(0)
-	k.SetResetBridgeNonce(ctx, resetBridgeNonce)
 }
 
 // ExportGenesis exports all the state needed to restart the chain
@@ -165,14 +169,13 @@ func ExportGenesis(ctx sdk.Context, k Keeper) types.GenesisState {
 		calls              = k.GetOutgoingLogicCalls(ctx)
 		batches            = k.GetOutgoingTxBatches(ctx)
 		valsets            = k.GetValsets(ctx)
-		attmap             = k.GetAttestationMapping(ctx)
-		vsconfs            = []*types.MsgValsetConfirm{}
+		attmap, attKeys    = k.GetAttestationMapping(ctx)
+		vsconfs            = []types.MsgValsetConfirm{}
 		batchconfs         = []types.MsgConfirmBatch{}
 		callconfs          = []types.MsgConfirmLogicCall{}
 		attestations       = []types.Attestation{}
 		delegates          = k.GetDelegateKeys(ctx)
-		lastobserved       = k.GetLastObservedEventNonce(ctx)
-		erc20ToDenoms      = []*types.ERC20ToDenom{}
+		erc20ToDenoms      = []types.ERC20ToDenom{}
 		unbatchedTransfers = k.GetUnbatchedTransactions(ctx)
 	)
 
@@ -183,7 +186,7 @@ func ExportGenesis(ctx sdk.Context, k Keeper) types.GenesisState {
 	}
 
 	// export batch confirmations from state
-	extBatches := make([]*types.OutgoingTxBatch, len(batches))
+	extBatches := make([]types.OutgoingTxBatch, len(batches))
 	for i, batch := range batches {
 		// TODO: set height = 0?
 		batchconfs = append(batchconfs,
@@ -199,25 +202,33 @@ func ExportGenesis(ctx sdk.Context, k Keeper) types.GenesisState {
 	}
 
 	// export attestations from state
-	for _, atts := range attmap {
+	for _, key := range attKeys {
 		// TODO: set height = 0?
-		attestations = append(attestations, atts...)
+		attestations = append(attestations, attmap[key]...)
 	}
 
 	// export erc20 to denom relations
 	k.IterateERC20ToDenom(ctx, func(key []byte, erc20ToDenom *types.ERC20ToDenom) bool {
-		erc20ToDenoms = append(erc20ToDenoms, erc20ToDenom)
+		erc20ToDenoms = append(erc20ToDenoms, *erc20ToDenom)
 		return false
 	})
 
-	unbatchedTxs := make([]*types.OutgoingTransferTx, len(unbatchedTransfers))
+	unbatchedTxs := make([]types.OutgoingTransferTx, len(unbatchedTransfers))
 	for i, v := range unbatchedTransfers {
 		unbatchedTxs[i] = v.ToExternal()
 	}
 
 	return types.GenesisState{
-		Params:             &p,
-		LastObservedNonce:  lastobserved,
+		Params: &p,
+		GravityNonces: types.GravityNonces{
+			LatestValsetNonce:         k.GetLatestValsetNonce(ctx),
+			LastObservedNonce:         k.GetLastObservedEventNonce(ctx),
+			LastSlashedValsetNonce:    k.GetLastSlashedValsetNonce(ctx),
+			LastSlashedBatchBlock:     k.GetLastSlashedBatchBlock(ctx),
+			LastSlashedLogicCallBlock: k.GetLastSlashedLogicCallBlock(ctx),
+			LastTxPoolId:              k.getID(ctx, []byte(types.KeyLastTXPoolID)),
+			LastBatchId:               k.getID(ctx, []byte(types.KeyLastOutgoingBatchID)),
+		},
 		Valsets:            valsets,
 		ValsetConfirms:     vsconfs,
 		Batches:            extBatches,

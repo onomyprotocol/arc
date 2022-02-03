@@ -3,6 +3,8 @@ package keeper
 import (
 	"context"
 
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
@@ -15,7 +17,7 @@ var _ types.QueryServer = Keeper{
 	storeKey:           nil,
 	paramSpace:         paramstypes.Subspace{},
 	cdc:                nil,
-	bankKeeper:         nil,
+	bankKeeper:         bankkeeper.BaseKeeper{},
 	SlashingKeeper:     nil,
 	AttestationHandler: nil,
 }
@@ -59,13 +61,15 @@ func (k Keeper) ValsetConfirm(
 func (k Keeper) ValsetConfirmsByNonce(
 	c context.Context,
 	req *types.QueryValsetConfirmsByNonceRequest) (*types.QueryValsetConfirmsByNonceResponse, error) {
-	var confirms []*types.MsgValsetConfirm
+	var confirms []types.MsgValsetConfirm
 	k.IterateValsetConfirmByNonce(sdk.UnwrapSDKContext(c), req.Nonce, func(_ []byte, c types.MsgValsetConfirm) bool {
-		confirms = append(confirms, &c)
+		confirms = append(confirms, c)
 		return false
 	})
 	return &types.QueryValsetConfirmsByNonceResponse{Confirms: confirms}, nil
 }
+
+const maxValsetRequestsReturned = 5
 
 // LastValsetRequests queries the LastValsetRequests of the gravity module
 func (k Keeper) LastValsetRequests(
@@ -91,14 +95,14 @@ func (k Keeper) LastPendingValsetRequestByAddr(
 		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "address invalid")
 	}
 
-	var pendingValsetReq []*types.Valset
+	var pendingValsetReq []types.Valset
 	k.IterateValsets(sdk.UnwrapSDKContext(c), func(_ []byte, val *types.Valset) bool {
 		// foundConfirm is true if the operatorAddr has signed the valset we are currently looking at
 		foundConfirm := k.GetValsetConfirm(sdk.UnwrapSDKContext(c), val.Nonce, addr) != nil
 		// if this valset has NOT been signed by operatorAddr, store it in pendingValsetReq
 		// and exit the loop
 		if !foundConfirm {
-			pendingValsetReq = append(pendingValsetReq, val)
+			pendingValsetReq = append(pendingValsetReq, *val)
 		}
 		// if we have more than 100 unconfirmed requests in
 		// our array we should exit, TODO pagination
@@ -127,17 +131,24 @@ func (k Keeper) LastPendingBatchRequestByAddr(
 		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "address invalid")
 	}
 
-	var pendingBatchReq *types.InternalOutgoingTxBatch
-	k.IterateOutgoingTXBatches(sdk.UnwrapSDKContext(c), func(_ []byte, batch *types.InternalOutgoingTxBatch) bool {
+	var pendingBatchReq types.InternalOutgoingTxBatches
+	found := false
+	k.IterateOutgoingTXBatches(sdk.UnwrapSDKContext(c), func(_ []byte, batch types.InternalOutgoingTxBatch) bool {
 		foundConfirm := k.GetBatchConfirm(sdk.UnwrapSDKContext(c), batch.BatchNonce, batch.TokenContract, addr) != nil
 		if !foundConfirm {
-			pendingBatchReq = batch
+			pendingBatchReq = append(pendingBatchReq, batch)
+			found = true
 			return true
 		}
 		return false
 	})
 
-	return &types.QueryLastPendingBatchRequestByAddrResponse{Batch: pendingBatchReq.ToExternal()}, nil
+	if found {
+		ref := pendingBatchReq.ToExternalArray()
+		return &types.QueryLastPendingBatchRequestByAddrResponse{Batch: ref}, nil
+	} else {
+		return &types.QueryLastPendingBatchRequestByAddrResponse{Batch: nil}, nil
+	}
 }
 
 func (k Keeper) LastPendingLogicCallByAddr(
@@ -148,25 +159,35 @@ func (k Keeper) LastPendingLogicCallByAddr(
 		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "address invalid")
 	}
 
-	var pendingLogicReq *types.OutgoingLogicCall
-	k.IterateOutgoingLogicCalls(sdk.UnwrapSDKContext(c), func(_ []byte, logic *types.OutgoingLogicCall) bool {
+	var pendingLogicReq []types.OutgoingLogicCall
+	found := false
+	k.IterateOutgoingLogicCalls(sdk.UnwrapSDKContext(c), func(_ []byte, logic types.OutgoingLogicCall) bool {
 		foundConfirm := k.GetLogicCallConfirm(sdk.UnwrapSDKContext(c),
 			logic.InvalidationId, logic.InvalidationNonce, addr) != nil
 		if !foundConfirm {
-			pendingLogicReq = logic
+			pendingLogicReq = append(pendingLogicReq, logic)
+			found = true
 			return true
 		}
 		return false
 	})
-	return &types.QueryLastPendingLogicCallByAddrResponse{Call: pendingLogicReq}, nil
+
+	if found {
+		return &types.QueryLastPendingLogicCallByAddrResponse{Call: pendingLogicReq}, nil
+	} else {
+
+		return &types.QueryLastPendingLogicCallByAddrResponse{Call: nil}, nil
+	}
 }
+
+const MaxResults = 100 // todo: impl pagination
 
 // OutgoingTxBatches queries the OutgoingTxBatches of the gravity module
 func (k Keeper) OutgoingTxBatches(
 	c context.Context,
 	req *types.QueryOutgoingTxBatchesRequest) (*types.QueryOutgoingTxBatchesResponse, error) {
-	var batches []*types.OutgoingTxBatch
-	k.IterateOutgoingTXBatches(sdk.UnwrapSDKContext(c), func(_ []byte, batch *types.InternalOutgoingTxBatch) bool {
+	var batches []types.OutgoingTxBatch
+	k.IterateOutgoingTXBatches(sdk.UnwrapSDKContext(c), func(_ []byte, batch types.InternalOutgoingTxBatch) bool {
 		batches = append(batches, batch.ToExternal())
 		return len(batches) == MaxResults
 	})
@@ -177,8 +198,8 @@ func (k Keeper) OutgoingTxBatches(
 func (k Keeper) OutgoingLogicCalls(
 	c context.Context,
 	req *types.QueryOutgoingLogicCallsRequest) (*types.QueryOutgoingLogicCallsResponse, error) {
-	var calls []*types.OutgoingLogicCall
-	k.IterateOutgoingLogicCalls(sdk.UnwrapSDKContext(c), func(_ []byte, call *types.OutgoingLogicCall) bool {
+	var calls []types.OutgoingLogicCall
+	k.IterateOutgoingLogicCalls(sdk.UnwrapSDKContext(c), func(_ []byte, call types.OutgoingLogicCall) bool {
 		calls = append(calls, call)
 		return len(calls) == MaxResults
 	})
@@ -189,7 +210,7 @@ func (k Keeper) OutgoingLogicCalls(
 func (k Keeper) BatchRequestByNonce(
 	c context.Context,
 	req *types.QueryBatchRequestByNonceRequest) (*types.QueryBatchRequestByNonceResponse, error) {
-	addr, err := types.NewEthAddress(req.ContractAddress);
+	addr, err := types.NewEthAddress(req.ContractAddress)
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, err.Error())
 	}
@@ -204,14 +225,14 @@ func (k Keeper) BatchRequestByNonce(
 func (k Keeper) BatchConfirms(
 	c context.Context,
 	req *types.QueryBatchConfirmsRequest) (*types.QueryBatchConfirmsResponse, error) {
-	var confirms []*types.MsgConfirmBatch
+	var confirms []types.MsgConfirmBatch
 	contract, err := types.NewEthAddress(req.ContractAddress)
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "invalid contract address in request")
 	}
 	k.IterateBatchConfirmByNonceAndTokenContract(sdk.UnwrapSDKContext(c),
 		req.Nonce, *contract, func(_ []byte, c types.MsgConfirmBatch) bool {
-			confirms = append(confirms, &c)
+			confirms = append(confirms, c)
 			return false
 		})
 	return &types.QueryBatchConfirmsResponse{Confirms: confirms}, nil
@@ -221,10 +242,10 @@ func (k Keeper) BatchConfirms(
 func (k Keeper) LogicConfirms(
 	c context.Context,
 	req *types.QueryLogicConfirmsRequest) (*types.QueryLogicConfirmsResponse, error) {
-	var confirms []*types.MsgConfirmLogicCall
+	var confirms []types.MsgConfirmLogicCall
 	k.IterateLogicConfirmByInvalidationIDAndNonce(sdk.UnwrapSDKContext(c), req.InvalidationId,
 		req.InvalidationNonce, func(_ []byte, c *types.MsgConfirmLogicCall) bool {
-			confirms = append(confirms, c)
+			confirms = append(confirms, *c)
 			return false
 		})
 
@@ -245,6 +266,9 @@ func (k Keeper) LastEventNonceByAddr(
 	validator, found := k.GetOrchestratorValidator(ctx, addr)
 	if !found {
 		return nil, sdkerrors.Wrap(types.ErrUnknown, "address")
+	}
+	if err := sdk.VerifyAddressFormat(validator.GetOperator()); err != nil {
+		return nil, sdkerrors.Wrap(err, "invalid validator address")
 	}
 	lastEventNonce := k.GetLastEventNonceByValidator(ctx, validator.GetOperator())
 	ret.EventNonce = lastEventNonce
@@ -369,8 +393,8 @@ func (k Keeper) GetPendingSendToEth(
 	unbatched_tx := k.GetUnbatchedTransactions(ctx)
 	sender_address := req.GetSenderAddress()
 	res := types.QueryPendingSendToEthResponse{
-		TransfersInBatches: []*types.OutgoingTransferTx{},
-		UnbatchedTransfers: []*types.OutgoingTransferTx{},
+		TransfersInBatches: []types.OutgoingTransferTx{},
+		UnbatchedTransfers: []types.OutgoingTransferTx{},
 	}
 	for _, batch := range batches {
 		for _, tx := range batch.Transactions {

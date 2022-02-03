@@ -30,7 +30,7 @@ use std::time::Duration;
 
 use crate::utils::BadSignatureEvidence;
 
-pub const MEMO: &str = "Sent using Althea Orchestrator";
+pub const MEMO: &str = "Sent using Althea Gravity Bridge Orchestrator";
 pub const TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Send a transaction updating the eth address for the sending
@@ -54,7 +54,6 @@ pub async fn set_gravity_delegate_addresses(
         // GRPC exposes prefix endpoints (coming to upstream cosmos sdk soon)
         .to_bech32(format!("{}valoper", contact.get_prefix()))
         .unwrap();
-    let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
 
     let msg_set_orch_address = MsgSetOrchestratorAddress {
         validator: our_valoper_address.to_string(),
@@ -62,28 +61,19 @@ pub async fn set_gravity_delegate_addresses(
         eth_address: delegate_eth_address.to_string(),
     };
 
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 500_000u64,
-        granter: None,
-        payer: None,
-    };
-
     let msg = Msg::new(
         "/gravity.v1.MsgSetOrchestratorAddress",
         msg_set_orch_address,
     );
-
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&[msg], args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    contact.wait_for_tx(response, TIMEOUT).await
+    contact
+        .send_message(
+            &[msg],
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await
 }
 
 /// Send in a confirmation for an array of validator sets, it's far more efficient to send these
@@ -99,13 +89,6 @@ pub async fn send_valset_confirms(
 ) -> Result<TxResponse, CosmosGrpcError> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
     let our_eth_address = eth_private_key.to_address();
-
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 500_000_000u64,
-        granter: None,
-        payer: None,
-    };
 
     let mut messages = Vec::new();
 
@@ -127,16 +110,17 @@ pub async fn send_valset_confirms(
         let msg = Msg::new("/gravity.v1.MsgValsetConfirm", confirm);
         messages.push(msg);
     }
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&messages, args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    contact.wait_for_tx(response, TIMEOUT).await
+    let res = contact
+        .send_message(
+            &messages,
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await;
+    info!("Valset confirm res is {:?}", res);
+    res
 }
 
 /// Send in a confirmation for a specific transaction batch
@@ -150,13 +134,6 @@ pub async fn send_batch_confirm(
 ) -> Result<TxResponse, CosmosGrpcError> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
     let our_eth_address = eth_private_key.to_address();
-
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 500_000_000u64,
-        granter: None,
-        payer: None,
-    };
 
     let mut messages = Vec::new();
 
@@ -179,16 +156,15 @@ pub async fn send_batch_confirm(
         let msg = Msg::new("/gravity.v1.MsgConfirmBatch", confirm);
         messages.push(msg);
     }
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&messages, args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    contact.wait_for_tx(response, TIMEOUT).await
+    contact
+        .send_message(
+            &messages,
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await
 }
 
 /// Send in a confirmation for a specific logic call
@@ -202,13 +178,6 @@ pub async fn send_logic_call_confirm(
 ) -> Result<TxResponse, CosmosGrpcError> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
     let our_eth_address = eth_private_key.to_address();
-
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 500_000_000u64,
-        granter: None,
-        payer: None,
-    };
 
     let mut messages = Vec::new();
 
@@ -231,16 +200,15 @@ pub async fn send_logic_call_confirm(
         let msg = Msg::new("/gravity.v1.MsgConfirmLogicCall", confirm);
         messages.push(msg);
     }
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&messages, args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    contact.wait_for_tx(response, TIMEOUT).await
+    contact
+        .send_message(
+            &messages,
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -399,25 +367,16 @@ pub async fn send_to_eth(
         bridge_fee: Some(bridge_fee.clone().into()),
     };
 
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 500_000u64,
-        granter: None,
-        payer: None,
-    };
-
     let msg = Msg::new("/gravity.v1.MsgSendToEth", msg_send_to_eth);
-
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&[msg], args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    contact.wait_for_tx(response, TIMEOUT).await
+    contact
+        .send_message(
+            &[msg],
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await
 }
 
 pub async fn send_request_batch(
@@ -425,7 +384,6 @@ pub async fn send_request_batch(
     denom: String,
     fee: Coin,
     contact: &Contact,
-    timeout: Option<Duration>,
 ) -> Result<TxResponse, CosmosGrpcError> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
 
@@ -433,29 +391,16 @@ pub async fn send_request_batch(
         sender: our_address.to_string(),
         denom,
     };
-
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 500_000_000u64,
-        granter: None,
-        payer: None,
-    };
-
     let msg = Msg::new("/gravity.v1.MsgRequestBatch", msg_request_batch);
-
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&[msg], args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    match timeout {
-        Some(duration) => contact.wait_for_tx(response, duration).await,
-        None => Ok(response),
-    }
+    contact
+        .send_message(
+            &[msg],
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await
 }
 
 /// Sends evidence of a bad signature to the chain to slash the malicious validator
@@ -477,28 +422,19 @@ pub async fn submit_bad_signature_evidence(
         sender: our_address.to_string(),
     };
 
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 500_000_000u64,
-        granter: None,
-        payer: None,
-    };
-
     let msg = Msg::new(
         "/gravity.v1.MsgSubmitBadSignatureEvidence",
         msg_submit_bad_signature_evidence,
     );
-
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&[msg], args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    contact.wait_for_tx(response, TIMEOUT).await
+    contact
+        .send_message(
+            &[msg],
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await
 }
 
 /// Cancels a user provided SendToEth transaction, provided it's not already in a batch
@@ -516,23 +452,14 @@ pub async fn cancel_send_to_eth(
         sender: our_address.to_string(),
     };
 
-    let fee = Fee {
-        amount: vec![fee],
-        gas_limit: 600_000u64,
-        granter: None,
-        payer: None,
-    };
-
     let msg = Msg::new("/gravity.v1.MsgCancelSendToEth", msg_cancel_send_to_eth);
-
-    let args = contact.get_message_args(our_address, fee).await?;
-    trace!("got optional tx info");
-
-    let msg_bytes = private_key.sign_std_msg(&[msg], args, MEMO)?;
-
-    let response = contact
-        .send_transaction(msg_bytes, BroadcastMode::Sync)
-        .await?;
-
-    contact.wait_for_tx(response, TIMEOUT).await
+    contact
+        .send_message(
+            &[msg],
+            Some(MEMO.to_string()),
+            &[fee],
+            Some(TIMEOUT),
+            private_key,
+        )
+        .await
 }

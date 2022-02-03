@@ -18,8 +18,8 @@ import (
 func (k Keeper) GetOutgoingLogicCall(ctx sdk.Context, invalidationID []byte, invalidationNonce uint64) *types.OutgoingLogicCall {
 	store := ctx.KVStore(k.storeKey)
 	call := types.OutgoingLogicCall{
-		Transfers:            []*types.ERC20Token{},
-		Fees:                 []*types.ERC20Token{},
+		Transfers:            []types.ERC20Token{},
+		Fees:                 []types.ERC20Token{},
 		LogicContractAddress: "",
 		Payload:              []byte{},
 		Timeout:              0,
@@ -27,12 +27,12 @@ func (k Keeper) GetOutgoingLogicCall(ctx sdk.Context, invalidationID []byte, inv
 		InvalidationNonce:    invalidationNonce,
 		Block:                0,
 	}
-	k.cdc.MustUnmarshalBinaryBare(store.Get([]byte(types.GetOutgoingLogicCallKey(invalidationID, invalidationNonce))), &call)
+	k.cdc.MustUnmarshal(store.Get([]byte(types.GetOutgoingLogicCallKey(invalidationID, invalidationNonce))), &call)
 	return &call
 }
 
 // SetOutogingLogicCall sets an outgoing logic call
-func (k Keeper) SetOutgoingLogicCall(ctx sdk.Context, call *types.OutgoingLogicCall) {
+func (k Keeper) SetOutgoingLogicCall(ctx sdk.Context, call types.OutgoingLogicCall) {
 	store := ctx.KVStore(k.storeKey)
 
 	// Store checkpoint to prove that this logic call actually happened
@@ -40,7 +40,7 @@ func (k Keeper) SetOutgoingLogicCall(ctx sdk.Context, call *types.OutgoingLogicC
 	k.SetPastEthSignatureCheckpoint(ctx, checkpoint)
 
 	store.Set([]byte(types.GetOutgoingLogicCallKey(call.InvalidationId, call.InvalidationNonce)),
-		k.cdc.MustMarshalBinaryBare(call))
+		k.cdc.MustMarshal(&call))
 }
 
 // DeleteOutgoingLogicCall deletes outgoing logic calls
@@ -49,23 +49,23 @@ func (k Keeper) DeleteOutgoingLogicCall(ctx sdk.Context, invalidationID []byte, 
 }
 
 // IterateOutgoingLogicCalls iterates over outgoing logic calls
-func (k Keeper) IterateOutgoingLogicCalls(ctx sdk.Context, cb func([]byte, *types.OutgoingLogicCall) bool) {
+func (k Keeper) IterateOutgoingLogicCalls(ctx sdk.Context, cb func([]byte, types.OutgoingLogicCall) bool) {
 	prefixStore := prefix.NewStore(ctx.KVStore(k.storeKey), []byte(types.KeyOutgoingLogicCall))
 	iter := prefixStore.Iterator(nil, nil)
 	defer iter.Close()
 	for ; iter.Valid(); iter.Next() {
 		var call types.OutgoingLogicCall
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &call)
+		k.cdc.MustUnmarshal(iter.Value(), &call)
 		// cb returns true to stop early
-		if cb(iter.Key(), &call) {
+		if cb(iter.Key(), call) {
 			break
 		}
 	}
 }
 
 // GetOutgoingLogicCalls returns the outgoing logic calls
-func (k Keeper) GetOutgoingLogicCalls(ctx sdk.Context) (out []*types.OutgoingLogicCall) {
-	k.IterateOutgoingLogicCalls(ctx, func(_ []byte, call *types.OutgoingLogicCall) bool {
+func (k Keeper) GetOutgoingLogicCalls(ctx sdk.Context) (out []types.OutgoingLogicCall) {
+	k.IterateOutgoingLogicCalls(ctx, func(_ []byte, call types.OutgoingLogicCall) bool {
 		out = append(out, call)
 		return false
 	})
@@ -109,11 +109,15 @@ func (k Keeper) SetLogicCallConfirm(ctx sdk.Context, msg *types.MsgConfirmLogicC
 	}
 
 	ctx.KVStore(k.storeKey).
-		Set([]byte(types.GetLogicConfirmKey(bytes, msg.InvalidationNonce, acc)), k.cdc.MustMarshalBinaryBare(msg))
+		Set([]byte(types.GetLogicConfirmKey(bytes, msg.InvalidationNonce, acc)), k.cdc.MustMarshal(msg))
 }
 
 // GetLogicCallConfirm gets a logic confirm from the store
 func (k Keeper) GetLogicCallConfirm(ctx sdk.Context, invalidationId []byte, invalidationNonce uint64, val sdk.AccAddress) *types.MsgConfirmLogicCall {
+	if err := sdk.VerifyAddressFormat(val); err != nil {
+		ctx.Logger().Error("invalid val address")
+		return nil
+	}
 	store := ctx.KVStore(k.storeKey)
 	data := store.Get([]byte(types.GetLogicConfirmKey(invalidationId, invalidationNonce, val)))
 	if data == nil {
@@ -126,7 +130,7 @@ func (k Keeper) GetLogicCallConfirm(ctx sdk.Context, invalidationId []byte, inva
 		Orchestrator:      "",
 		Signature:         "",
 	}
-	k.cdc.MustUnmarshalBinaryBare(data, &out)
+	k.cdc.MustUnmarshal(data, &out)
 	return &out
 }
 
@@ -157,7 +161,7 @@ func (k Keeper) IterateLogicConfirmByInvalidationIDAndNonce(
 			Orchestrator:      "",
 			Signature:         "",
 		}
-		k.cdc.MustUnmarshalBinaryBare(iter.Value(), &confirm)
+		k.cdc.MustUnmarshal(iter.Value(), &confirm)
 		// cb returns true to stop early
 		if cb(iter.Key(), &confirm) {
 			break

@@ -82,7 +82,7 @@ func TestValsetSlashing_ValsetCreated_After_ValidatorBonded(t *testing.T) {
 	vs.Nonce = pk.GetLatestValsetNonce(ctx) + 1
 	pk.StoreValsetUnsafe(ctx, vs)
 
-	for i, val := range keeper.AccAddrs {
+	for i, orch := range keeper.OrchAddrs {
 		if i == 0 {
 			// don't sign with first validator
 			continue
@@ -90,7 +90,7 @@ func TestValsetSlashing_ValsetCreated_After_ValidatorBonded(t *testing.T) {
 		ethAddr, err := types.NewEthAddress(keeper.EthAddrs[i].String())
 		require.NoError(t, err)
 
-		conf := types.NewMsgValsetConfirm(vs.Nonce, *ethAddr, val, "dummysig")
+		conf := types.NewMsgValsetConfirm(vs.Nonce, *ethAddr, orch, "dummysig")
 		pk.SetValsetConfirm(ctx, *conf)
 	}
 
@@ -145,7 +145,7 @@ func TestValsetSlashing_UnbondingValidator_UnbondWindow_NotExpired(t *testing.T)
 	undelegateMsg2 := keeper.NewTestMsgUnDelegateValidator(keeper.ValAddrs[1], keeper.StakingAmount)
 	sh(input.Context, undelegateMsg2)
 
-	for i, val := range keeper.AccAddrs {
+	for i, orch := range keeper.OrchAddrs {
 		if i == 0 {
 			// don't sign with first validator
 			continue
@@ -153,7 +153,7 @@ func TestValsetSlashing_UnbondingValidator_UnbondWindow_NotExpired(t *testing.T)
 		ethAddr, err := types.NewEthAddress(keeper.EthAddrs[i].String())
 		require.NoError(t, err)
 
-		conf := types.NewMsgValsetConfirm(vs.Nonce, *ethAddr, val, "dummysig")
+		conf := types.NewMsgValsetConfirm(vs.Nonce, *ethAddr, orch, "dummysig")
 		pk.SetValsetConfirm(ctx, *conf)
 	}
 	staking.EndBlocker(input.Context, input.StakingKeeper)
@@ -185,14 +185,14 @@ func TestBatchSlashing(t *testing.T) {
 	batch, err := types.NewInternalOutgingTxBatchFromExternalBatch(types.OutgoingTxBatch{
 		BatchNonce:    1,
 		BatchTimeout:  0,
-		Transactions:  []*types.OutgoingTransferTx{},
+		Transactions:  []types.OutgoingTransferTx{},
 		TokenContract: keeper.TokenContractAddrs[0],
 		Block:         uint64(ctx.BlockHeight() - int64(params.SignedBatchesWindow+1)),
 	})
 	require.NoError(t, err)
-	pk.StoreBatchUnsafe(ctx, batch)
+	pk.StoreBatchUnsafe(ctx, *batch)
 
-	for i, val := range keeper.AccAddrs {
+	for i, orch := range keeper.OrchAddrs {
 		if i == 0 {
 			// don't sign with first validator
 			continue
@@ -216,7 +216,7 @@ func TestBatchSlashing(t *testing.T) {
 			Nonce:         batch.BatchNonce,
 			TokenContract: keeper.TokenContractAddrs[0],
 			EthSigner:     keeper.EthAddrs[i].String(),
-			Orchestrator:  val.String(),
+			Orchestrator:  orch.String(),
 			Signature:     "",
 		})
 	}
@@ -273,7 +273,7 @@ func TestBatchTimeout(t *testing.T) {
 	params := pk.GetParams(ctx)
 	var (
 		now                 = time.Now().UTC()
-		mySender, _         = sdk.AccAddressFromBech32("cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn")
+		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
 		token, err          = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
@@ -292,7 +292,7 @@ func TestBatchTimeout(t *testing.T) {
 	require.NoError(t, input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers))
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	require.NoError(t, input.BankKeeper.SetBalances(ctx, mySender, allVouchers))
+	require.NoError(t, input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers))
 
 	// add some TX to the pool
 	for i, v := range []uint64{2, 3, 2, 1, 5, 6} {
