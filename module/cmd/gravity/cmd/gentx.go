@@ -5,14 +5,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	crypto "github.com/cosmos/cosmos-sdk/crypto/types"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
+
+	crypto "github.com/cosmos/cosmos-sdk/crypto/types"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -20,7 +20,7 @@ import (
 	tmos "github.com/tendermint/tendermint/libs/os"
 	tmtypes "github.com/tendermint/tendermint/types"
 
-	gravitytypes "github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	gravitytypes "github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -254,7 +254,7 @@ func makeOutputFilepath(rootDir, nodeID string) (string, error) {
 }
 
 func readUnsignedGenTxFile(clientCtx client.Context, r io.Reader) (sdk.Tx, error) {
-	bz, err := ioutil.ReadAll(r)
+	bz, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -428,8 +428,8 @@ func CollectTxs(cdc codec.Codec, txJSONDecoder sdk.TxDecoder, moniker, genTxsDir
 		return appGenTxs, persistentPeers, err
 	}
 
-	var fos []os.FileInfo
-	fos, err = ioutil.ReadDir(genTxsDir)
+	var fos []os.DirEntry
+	fos, err = os.ReadDir(genTxsDir)
 	if err != nil {
 		return appGenTxs, persistentPeers, err
 	}
@@ -456,7 +456,7 @@ func CollectTxs(cdc codec.Codec, txJSONDecoder sdk.TxDecoder, moniker, genTxsDir
 		}
 
 		// get the genTx
-		jsonRawTx, err := ioutil.ReadFile(filepath.Join(genTxsDir, fo.Name()))
+		jsonRawTx, err := os.ReadFile(filepath.Join(genTxsDir, fo.Name()))
 		if err != nil {
 			return appGenTxs, persistentPeers, err
 		}

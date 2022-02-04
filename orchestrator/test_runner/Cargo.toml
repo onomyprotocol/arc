@@ -13,7 +13,7 @@ path = "src/main.rs"
 bytes = "1"
 clarity = "0.5"
 cosmos_gravity = {path = "../cosmos_gravity"}
-deep_space = "2.6"
+deep_space = "2.8"
 docopt = "1"
 env_logger = "0.9"
 ethereum_gravity = {path = "../ethereum_gravity"}

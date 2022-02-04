@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 )
 
 const OutgoingTxBatchSize = 100
@@ -51,9 +51,12 @@ func (k Keeper) BuildOutgoingTXBatch(
 	}
 
 	selectedTx, err := k.pickUnbatchedTX(ctx, contract, maxElements)
-	if len(selectedTx) == 0 || err != nil {
+	if err != nil {
 		return nil, err
+	} else if len(selectedTx) == 0 {
+		return nil, sdkerrors.Wrap(types.ErrInvalid, "no transactions of this type to batch")
 	}
+
 	nextID := k.autoIncrementID(ctx, []byte(types.KeyLastOutgoingBatchID))
 	batch, err := types.NewInternalOutgingTxBatch(nextID, k.getBatchTimeoutHeight(ctx), selectedTx, contract, 0)
 	if err != nil {
@@ -141,7 +144,9 @@ func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.Eth
 	k.DeleteBatch(ctx, *b)
 }
 
-// StoreBatch stores a transaction batch
+// StoreBatch stores a transaction batch, it will refuse to overwrite an existing
+// batch and panic instead, once a batch is stored in state signature collection begins
+// so no mutation of a batch in state can ever be valid
 func (k Keeper) StoreBatch(ctx sdk.Context, batch types.InternalOutgoingTxBatch) {
 	if err := batch.ValidateBasic(); err != nil {
 		panic(sdkerrors.Wrap(err, "attempted to store invalid batch"))
@@ -149,18 +154,10 @@ func (k Keeper) StoreBatch(ctx sdk.Context, batch types.InternalOutgoingTxBatch)
 	externalBatch := batch.ToExternal()
 	store := ctx.KVStore(k.storeKey)
 	key := []byte(types.GetOutgoingTxBatchKey(batch.TokenContract, batch.BatchNonce))
-	store.Set(key, k.cdc.MustMarshal(&externalBatch))
-}
-
-// StoreBatchUnsafe stores a transaction batch w/o setting the height
-func (k Keeper) StoreBatchUnsafe(ctx sdk.Context, batch types.InternalOutgoingTxBatch) {
-	if err := batch.ValidateBasic(); err != nil {
-		panic(sdkerrors.Wrap(err, "attempted to store invalid batch"))
+	if store.Has(key) {
+		panic(sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "Should never overwrite batch!"))
 	}
-	batchExt := batch.ToExternal()
-	store := ctx.KVStore(k.storeKey)
-	key := []byte(types.GetOutgoingTxBatchKey(batch.TokenContract, batchExt.BatchNonce))
-	store.Set(key, k.cdc.MustMarshal(&batchExt))
+	store.Set(key, k.cdc.MustMarshal(&externalBatch))
 }
 
 // DeleteBatch deletes an outgoing transaction batch
@@ -304,9 +301,21 @@ func (k Keeper) GetLastOutgoingBatchByTokenType(ctx sdk.Context, token types.Eth
 	return lastBatch
 }
 
+// HasLastSlashedBatchBlock returns true if the last slashed batch block has been set in the store
+func (k Keeper) HasLastSlashedBatchBlock(ctx sdk.Context) bool {
+	store := ctx.KVStore(k.storeKey)
+	return store.Has([]byte(types.LastSlashedBatchBlock))
+}
+
 // SetLastSlashedBatchBlock sets the latest slashed Batch block height this is done by
 // block height instead of nonce because batches could have individual nonces for each token type
+// this function will panic if a lower last slashed block is set, this protects against programmer error
 func (k Keeper) SetLastSlashedBatchBlock(ctx sdk.Context, blockHeight uint64) {
+
+	if k.HasLastSlashedBatchBlock(ctx) && k.GetLastSlashedBatchBlock(ctx) > blockHeight {
+		panic("Attempted to decrement LastSlashedBatchBlock")
+	}
+
 	store := ctx.KVStore(k.storeKey)
 	store.Set([]byte(types.LastSlashedBatchBlock), types.UInt64Bytes(blockHeight))
 }

@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 )
 
 // InitGenesis starts a chain from a genesis state
@@ -23,10 +23,14 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 	k.setID(ctx, data.GravityNonces.LastBatchId, []byte(types.KeyLastOutgoingBatchID))
 
 	// reset valsets in state
+	highest := uint64(0)
 	for _, vs := range data.Valsets {
-		// TODO: block height?
-		k.StoreValsetUnsafe(ctx, vs)
+		if vs.Nonce > highest {
+			highest = vs.Nonce
+		}
+		k.StoreValset(ctx, vs)
 	}
+	k.SetLatestValsetNonce(ctx, highest)
 
 	// reset valset confirmations in state
 	for _, conf := range data.ValsetConfirms {
@@ -40,7 +44,7 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		if err != nil {
 			panic(sdkerrors.Wrapf(err, "unable to make batch internal: %v", batch))
 		}
-		k.StoreBatchUnsafe(ctx, *intBatch)
+		k.StoreBatch(ctx, *intBatch)
 	}
 
 	// reset batch confirmations in state
@@ -117,6 +121,9 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 	}
 
 	// reset delegate keys in state
+	if hasDuplicates(data.DelegateKeys) {
+		panic("Duplicate delegate key found in Genesis!")
+	}
 	for _, keys := range data.DelegateKeys {
 		err := keys.ValidateBasic()
 		if err != nil {
@@ -126,7 +133,10 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		if err != nil {
 			panic(err)
 		}
-		ethAddr, _ := types.NewEthAddress(keys.EthAddress) // already validated in keys.ValidateBasic()
+		ethAddr, err := types.NewEthAddress(keys.EthAddress)
+		if err != nil {
+			panic(err)
+		}
 
 		orch, err := sdk.AccAddressFromBech32(keys.Orchestrator)
 		if err != nil {
@@ -159,6 +169,18 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		}
 	}
 
+}
+
+func hasDuplicates(d []types.MsgSetOrchestratorAddress) bool {
+	ethMap := make(map[string]struct{}, len(d))
+	orchMap := make(map[string]struct{}, len(d))
+	// creates a hashmap then ensures that the hashmap and the array
+	// have the same length, this acts as an O(n) duplicates check
+	for i := range d {
+		ethMap[d[i].EthAddress] = struct{}{}
+		orchMap[d[i].Orchestrator] = struct{}{}
+	}
+	return len(ethMap) != len(d) || len(orchMap) != len(d)
 }
 
 // ExportGenesis exports all the state needed to restart the chain

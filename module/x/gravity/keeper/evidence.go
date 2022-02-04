@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 )
 
 func (k Keeper) CheckBadSignatureEvidence(
@@ -76,9 +76,9 @@ func (k Keeper) checkBadSignatureEvidenceInternal(ctx sdk.Context, subject types
 	}
 
 	params := k.GetParams(ctx)
-	k.StakingKeeper.Slash(ctx, cons, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBadEthSignature)
 	if !val.IsJailed() {
 		k.StakingKeeper.Jail(ctx, cons)
+		k.StakingKeeper.Slash(ctx, cons, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBadEthSignature)
 	}
 
 	return nil

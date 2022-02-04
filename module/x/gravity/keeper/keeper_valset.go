@@ -10,7 +10,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 )
 
 /////////////////////////////
@@ -18,15 +18,20 @@ import (
 /////////////////////////////
 
 // SetValsetRequest returns a new instance of the Gravity BridgeValidatorSet
-// by taking a snapshot of the current set
+// by taking a snapshot of the current set, this validator set is also placed
+// into the store to be signed by validators and submitted to Ethereum. This
+// is the only function to call when you want to create a validator set that
+// is signed by consensus. If you want to peek at the present state of the set
+// and perhaps take action based on that use k.GetCurrentValset
 // i.e. {"nonce": 1, "memebers": [{"eth_addr": "foo", "power": 11223}]}
 func (k Keeper) SetValsetRequest(ctx sdk.Context) types.Valset {
 	valset := k.GetCurrentValset(ctx)
 	k.StoreValset(ctx, valset)
+	k.SetLatestValsetNonce(ctx, valset.Nonce)
 
 	// Store the checkpoint as a legit past valset, this is only for evidence
 	// based slashing. We are storing the checkpoint that will be signed with
-	// the validators Etheruem keys so that we know not to slash them if someone
+	// the validators Ethereum keys so that we know not to slash them if someone
 	// attempts to submit the signature of this validator set as evidence of bad behavior
 	checkpoint := valset.GetCheckpoint(k.GetGravityID(ctx))
 	k.SetPastEthSignatureCheckpoint(ctx, checkpoint)
@@ -46,19 +51,20 @@ func (k Keeper) SetValsetRequest(ctx sdk.Context) types.Valset {
 	return valset
 }
 
-// StoreValset is for storing a valiator set at a given height
+// StoreValset is for storing a valiator set at a given height, once this function is called
+// the validator set will be available to the Ethereum Signers (orchestrators) to submit signatures
+// therefore this function will panic if you attempt to overwrite an existing key. Any changes to
+// historical valsets can not possibly be correct, as it would invalidate the signatures. The only
+// valid operation on the same index is store followed by delete when it is time to prune state
 func (k Keeper) StoreValset(ctx sdk.Context, valset types.Valset) {
+	key := []byte(types.GetValsetKey(valset.Nonce))
 	store := ctx.KVStore(k.storeKey)
-	valset.Height = uint64(ctx.BlockHeight())
-	store.Set([]byte(types.GetValsetKey(valset.Nonce)), k.cdc.MustMarshal(&valset))
-	k.SetLatestValsetNonce(ctx, valset.Nonce)
-}
 
-// StoreValsetUnsafe is for storing a valiator set at a given height
-func (k Keeper) StoreValsetUnsafe(ctx sdk.Context, valset types.Valset) {
-	store := ctx.KVStore(k.storeKey)
-	store.Set([]byte(types.GetValsetKey(valset.Nonce)), k.cdc.MustMarshal(&valset))
-	k.SetLatestValsetNonce(ctx, valset.Nonce)
+	if store.Has(key) {
+		panic("Trying to overwrite existing valset!")
+	}
+
+	store.Set((key), k.cdc.MustMarshal(&valset))
 }
 
 // HasValsetRequest returns true if a valset defined by a nonce exists
@@ -72,19 +78,34 @@ func (k Keeper) DeleteValset(ctx sdk.Context, nonce uint64) {
 	ctx.KVStore(k.storeKey).Delete([]byte(types.GetValsetKey(nonce)))
 }
 
+// CheckLatestValsetNonce returns true if the latest valset nonce
+// is declared in the store and false if it has not been initialized
+func (k Keeper) CheckLatestValsetNonce(ctx sdk.Context) bool {
+	store := ctx.KVStore(k.storeKey)
+	has := store.Has([]byte(types.LatestValsetNonce))
+	return has
+}
+
 // GetLatestValsetNonce returns the latest valset nonce
 func (k Keeper) GetLatestValsetNonce(ctx sdk.Context) uint64 {
-	store := ctx.KVStore(k.storeKey)
-	bytes := store.Get([]byte(types.LatestValsetNonce))
-
-	if len(bytes) == 0 {
+	if !k.CheckLatestValsetNonce(ctx) {
 		panic("Valset nonce not initialized from genesis")
 	}
+
+	store := ctx.KVStore(k.storeKey)
+	bytes := store.Get([]byte(types.LatestValsetNonce))
 	return types.UInt64FromBytes(bytes)
 }
 
-//  SetLatestValsetNonce sets the latest valset nonce
+// SetLatestValsetNonce sets the latest valset nonce, since it's
+// expected that this value will only increase it panics on an attempt
+// to decrement
 func (k Keeper) SetLatestValsetNonce(ctx sdk.Context, nonce uint64) {
+	// this is purely an increasing counter and should never decrease
+	if k.CheckLatestValsetNonce(ctx) && k.GetLatestValsetNonce(ctx) > nonce {
+		panic("Decrementing valset nonce!")
+	}
+
 	store := ctx.KVStore(k.storeKey)
 	store.Set([]byte(types.LatestValsetNonce), types.UInt64Bytes(nonce))
 }
@@ -239,14 +260,13 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) types.Valset {
 	totalPower := sdk.NewInt(0)
 	// TODO someone with in depth info on Cosmos staking should determine
 	// if this is doing what I think it's doing
-	for i, validator := range validators {
+	for _, validator := range validators {
 		val := validator.GetOperator()
 		if err := sdk.VerifyAddressFormat(val); err != nil {
 			panic(sdkerrors.Wrapf(err, "invalid validator address in current valset %v", val))
 		}
 
 		p := sdk.NewInt(k.StakingKeeper.GetLastValidatorPower(ctx, val))
-		fmt.Println("validator", i, "power is", p.String())
 
 		if ethAddr, found := k.GetEthAddressByValidator(ctx, val); found {
 			bv := types.BridgeValidator{Power: p.Uint64(), EthereumAddress: ethAddr.GetAddress()}

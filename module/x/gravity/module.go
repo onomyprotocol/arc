@@ -19,10 +19,10 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	abci "github.com/tendermint/tendermint/abci/types"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/client/cli"
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/client/rest"
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/client/cli"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/client/rest"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/keeper"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 )
 
 // type check to ensure the interface is properly implemented
@@ -83,9 +83,12 @@ func (AppModuleBasic) GetTxCmd() *cobra.Command {
 }
 
 // RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the distribution module.
-// also implements app modeul basic
+// also implements app module basic
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
-	types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
+	err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
+	if err != nil {
+		panic("Failed to register query handler")
+	}
 }
 
 // RegisterInterfaces implements app bmodule basic
