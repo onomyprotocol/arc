@@ -1,7 +1,6 @@
 use crate::query::get_last_event_nonce_for_validator;
-use deep_space::error::CosmosGrpcError;
 use deep_space::utils::encode_any;
-use deep_space::{Address as CosmosAddress, Contact};
+use deep_space::Address as CosmosAddress;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::OutgoingLogicCall as ProtoLogicCall;
 use gravity_proto::gravity::OutgoingTxBatch as ProtoBatch;
@@ -11,23 +10,8 @@ use gravity_utils::types::LogicCall;
 use gravity_utils::types::TransactionBatch;
 use gravity_utils::types::Valset;
 use prost_types::Any;
-use std::time::Duration;
 use tokio::time::sleep;
 use tonic::transport::Channel;
-
-pub async fn wait_for_cosmos_online(contact: &Contact, timeout: Duration) {
-    match tokio::time::timeout(timeout, contact.wait_for_next_block(timeout)).await {
-        Ok(Err(CosmosGrpcError::NodeNotSynced) | Err(CosmosGrpcError::ChainNotRunning)) => {
-            panic!("Cosmos node has not come online during timeout!")
-        }
-        Err(_) => debug!("timedout"),
-        _ => {}
-    }
-
-    for _ in 0..3 {
-        let _ = contact.wait_for_next_block(timeout).await;
-    }
-}
 
 /// gets the Cosmos last event nonce, no matter how long it takes.
 pub async fn get_last_event_nonce_with_retry(

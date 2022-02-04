@@ -305,12 +305,6 @@ pub async fn check_delegate_addresses(
                 error!(
                     "You are using Gravity delegate keys from two different validator addresses!"
                 );
-                error!("In order to resolve this issue you should double check how you input your Orchestrator address phrase, make sure you didn't use your Validator phrase!");
-                Err(GravityError::UnrecoverableError(
-                    "Orchestrator Address Incorrect".into(),
-                ))
-            } else if e.validator_address != o.validator_address {
-                error!("You are using delegate keys from two different validator addresses!");
                 error!("If you get this error message I would just blow everything away and start again");
                 error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
