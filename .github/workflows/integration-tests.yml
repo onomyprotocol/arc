@@ -143,7 +143,6 @@ jobs:
         run: tests/all-up-test.sh ETHEREUM_BLACKLIST
   airdrop_proposal:
     runs-on: ubuntu-latest
-    needs: happy-path-geth
     steps:
       - uses: actions/checkout@v2
       - uses: satackey/action-docker-layer-caching@v0.0.11
@@ -152,7 +151,6 @@ jobs:
         run: tests/all-up-test.sh AIRDROP_PROPOSAL
   signature_slashing:
     runs-on: ubuntu-latest
-    needs: happy-path-geth
     steps:
       - uses: actions/checkout@v2
       - uses: satackey/action-docker-layer-caching@v0.0.11
@@ -161,7 +159,6 @@ jobs:
         run: tests/all-up-test.sh SIGNATURE_SLASHING
   slashing_delegation:
     runs-on: ubuntu-latest
-    needs: happy-path-geth
     steps:
       - uses: actions/checkout@v2
       - uses: satackey/action-docker-layer-caching@v0.0.11
