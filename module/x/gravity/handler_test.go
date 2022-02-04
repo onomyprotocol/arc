@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/keeper"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 )
 
 //nolint: exhaustivestruct
@@ -535,24 +535,23 @@ func TestMsgSetOrchestratorAddresses(t *testing.T) {
 		cosmosAddress  sdk.AccAddress = bytes.Repeat([]byte{0x1}, 20)
 		ethAddress2, _                = types.NewEthAddress("0x26126048c706fB45a5a6De8432F428e794d0b952")
 		cosmosAddress2 sdk.AccAddress = bytes.Repeat([]byte{0x2}, 20)
-		valAddress     sdk.ValAddress = bytes.Repeat([]byte{0x2}, 20)
 		blockTime                     = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
 		blockTime2                    = time.Date(2020, 9, 15, 15, 20, 10, 0, time.UTC)
 		blockHeight    int64          = 200
 		blockHeight2   int64          = 210
 	)
-	input := keeper.CreateTestEnv(t)
-	input.GravityKeeper.StakingKeeper = keeper.NewStakingKeeperMock(valAddress)
-	ctx := input.Context
+	input, ctx := keeper.SetupTestChain(t, []uint64{1000000000}, false)
 	wctx := sdk.WrapSDKContext(ctx)
 	k := input.GravityKeeper
 	h := NewHandler(input.GravityKeeper)
 	ctx = ctx.WithBlockTime(blockTime)
+	valAddress, err := sdk.ValAddressFromBech32(input.StakingKeeper.GetValidators(ctx, 10)[0].OperatorAddress)
+	require.NoError(t, err)
 
 	// test setting keys
 	msg := types.NewMsgSetOrchestratorAddress(valAddress, cosmosAddress, *ethAddress)
 	ctx = ctx.WithBlockTime(blockTime).WithBlockHeight(blockHeight)
-	_, err := h(ctx, msg)
+	_, err = h(ctx, msg)
 	require.NoError(t, err)
 
 	// test all lookup methods
@@ -585,4 +584,74 @@ func TestMsgSetOrchestratorAddresses(t *testing.T) {
 	ctx = ctx.WithBlockTime(blockTime2).WithBlockHeight(blockHeight2)
 	_, err = h(ctx, msg)
 	require.Error(t, err)
+}
+
+// TestMsgValsetConfirm ensures that the valset confirm message sets a validator set confirm
+// in the store and validates the signature
+func TestMsgValsetConfirm(t *testing.T) {
+	var (
+		blockTime          = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
+		blockHeight  int64 = 200
+		signature          = "7c331bd8f2f586b04a2e2cafc6542442ef52e8b8be49533fa6b8962e822bc01e295a62733abfd65a412a8de8286f2794134c160c27a2827bdb71044b94b003cc1c"
+		badSignature       = "6c331bd8f2f586b04a2e2cafc6542442ef52e8b8be49533fa6b8962e822bc01e295a62733abfd65a412a8de8286f2794134c160c27a2827bdb71044b94b003cc1c"
+		ethAddress         = "0xd62FF457C6165FF214C1658c993A8a203E601B03"
+		wrongAddress       = "0xb9a2c7853F181C3dd4a0517FCb9470C0f709C08C"
+	)
+	ethAddressParsed, err := types.NewEthAddress(ethAddress)
+	require.NoError(t, err)
+
+	input, ctx := keeper.SetupFiveValChain(t)
+	k := input.GravityKeeper
+	h := NewHandler(input.GravityKeeper)
+
+	// set a validator set in the store
+	vs := k.GetCurrentValset(ctx)
+	vs.Height = uint64(1)
+	vs.Nonce = uint64(1)
+	k.StoreValset(ctx, vs)
+	k.SetEthAddressForValidator(input.Context, keeper.ValAddrs[0], *ethAddressParsed)
+
+	// try wrong eth address
+	msg := &types.MsgValsetConfirm{
+		Nonce:        1,
+		Orchestrator: keeper.OrchAddrs[0].String(),
+		EthAddress:   wrongAddress,
+		Signature:    signature,
+	}
+	ctx = ctx.WithBlockTime(blockTime).WithBlockHeight(blockHeight)
+	_, err = h(ctx, msg)
+	require.Error(t, err)
+
+	// try a nonexisting valset
+	msg = &types.MsgValsetConfirm{
+		Nonce:        10,
+		Orchestrator: keeper.OrchAddrs[0].String(),
+		EthAddress:   ethAddress,
+		Signature:    signature,
+	}
+	ctx = ctx.WithBlockTime(blockTime).WithBlockHeight(blockHeight)
+	_, err = h(ctx, msg)
+	require.Error(t, err)
+
+	// try a bad signature
+	msg = &types.MsgValsetConfirm{
+		Nonce:        1,
+		Orchestrator: keeper.OrchAddrs[0].String(),
+		EthAddress:   ethAddress,
+		Signature:    badSignature,
+	}
+	ctx = ctx.WithBlockTime(blockTime).WithBlockHeight(blockHeight)
+	_, err = h(ctx, msg)
+	require.Error(t, err)
+
+	msg = &types.MsgValsetConfirm{
+		Nonce:        1,
+		Orchestrator: keeper.OrchAddrs[0].String(),
+		EthAddress:   ethAddress,
+		Signature:    signature,
+	}
+	ctx = ctx.WithBlockTime(blockTime).WithBlockHeight(blockHeight)
+	_, err = h(ctx, msg)
+	require.NoError(t, err)
+
 }

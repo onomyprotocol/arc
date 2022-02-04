@@ -1,8 +1,7 @@
 use crate::query::get_last_event_nonce_for_validator;
 use deep_space::error::CosmosGrpcError;
 use deep_space::utils::encode_any;
-use deep_space::Address as CosmosAddress;
-use deep_space::Contact;
+use deep_space::{Address as CosmosAddress, Contact};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::OutgoingLogicCall as ProtoLogicCall;
 use gravity_proto::gravity::OutgoingTxBatch as ProtoBatch;

@@ -198,7 +198,13 @@ impl ValsetUpdatedEvent {
         let valset_nonce: u64 = valset_nonce.to_string().parse().unwrap();
 
         let block_height = if let Some(bn) = input.block_number.clone() {
-            bn
+            if bn > u64::MAX.into() {
+                return Err(GravityError::ValidationError(
+                    "Event nonce overflow! probably incorrect parsing".to_string(),
+                ));
+            } else {
+                bn
+            }
         } else {
             return Err(GravityError::ValidationError(
                 "Log does not have block number, we only search logs already in blocks?"
@@ -265,7 +271,13 @@ impl TransactionBatchExecutedEvent {
             let erc20 = EthAddress::from_slice(&erc20_data[12..32])?;
             let event_nonce = Uint256::from_bytes_be(&input.data);
             let block_height = if let Some(bn) = input.block_number.clone() {
-                bn
+                if bn > u64::MAX.into() {
+                    return Err(GravityError::ValidationError(
+                        "Block height overflow! probably incorrect parsing".to_string(),
+                    ));
+                } else {
+                    bn
+                }
             } else {
                 return Err(GravityError::ValidationError(
                     "Log does not have block number, we only search logs already in blocks?"
@@ -357,7 +369,13 @@ impl SendToCosmosEvent {
             let erc20 = EthAddress::from_slice(&erc20_data[12..32])?;
             let sender = EthAddress::from_slice(&sender_data[12..32])?;
             let block_height = if let Some(bn) = input.block_number.clone() {
-                bn
+                if bn > u64::MAX.into() {
+                    return Err(GravityError::ValidationError(
+                        "Block height overflow! probably incorrect parsing".to_string(),
+                    ));
+                } else {
+                    bn
+                }
             } else {
                 return Err(GravityError::ValidationError(
                     "Log does not have block number, we only search logs already in blocks?"
@@ -525,7 +543,13 @@ impl Erc20DeployedEvent {
             let erc20 = EthAddress::from_slice(&new_token_contract_data[12..32])?;
 
             let block_height = if let Some(bn) = input.block_number.clone() {
-                bn
+                if bn > u64::MAX.into() {
+                    return Err(GravityError::ValidationError(
+                        "Event nonce overflow! probably incorrect parsing".to_string(),
+                    ));
+                } else {
+                    bn
+                }
             } else {
                 return Err(GravityError::ValidationError(
                     "Log does not have block number, we only search logs already in blocks?"

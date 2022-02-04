@@ -6,6 +6,7 @@ use crate::error::GravityError;
 use crate::get_with_retry::get_balances_with_retry;
 use crate::get_with_retry::get_eth_balances_with_retry;
 use clarity::Address as EthAddress;
+use deep_space::error::CosmosGrpcError;
 use deep_space::Address as CosmosAddress;
 use deep_space::Contact;
 use deep_space::{client::ChainStatus, Coin};
@@ -258,7 +259,8 @@ pub async fn check_delegate_addresses(
             if req_delegate_eth_address != delegate_eth_address
                 && req_delegate_orchestrator_address != delegate_orchestrator_address
             {
-                error!("Your Delegate Ethereum and Orchestrator addresses are both incorrect!");
+                error!("Your Gravity Delegate addresses are both incorrect!");
+                error!("If you are getting this error you must have made at least two validators and mixed up the keys between them");
                 error!(
                     "You provided {} Correct Value {}",
                     delegate_eth_address, req_delegate_eth_address
@@ -267,9 +269,13 @@ pub async fn check_delegate_addresses(
                     "You provided {} Correct Value {}",
                     delegate_orchestrator_address, req_delegate_orchestrator_address
                 );
-                error!("In order to resolve this issue you should double check your input value or re-register your delegate keys");
+                error!("In order to resolve this issue locate the key phrase and private key you registered for this validator and run the following commands");
+                error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
+                error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
+                error!("If you can not find the private key and phrase for these addresses you will need to create a new validator");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
-                    "Etehreum orchestrator addresses incorrect".into(),
+                    "Ethereum orchestrator addresses incorrect".into(),
                 ))
             } else if req_delegate_eth_address != delegate_eth_address {
                 error!("Your Delegate Ethereum address is incorrect!");
@@ -277,15 +283,27 @@ pub async fn check_delegate_addresses(
                     "You provided {} Correct Value {}",
                     delegate_eth_address, req_delegate_eth_address
                 );
-                error!("In order to resolve this issue you should double check how you input your eth private key");
+                error!("In order to resolve this issue locate the private key you registered for this validator and run the following command");
+                error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
-                    "Ethereum address incorrect".into(),
+                    "Delegate Ethereum address is incorrect".into(),
                 ))
             } else if req_delegate_orchestrator_address != delegate_orchestrator_address {
                 error!("Your Delegate Orchestrator address is incorrect!");
                 error!(
                     "You provided {} Correct Value {}",
                     delegate_orchestrator_address, req_delegate_orchestrator_address
+                );
+                error!("In order to resolve this issue locate the key phrase you registered for this validator and run the following command");
+                error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+                Err(GravityError::UnrecoverableError(
+                    "Delegate Orchestrator address is incorrect".into(),
+                ))
+            } else if e.validator_address != o.validator_address {
+                error!(
+                    "You are using Gravity delegate keys from two different validator addresses!"
                 );
                 error!("In order to resolve this issue you should double check how you input your Orchestrator address phrase, make sure you didn't use your Validator phrase!");
                 Err(GravityError::UnrecoverableError(
@@ -294,30 +312,37 @@ pub async fn check_delegate_addresses(
             } else if e.validator_address != o.validator_address {
                 error!("You are using delegate keys from two different validator addresses!");
                 error!("If you get this error message I would just blow everything away and start again");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
-                    "Different validator addresses".into(),
+                    "Delegate keys from two different validator addresses".into(),
                 ))
             } else {
                 Ok(())
             }
         }
         (Err(e), Ok(_)) => {
-            Err(GravityError::UnrecoverableError(
-                format!(
-                    "Your delegate Ethereum address is incorrect, please double check you private key. If you can't locate the correct private key register your delegate keys again and use the new value {:?}", e
-                )
-            ))
+            error!("Your Gravity Orchestrator Ethereum key is incorrect, please double check you private key. If you can't locate the correct private key you will need to create a new validator {:?}", e);
+            error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+            Err(GravityError::UnrecoverableError(format!(
+                "Your delegate Ethereum address is incorrect: {:?}",
+                e
+            )))
         }
         (Ok(_), Err(e)) => {
-            Err(GravityError::UnrecoverableError(
-                format!(
-                    "Your delegate Cosmos address is incorrect, please double check your phrase. If you can't locate the correct phrase register your delegate keys again and use the new value {:?}", e
-                )
-            ))
+            error!("Your Gravity Orchestrator Cosmos key is incorrect, please double check your phrase. If you can't locate the correct phrase you will need to create a new validator {:?}", e);
+            error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+            Err(GravityError::UnrecoverableError(format!(
+                "Gravity Orchestrator Cosmos key is incorrect: {:?}",
+                e
+            )))
         }
         (Err(_), Err(_)) => {
+            error!("Gravity Delegate keys are not set! Please Register your Gravity delegate keys");
+            error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
+            error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
+            error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
             Err(GravityError::UnrecoverableError(
-                "Delegate keys are not set! Please Register your delegate keys".into(),
+                "Delegate keys are not set".into(),
             ))
         }
     }
@@ -329,6 +354,20 @@ pub async fn check_for_fee(
     address: CosmosAddress,
     contact: &Contact,
 ) -> Result<(), GravityError> {
+    // if we decide to pay no fees it doesn't matter, but we do need some coin balance
+    if fee.amount == 0u8.into() {
+        if let Err(CosmosGrpcError::NoToken) = contact.get_account_info(address).await {
+            error!("Your Orchestrator address has no tokens of any kind. Even if you are paying zero fees this account needs to be 'initialized' by depositing tokens");
+            error!(
+                "Send the smallest possible unit of any token to {} to resolve this error",
+                address
+            );
+            return Err(GravityError::ValidationError(
+                "Your Orchestrator address has no tokens of any kind".into(),
+            ));
+        }
+        return Ok(());
+    }
     let balances = get_balances_with_retry(address, contact).await;
 
     for balance in balances {
@@ -352,8 +391,13 @@ pub async fn check_for_fee(
 pub async fn check_for_eth(address: EthAddress, web3: &Web3) -> Result<(), GravityError> {
     let balance = get_eth_balances_with_retry(address, web3).await;
     if balance == 0u8.into() {
+        error!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs", address);
+        error!("You can disable relaying by editing your config file in $HOME/.gbt/config");
+        error!(
+            "Even if you disable relaying you still need some dust so that the oracle can function"
+        );
         Err(GravityError::ValidationError(
-        format!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs", address)
+            "You don't have any Ethereum!".into(),
         ))
     } else {
         Ok(())

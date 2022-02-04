@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/keeper"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
@@ -58,7 +58,7 @@ func TestValsetSlashing_ValsetCreated_Before_ValidatorBonded(t *testing.T) {
 	height := uint64(ctx.BlockHeight()) - (params.SignedValsetsWindow + 1)
 	vs.Height = height
 	vs.Nonce = height
-	pk.StoreValsetUnsafe(ctx, vs)
+	pk.StoreValset(ctx, vs)
 
 	EndBlocker(ctx, pk)
 
@@ -80,7 +80,8 @@ func TestValsetSlashing_ValsetCreated_After_ValidatorBonded(t *testing.T) {
 	vs.Height = height
 
 	vs.Nonce = pk.GetLatestValsetNonce(ctx) + 1
-	pk.StoreValsetUnsafe(ctx, vs)
+	pk.StoreValset(ctx, vs)
+	pk.SetLatestValsetNonce(ctx, vs.Nonce)
 
 	for i, orch := range keeper.OrchAddrs {
 		if i == 0 {
@@ -130,10 +131,7 @@ func TestValsetSlashing_UnbondingValidator_UnbondWindow_NotExpired(t *testing.T)
 
 	// Create Valset request
 	ctx = ctx.WithBlockHeight(valsetRequestHeight)
-	vs := pk.GetCurrentValset(ctx)
-	vs.Height = uint64(valsetRequestHeight)
-	vs.Nonce = pk.GetLatestValsetNonce(ctx) + 1
-	pk.StoreValsetUnsafe(ctx, vs)
+	vs := pk.SetValsetRequest(ctx)
 
 	// Start Unbonding validators
 	// Validator-1  Unbond slash window is not expired. if not attested, slash
@@ -190,7 +188,7 @@ func TestBatchSlashing(t *testing.T) {
 		Block:         uint64(ctx.BlockHeight() - int64(params.SignedBatchesWindow+1)),
 	})
 	require.NoError(t, err)
-	pk.StoreBatchUnsafe(ctx, *batch)
+	pk.StoreBatch(ctx, *batch)
 
 	for i, orch := range keeper.OrchAddrs {
 		if i == 0 {

@@ -1,8 +1,8 @@
 package gravity
 
 import (
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/althea-net/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/keeper"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -141,7 +141,10 @@ func cleanupTimedOutBatches(ctx sdk.Context, k keeper.Keeper) {
 	batches := k.GetOutgoingTxBatches(ctx)
 	for _, batch := range batches {
 		if batch.BatchTimeout < ethereumHeight {
-			k.CancelOutgoingTXBatch(ctx, batch.TokenContract, batch.BatchNonce)
+			err := k.CancelOutgoingTXBatch(ctx, batch.TokenContract, batch.BatchNonce)
+			if err != nil {
+				panic("Failed to cancel outgoing txbatch!")
+			}
 		}
 	}
 }
@@ -160,7 +163,10 @@ func cleanupTimedOutLogicCalls(ctx sdk.Context, k keeper.Keeper) {
 	calls := k.GetOutgoingLogicCalls(ctx)
 	for _, call := range calls {
 		if call.Timeout < ethereumHeight {
-			k.CancelOutgoingLogicCall(ctx, call.InvalidationId, call.InvalidationNonce)
+			err := k.CancelOutgoingLogicCall(ctx, call.InvalidationId, call.InvalidationNonce)
+			if err != nil {
+				panic("Failed to cancel outgoing logic call!")
+			}
 		}
 	}
 }
@@ -174,7 +180,10 @@ func prepValsetConfirms(ctx sdk.Context, k keeper.Keeper, nonce uint64) map[stri
 	ret := make(map[string]types.MsgValsetConfirm)
 	for _, confirm := range confirms {
 		// TODO this presents problems for delegate key rotation see issue #344
-		confVal, _ := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		confVal, err := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		if err != nil {
+			panic("Invalid confirm in store")
+		}
 		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
 		if !foundValidator {
 			panic("Confirm from validator we can't identify?")
@@ -202,7 +211,10 @@ func valsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 		// SLASH BONDED VALIDTORS who didn't attest valset request
 
 		for _, val := range currentBondedSet {
-			consAddr, _ := val.GetConsAddr()
+			consAddr, err := val.GetConsAddr()
+			if err != nil {
+				panic("Failed to get validator consensus addr")
+			}
 			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, consAddr)
 
 			//  Slash validator ONLY if he joined before valset is created
@@ -215,15 +227,15 @@ func valsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 				if !found {
 					// refresh validator before slashing/jailing
 					val = updateValidator(ctx, k, val.GetOperator())
-					k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
-					ctx.EventManager().EmitEvent(
-						sdk.NewEvent(
-							sdk.EventTypeMessage,
-							sdk.NewAttribute("ValsetSignatureSlashing", consAddr.String()),
-						),
-					)
-
 					if !val.IsJailed() {
+						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
+						ctx.EventManager().EmitEvent(
+							sdk.NewEvent(
+								sdk.EventTypeMessage,
+								sdk.NewAttribute("ValsetSignatureSlashing", consAddr.String()),
+							),
+						)
+
 						k.StakingKeeper.Jail(ctx, consAddr)
 					}
 
@@ -238,8 +250,14 @@ func valsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 			if err != nil {
 				panic(err)
 			}
-			validator, _ := k.StakingKeeper.GetValidator(ctx, sdk.ValAddress(addr))
-			valConsAddr, _ := validator.GetConsAddr()
+			validator, found := k.StakingKeeper.GetValidator(ctx, sdk.ValAddress(addr))
+			if !found {
+				panic("Unable to find validator!")
+			}
+			valConsAddr, err := validator.GetConsAddr()
+			if err != nil {
+				panic(err)
+			}
 			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, valConsAddr)
 
 			// Only slash validators who joined after valset is created and they are unbonding and UNBOND_SLASHING_WINDOW hasn't passed
@@ -254,14 +272,14 @@ func valsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 				if !found {
 					// refresh validator before slashing/jailing
 					validator = updateValidator(ctx, k, validator.GetOperator())
-					k.StakingKeeper.Slash(ctx, valConsAddr, ctx.BlockHeight(), validator.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
-					ctx.EventManager().EmitEvent(
-						sdk.NewEvent(
-							sdk.EventTypeMessage,
-							sdk.NewAttribute("ValsetSignatureSlashing", valConsAddr.String()),
-						),
-					)
 					if !validator.IsJailed() {
+						k.StakingKeeper.Slash(ctx, valConsAddr, ctx.BlockHeight(), validator.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
+						ctx.EventManager().EmitEvent(
+							sdk.NewEvent(
+								sdk.EventTypeMessage,
+								sdk.NewAttribute("ValsetSignatureSlashing", valConsAddr.String()),
+							),
+						)
 						k.StakingKeeper.Jail(ctx, valConsAddr)
 					}
 				}
@@ -310,7 +328,10 @@ func prepBatchConfirms(ctx sdk.Context, k keeper.Keeper, batch types.InternalOut
 	ret := make(map[string]types.MsgConfirmBatch)
 	for _, confirm := range confirms {
 		// TODO this presents problems for delegate key rotation see issue #344
-		confVal, _ := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		confVal, err := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		if err != nil {
+			panic(err)
+		}
 		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
 		if !foundValidator {
 			panic("Confirm from validator we can't identify?")
@@ -343,7 +364,10 @@ func batchSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 		// SLASH BONDED VALIDTORS who didn't attest batch requests
 		confirms := prepBatchConfirms(ctx, k, batch)
 		for _, val := range currentBondedSet {
-			consAddr, _ := val.GetConsAddr()
+			consAddr, err := val.GetConsAddr()
+			if err != nil {
+				panic(err)
+			}
 			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, consAddr)
 
 			// Don't slash validators who joined after batch is created
@@ -355,14 +379,14 @@ func batchSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 				if !found {
 					// refresh validator before slashing/jailing
 					val = updateValidator(ctx, k, val.GetOperator())
-					k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBatch)
-					ctx.EventManager().EmitEvent(
-						sdk.NewEvent(
-							sdk.EventTypeMessage,
-							sdk.NewAttribute("BatchSignatureSlashing", consAddr.String()),
-						),
-					)
 					if !val.IsJailed() {
+						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBatch)
+						ctx.EventManager().EmitEvent(
+							sdk.NewEvent(
+								sdk.EventTypeMessage,
+								sdk.NewAttribute("BatchSignatureSlashing", consAddr.String()),
+							),
+						)
 						k.StakingKeeper.Jail(ctx, consAddr)
 					}
 				}
@@ -382,7 +406,10 @@ func prepLogicCallConfirms(ctx sdk.Context, k keeper.Keeper, call types.Outgoing
 	ret := make(map[string]*types.MsgConfirmLogicCall)
 	for _, confirm := range confirms {
 		// TODO this presents problems for delegate key rotation see issue #344
-		confVal, _ := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		confVal, err := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		if err != nil {
+			panic(err)
+		}
 		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
 		if !foundValidator {
 			panic("Confirm from validator we can't identify?")
@@ -417,7 +444,10 @@ func logicCallSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 		confirms := prepLogicCallConfirms(ctx, k, call)
 		for _, val := range currentBondedSet {
 			// Don't slash validators who joined after batch is created
-			consAddr, _ := val.GetConsAddr()
+			consAddr, err := val.GetConsAddr()
+			if err != nil {
+				panic(err)
+			}
 			valSigningInfo, exist := k.SlashingKeeper.GetValidatorSigningInfo(ctx, consAddr)
 			startedBeforeCallCreated := valSigningInfo.StartHeight < int64(call.Block)
 			if exist && startedBeforeCallCreated {
@@ -426,14 +456,14 @@ func logicCallSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 				if !found {
 					// refresh validator before slashing/jailing
 					val = updateValidator(ctx, k, val.GetOperator())
-					k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionLogicCall)
-					ctx.EventManager().EmitEvent(
-						sdk.NewEvent(
-							sdk.EventTypeMessage,
-							sdk.NewAttribute("LogicCallSignatureSlashing", consAddr.String()),
-						),
-					)
 					if !val.IsJailed() {
+						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionLogicCall)
+						ctx.EventManager().EmitEvent(
+							sdk.NewEvent(
+								sdk.EventTypeMessage,
+								sdk.NewAttribute("LogicCallSignatureSlashing", consAddr.String()),
+							),
+						)
 						k.StakingKeeper.Jail(ctx, consAddr)
 					}
 				}

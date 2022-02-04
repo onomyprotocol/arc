@@ -8,14 +8,14 @@ version = "0.1.0"
 
 [dependencies]
 clarity = "0.5"
-deep_space = "2.6"
+deep_space = "2.8"
 gravity_proto = {path = "../gravity_proto/"}
 log = "0.4"
 num-bigint = "0.4"
 num256 = "0.3"
 serde = "1.0"
 serde_derive = "1.0"
-sha3 = "0.9"
+sha3 = "0.10"
 thiserror = "1.0.30"
 tokio = {version = "1.4", features = ["macros", "rt-multi-thread"]}
 tonic = "0.6"

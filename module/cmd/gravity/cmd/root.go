@@ -31,8 +31,8 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/althea-net/cosmos-gravity-bridge/module/app"
-	"github.com/althea-net/cosmos-gravity-bridge/module/app/params"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/app"
+	"github.com/Gravity-Bridge/Gravity-Bridge/module/app/params"
 )
 
 // NewRootCmd creates a new root command for simd. It is called once in the
@@ -59,7 +59,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 				return err
 			}
 
-			gravityAppTemplate, gravityAppConfig := initAppConfig();
+			gravityAppTemplate, gravityAppConfig := initAppConfig()
 
 			return server.InterceptConfigsPreRunHandler(cmd, gravityAppTemplate, gravityAppConfig)
 		},
@@ -114,6 +114,10 @@ func Execute(rootCmd *cobra.Command) error {
 }
 
 func initRootCmd(rootCmd *cobra.Command, encodingConfig params.EncodingConfig) {
+
+	cfg := sdk.GetConfig()
+	cfg.Seal()
+
 	rootCmd.AddCommand(
 		genutilcli.InitCmd(app.ModuleBasics, app.DefaultNodeHome),
 		CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, app.DefaultNodeHome),

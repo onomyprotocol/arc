@@ -3,6 +3,7 @@ use crate::happy_path_v2::CosmosRepresentationMetadata;
 use crate::ADDRESS_PREFIX;
 use crate::COSMOS_NODE_GRPC;
 use crate::ETH_NODE;
+use crate::STAKING_TOKEN;
 use crate::TOTAL_TIMEOUT;
 use crate::{one_eth, MINER_PRIVATE_KEY};
 use crate::{MINER_ADDRESS, OPERATION_TIMEOUT};
@@ -10,6 +11,7 @@ use clarity::{Address as EthAddress, Uint256};
 use clarity::{PrivateKey as EthPrivateKey, Transaction};
 use deep_space::address::Address as CosmosAddress;
 use deep_space::coin::Coin;
+use deep_space::error::CosmosGrpcError;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
 use deep_space::utils::encode_any;
 use deep_space::{Contact, Fee, Msg};
@@ -44,6 +46,8 @@ pub fn footoken_metadata() -> CosmosRepresentationMetadata {
 
 pub fn create_default_test_config() -> GravityBridgeToolsConfig {
     let mut no_relay_market_config = GravityBridgeToolsConfig::default();
+    // enable integrated relayer by default for tests
+    no_relay_market_config.orchestrator.relayer_enabled = true;
     no_relay_market_config.relayer.batch_market_enabled = false;
     no_relay_market_config.relayer.valset_market_enabled = false;
     no_relay_market_config.relayer.logic_call_market_enabled = false;
@@ -296,9 +300,7 @@ pub async fn start_orchestrators(
             "Spawning Orchestrator with delegate keys {} {} and validator key {}",
             k.eth_key.to_address(),
             k.orch_key.to_address(ADDRESS_PREFIX.as_str()).unwrap(),
-            k.validator_key
-                .to_address(&format!("{}valoper", ADDRESS_PREFIX.as_str()))
-                .unwrap()
+            get_operator_address(k.validator_key),
         );
         let grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())
             .await
@@ -424,7 +426,7 @@ pub async fn print_validator_stake(contact: &Contact) {
         .get_validators_list(QueryValidatorsRequest::default())
         .await
         .unwrap();
-    for validator in validators.validators {
+    for validator in validators {
         info!(
             "Validator {} has {} tokens",
             validator.operator_address, validator.tokens
@@ -549,4 +551,50 @@ pub async fn get_event_nonce_safe(
         }
     }
     Ok(new_balance.unwrap())
+}
+
+/// waits for the cosmos chain to start producing blocks, used to prevent race conditions
+/// where our tests try to start running before the Cosmos chain is ready
+pub async fn wait_for_cosmos_online(contact: &Contact, timeout: Duration) {
+    let start = Instant::now();
+    while let Err(CosmosGrpcError::NodeNotSynced) | Err(CosmosGrpcError::ChainNotRunning) =
+        contact.wait_for_next_block(timeout).await
+    {
+        sleep(Duration::from_secs(1)).await;
+        if Instant::now() - start > timeout {
+            panic!("Cosmos node has not come online during timeout!")
+        }
+    }
+    contact.wait_for_next_block(timeout).await.unwrap();
+}
+
+/// This function returns the valoper address of a validator
+/// to whom delegating the returned amount of staking token will
+/// create a 5% or greater change in voting power, triggering the
+/// creation of a validator set update.
+pub async fn get_validator_to_delegate_to(contact: &Contact) -> (CosmosAddress, Coin) {
+    let validators = contact.get_active_validators().await.unwrap();
+    let mut total_bonded_stake: Uint256 = 0u8.into();
+    let mut has_the_least = None;
+    let mut lowest = 0u8.into();
+    for v in validators {
+        let amount: Uint256 = v.tokens.parse().unwrap();
+        total_bonded_stake += amount.clone();
+
+        if lowest == 0u8.into() || amount < lowest {
+            lowest = amount;
+            has_the_least = Some(v.operator_address.parse().unwrap());
+        }
+    }
+
+    // since this is five percent of the total bonded stake
+    // delegating this to the validator who has the least should
+    // do the trick
+    let five_percent = total_bonded_stake / 20u8.into();
+    let five_percent = Coin {
+        denom: STAKING_TOKEN.clone(),
+        amount: five_percent,
+    };
+
+    (has_the_least.unwrap(), five_percent)
 }
