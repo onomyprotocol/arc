@@ -75,7 +75,6 @@ async fn run_gbt() -> Result<(), GravityError> {
             ClientSubcommand::EthToCosmos(eth_to_cosmos_opts) => {
                 eth_to_cosmos(eth_to_cosmos_opts, address_prefix).await
             }
-
             ClientSubcommand::CosmosToEth(cosmos_to_eth_opts) => {
                 cosmos_to_eth(cosmos_to_eth_opts, address_prefix).await
             }

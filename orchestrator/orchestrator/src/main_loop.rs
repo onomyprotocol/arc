@@ -212,7 +212,12 @@ pub async fn eth_oracle_main_loop(
                             .await;
                         }
                         last_checked_event = nonces.event_nonce;
-                        metrics_latest(last_checked_event.to_u64_digits()[0], "last_checked_event");
+                        if !last_checked_event.to_u64_digits().is_empty() {
+                            metrics_latest(
+                                last_checked_event.to_u64_digits()[0],
+                                "last_checked_event",
+                            );
+                        }
                     }
                     Err(e) => {
                         error!("Failed to get events for block range, Check your Eth node and Cosmos gRPC {:?}", e);
