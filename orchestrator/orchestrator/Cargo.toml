@@ -11,8 +11,9 @@ path = "src/lib.rs"
 [dependencies]
 cosmos_gravity = {path = "../cosmos_gravity"}
 ethereum_gravity = {path = "../ethereum_gravity"}
-gravity_proto = {path = "../gravity_proto/"}
+gravity_proto = {path = "../gravity_proto"}
 gravity_utils = {path = "../gravity_utils"}
+metrics_exporter = {path = "../metrics_exporter"}
 relayer = {path = "../relayer/"}
 
 clarity = "0.5"

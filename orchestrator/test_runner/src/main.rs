@@ -10,6 +10,7 @@ use crate::airdrop_proposal::airdrop_proposal_test;
 use crate::bootstrapping::*;
 use crate::deposit_overflow::deposit_overflow_test;
 use crate::ethereum_blacklist_test::ethereum_blacklist_test;
+use crate::ibc_metadata::ibc_metadata_proposal_test;
 use crate::invalid_events::invalid_events;
 use crate::pause_bridge::pause_bridge_test;
 use crate::signature_slashing::signature_slashing_test;
@@ -40,6 +41,7 @@ mod ethereum_blacklist_test;
 mod evidence_based_slashing;
 mod happy_path;
 mod happy_path_v2;
+mod ibc_metadata;
 mod invalid_events;
 mod orch_keys;
 mod pause_bridge;
@@ -168,16 +170,17 @@ pub async fn main() {
     // for things
     send_eth_to_orchestrators(&keys, &web30).await;
 
-    assert!(check_cosmos_balance(
-        &get_test_token_name(),
-        keys[0]
-            .validator_key
-            .to_address(&contact.get_prefix())
-            .unwrap(),
-        &contact
-    )
-    .await
-    .is_some());
+    assert!(contact
+        .get_balance(
+            keys[0]
+                .validator_key
+                .to_address(&contact.get_prefix())
+                .unwrap(),
+            get_test_token_name(),
+        )
+        .await
+        .unwrap()
+        .is_some());
 
     // This segment contains optional tests, by default we run a happy path test
     // this tests all major functionality of Gravity once or twice.
@@ -311,6 +314,10 @@ pub async fn main() {
         } else if test_type == "SLASHING_DELEGATION" {
             info!("Starting Slashing Delegation test");
             slashing_delegation_test(&web30, grpc_client, &contact, keys, gravity_address).await;
+            return;
+        } else if test_type == "IBC_METADATA" {
+            info!("Starting IBC metadata proposal test");
+            ibc_metadata_proposal_test(gravity_address, keys, grpc_client, &contact, &web30).await;
             return;
         } else if !test_type.is_empty() {
             panic!("Err Unknown test type")

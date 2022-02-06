@@ -25,7 +25,10 @@ import (
 // and perhaps take action based on that use k.GetCurrentValset
 // i.e. {"nonce": 1, "memebers": [{"eth_addr": "foo", "power": 11223}]}
 func (k Keeper) SetValsetRequest(ctx sdk.Context) types.Valset {
-	valset := k.GetCurrentValset(ctx)
+	valset, err := k.GetCurrentValset(ctx)
+	if err != nil {
+		panic(err)
+	}
 	k.StoreValset(ctx, valset)
 	k.SetLatestValsetNonce(ctx, valset.Nonce)
 
@@ -251,8 +254,11 @@ func (k Keeper) IterateValsetBySlashedValsetNonce(ctx sdk.Context, lastSlashedVa
 // The function is intended to return what the valset would look like if you made one now
 // you should call this function, evaluate if you want to save this new valset, and discard
 // it or save
-func (k Keeper) GetCurrentValset(ctx sdk.Context) types.Valset {
+func (k Keeper) GetCurrentValset(ctx sdk.Context) (types.Valset, error) {
 	validators := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
+	if len(validators) == 0 {
+		return types.Valset{}, types.ErrNoValidators
+	}
 	// allocate enough space for all validators, but len zero, we then append
 	// so that we have an array with extra capacity but the correct length depending
 	// on how many validators have keys set.
@@ -263,7 +269,7 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) types.Valset {
 	for _, validator := range validators {
 		val := validator.GetOperator()
 		if err := sdk.VerifyAddressFormat(val); err != nil {
-			panic(sdkerrors.Wrapf(err, "invalid validator address in current valset %v", val))
+			return types.Valset{}, sdkerrors.Wrap(err, types.ErrInvalidValAddress.Error())
 		}
 
 		p := sdk.NewInt(k.StakingKeeper.GetLastValidatorPower(ctx, val))
@@ -272,7 +278,7 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) types.Valset {
 			bv := types.BridgeValidator{Power: p.Uint64(), EthereumAddress: ethAddr.GetAddress()}
 			ibv, err := types.NewInternalBridgeValidator(bv)
 			if err != nil {
-				panic(sdkerrors.Wrapf(err, "discovered invalid eth address stored for validator %v", val))
+				return types.Valset{}, sdkerrors.Wrapf(err, types.ErrInvalidEthAddress.Error(), val)
 			}
 			bridgeValidators = append(bridgeValidators, ibv)
 			totalPower = totalPower.Add(p)
@@ -304,9 +310,9 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) types.Valset {
 
 	valset, err := types.NewValset(valsetNonce, uint64(ctx.BlockHeight()), bridgeValidators, rewardAmount, *rewardToken)
 	if err != nil {
-		panic(sdkerrors.Wrap(err, "generated invalid valset"))
+		return types.Valset{}, (sdkerrors.Wrap(err, types.ErrInvalidValset.Error()))
 	}
-	return *valset
+	return *valset, nil
 }
 
 // normalizeValidatorPower scales rawPower with respect to totalValidatorPower to take a value between 0 and 2^32
@@ -367,7 +373,7 @@ func (k Keeper) SetValsetConfirm(ctx sdk.Context, valsetConf types.MsgValsetConf
 // GetValsetConfirms returns all validator set confirmations by nonce
 func (k Keeper) GetValsetConfirms(ctx sdk.Context, nonce uint64) (confirms []types.MsgValsetConfirm) {
 	prefixStore := prefix.NewStore(ctx.KVStore(k.storeKey), []byte(types.ValsetConfirmKey))
-	start, end := prefixRange(types.UInt64Bytes(nonce))
+	start, end := prefixRange([]byte(types.ConvertByteArrToString(types.UInt64Bytes(nonce))))
 	iterator := prefixStore.Iterator(start, end)
 
 	defer iterator.Close()
@@ -386,23 +392,16 @@ func (k Keeper) GetValsetConfirms(ctx sdk.Context, nonce uint64) (confirms []typ
 	return confirms
 }
 
-// IterateValsetConfirmByNonce iterates through all valset confirms by validator set nonce in ASC order
-func (k Keeper) IterateValsetConfirmByNonce(ctx sdk.Context, nonce uint64, cb func([]byte, types.MsgValsetConfirm) bool) {
-	prefixStore := prefix.NewStore(ctx.KVStore(k.storeKey), []byte(types.ValsetConfirmKey))
-	iter := prefixStore.Iterator(prefixRange(types.UInt64Bytes(nonce)))
-	defer iter.Close()
-
-	for ; iter.Valid(); iter.Next() {
-		confirm := types.MsgValsetConfirm{
-			Nonce:        nonce,
-			Orchestrator: "",
-			EthAddress:   "",
-			Signature:    "",
-		}
-		k.cdc.MustUnmarshal(iter.Value(), &confirm)
-		// cb returns true to stop early
-		if cb(iter.Key(), confirm) {
-			break
+// DeleteValsetConfirms deletes the valset confirmations for the valset at a given nonce from state
+func (k Keeper) DeleteValsetConfirms(ctx sdk.Context, nonce uint64) {
+	store := ctx.KVStore(k.storeKey)
+	for _, confirm := range k.GetValsetConfirms(ctx, nonce) {
+		orchestrator, err := sdk.AccAddressFromBech32(confirm.Orchestrator)
+		if err == nil {
+			confirmKey := []byte(types.GetValsetConfirmKey(nonce, orchestrator))
+			if store.Has(confirmKey) {
+				store.Delete(confirmKey)
+			}
 		}
 	}
 }

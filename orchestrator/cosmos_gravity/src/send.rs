@@ -9,7 +9,6 @@ use deep_space::{coin::Coin, utils::bytes_to_hex_str};
 use ethereum_gravity::message_signatures::{
     encode_logic_call_confirm, encode_tx_batch_confirm, encode_valset_confirm,
 };
-use ethereum_gravity::utils::downcast_uint256;
 use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;
 use gravity_proto::gravity::MsgConfirmLogicCall;
 use gravity_proto::gravity::MsgErc20DeployedClaim;
@@ -22,6 +21,7 @@ use gravity_proto::gravity::MsgValsetConfirm;
 use gravity_proto::gravity::MsgValsetUpdatedClaim;
 use gravity_proto::gravity::{MsgBatchSendToEthClaim, MsgSubmitBadSignatureEvidence};
 use gravity_proto::gravity::{MsgCancelSendToEth, MsgConfirmBatch};
+use gravity_utils::num_conversion::downcast_uint256;
 use gravity_utils::types::*;
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -366,7 +366,7 @@ pub async fn send_to_eth(
 pub async fn send_request_batch(
     private_key: PrivateKey,
     denom: String,
-    fee: Coin,
+    fee: Option<Coin>,
     contact: &Contact,
 ) -> Result<TxResponse, CosmosGrpcError> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
@@ -376,11 +376,16 @@ pub async fn send_request_batch(
         denom,
     };
     let msg = Msg::new("/gravity.v1.MsgRequestBatch", msg_request_batch);
+
+    let fee: Vec<Coin> = match fee {
+        Some(fee) => vec![fee],
+        None => vec![],
+    };
     contact
         .send_message(
             &[msg],
             Some(MEMO.to_string()),
-            &[fee],
+            &fee,
             Some(TIMEOUT),
             private_key,
         )

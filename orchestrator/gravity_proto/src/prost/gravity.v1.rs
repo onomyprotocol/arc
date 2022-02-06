@@ -61,6 +61,8 @@ pub struct BatchFees {
     pub token: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub total_fees: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub tx_count: u64,
 }
 /// OutgoingTxBatch represents a batch of transactions going from gravity to ETH
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -189,11 +191,12 @@ pub struct AirdropProposal {
     pub title: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub description: ::prost::alloc::string::String,
-    #[prost(string, repeated, tag="3")]
-    pub recipients: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// this amount is *per recpient* total = amount * length(recipients)
-    #[prost(message, optional, tag="4")]
-    pub amount: ::core::option::Option<cosmos_sdk_proto::cosmos::base::v1beta1::Coin>,
+    #[prost(string, tag="3")]
+    pub denom: ::prost::alloc::string::String,
+    #[prost(bytes="vec", tag="4")]
+    pub recipients: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, repeated, tag="5")]
+    pub amounts: ::prost::alloc::vec::Vec<u64>,
 }
 /// IBCMetadataProposal defines a custom governance proposal type that allows governance to set the
 /// metadata for an IBC token, this will allow Gravity to deploy an ERC20 representing this token on

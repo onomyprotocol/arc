@@ -71,11 +71,9 @@ message AirdropProposal {
 
   string title = 1;
   string description = 2;
-  repeated string recipients = 3; 
-  // this amount is *per recpient* total = amount * length(recipients)
-  cosmos.base.v1beta1.Coin amount   = 4 [
-    (gogoproto.nullable) = false
-  ];
+  string denom = 3;
+  bytes  recipients = 4;
+  repeated uint64 amounts   = 5;
 }
 
 // IBCMetadataProposal defines a custom governance proposal type that allows governance to set the
@@ -94,6 +92,8 @@ message IBCMetadataProposal {
 
   string title = 1;
   string description = 2;
-  cosmos.bank.v1beta1.Metadata metadata  = 3;
+  cosmos.bank.v1beta1.Metadata metadata  = 3 [
+    (gogoproto.nullable) = false
+  ];
   string ibc_denom = 4;
 }

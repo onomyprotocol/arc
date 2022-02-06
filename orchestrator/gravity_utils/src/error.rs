@@ -15,6 +15,9 @@ pub enum GravityError {
     ValidationError(String),
 
     #[error("{0}")]
+    RecoverableError(String),
+
+    #[error("{0}")]
     UnrecoverableError(String),
 
     // we can pass String info here as well if we need more context/details

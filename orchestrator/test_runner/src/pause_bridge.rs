@@ -1,9 +1,10 @@
 //! this test simulates pausing and unpausing the bridge via governance action. This would be used in an emergency
 //! situation to prevent the bridge from being drained of funds
 //!
+use crate::airdrop_proposal::wait_for_proposals_to_execute;
 use crate::happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result};
+use crate::utils::*;
 use crate::MINER_ADDRESS;
-use crate::{get_deposit, utils::*};
 use crate::{get_fee, OPERATION_TIMEOUT, TOTAL_TIMEOUT};
 use clarity::Address as EthAddress;
 use cosmos_gravity::query::get_gravity_params;
@@ -36,14 +37,8 @@ pub async fn pause_bridge_test(
     let params = get_gravity_params(&mut grpc_client).await.unwrap();
     assert!(params.bridge_active);
 
-    let no_relay_market_config = create_default_test_config();
-    start_orchestrators(
-        keys.clone(),
-        gravity_address,
-        false,
-        no_relay_market_config.clone(),
-    )
-    .await;
+    let no_relay_market_config = create_no_batch_requests_config();
+    start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
 
     // generate an address for coin sending tests, this ensures test imdepotency
     let user_keys = get_user_key();
@@ -75,18 +70,12 @@ pub async fn pause_bridge_test(
     params_to_change.push(halt);
 
     // next we create a governance proposal halt the bridge temporarily
-    create_parameter_change_proposal(
-        contact,
-        keys[0].validator_key,
-        get_deposit(),
-        params_to_change,
-    )
-    .await;
+    create_parameter_change_proposal(contact, keys[0].validator_key, params_to_change).await;
 
     vote_yes_on_proposals(contact, &keys, None).await;
 
     // wait for the voting period to pass
-    sleep(Duration::from_secs(65)).await;
+    wait_for_proposals_to_execute(contact).await;
     let params = get_gravity_params(&mut grpc_client).await.unwrap();
     assert!(!params.bridge_active);
 
@@ -110,8 +99,13 @@ pub async fn pause_bridge_test(
     }
 
     // Try to create a batch and send tokens to Ethereum
-    let coin = check_cosmos_balance("gravity", user_keys.cosmos_address, contact)
+    let coin = contact
+        .get_balance(
+            user_keys.cosmos_address,
+            format!("gravity{}", erc20_address),
+        )
         .await
+        .unwrap()
         .unwrap();
     let token_name = coin.denom;
     let amount = coin.amount;
@@ -134,7 +128,13 @@ pub async fn pause_bridge_test(
     )
     .await
     .unwrap();
-    let res = send_request_batch(keys[0].orch_key, token_name.clone(), get_fee(), contact).await;
+    let res = send_request_batch(
+        keys[0].orch_key,
+        token_name.clone(),
+        Some(get_fee()),
+        contact,
+    )
+    .await;
     assert!(res.is_err());
 
     contact
@@ -163,13 +163,7 @@ pub async fn pause_bridge_test(
     params_to_change.push(unhalt);
 
     // crate a governance proposal to resume the bridge
-    create_parameter_change_proposal(
-        contact,
-        keys[0].validator_key,
-        get_deposit(),
-        params_to_change,
-    )
-    .await;
+    create_parameter_change_proposal(contact, keys[0].validator_key, params_to_change).await;
 
     vote_yes_on_proposals(contact, &keys, None).await;
 
@@ -179,8 +173,13 @@ pub async fn pause_bridge_test(
     assert!(params.bridge_active);
 
     // finally we check that our batch executes and our new withdraw processes
-    let res = check_cosmos_balance("gravity", user_keys.cosmos_address, contact)
+    let res = contact
+        .get_balance(
+            user_keys.cosmos_address,
+            format!("gravity{}", erc20_address),
+        )
         .await
+        .unwrap()
         .unwrap();
     // check that our balance is equal to 200 (two deposits) minus 95 (sent to eth) - 1 (fee) - 1 (fee for batch request)
     // NOTE this makes the test not imdepotent but it's not anyways, a crash may leave the bridge halted
@@ -192,9 +191,14 @@ pub async fn pause_bridge_test(
             .expect("Failed to get current eth valset");
 
     // now we make sure our tokens in the batch queue make it across
-    send_request_batch(keys[0].orch_key, token_name.clone(), get_fee(), contact)
-        .await
-        .unwrap();
+    send_request_batch(
+        keys[0].orch_key,
+        token_name.clone(),
+        Some(get_fee()),
+        contact,
+    )
+    .await
+    .unwrap();
 
     let starting_batch_nonce = current_eth_batch_nonce;
 
