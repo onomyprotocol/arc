@@ -1,10 +1,11 @@
+use crate::request_batches::request_batches;
 use crate::{
     batch_relaying::relay_batches, find_latest_valset::find_latest_valset,
     logic_call_relaying::relay_logic_calls, valset_relaying::relay_valsets,
 };
 use clarity::address::Address as EthAddress;
 use clarity::PrivateKey as EthPrivateKey;
-use ethereum_gravity::utils::get_gravity_id_with_retry;
+use deep_space::{Coin, Contact, PrivateKey as CosmosPrivateKey};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{error::GravityError, types::RelayerConfig};
 use std::time::Duration;
@@ -12,37 +13,23 @@ use tokio::time::sleep;
 use tonic::transport::Channel;
 use web30::client::Web3;
 
-pub const LOOP_SPEED: Duration = Duration::from_secs(17);
+pub const TIMEOUT: Duration = Duration::from_secs(10);
 
 /// This function contains the orchestrator primary loop, it is broken out of the main loop so that
 /// it can be called in the test runner for easier orchestration of multi-node tests
+#[allow(clippy::too_many_arguments)]
 pub async fn relayer_main_loop(
     ethereum_key: EthPrivateKey,
+    cosmos_key: Option<CosmosPrivateKey>,
+    cosmos_fee: Option<Coin>,
     web3: Web3,
+    contact: Contact,
     grpc_client: GravityQueryClient<Channel>,
     gravity_contract_address: EthAddress,
+    gravity_id: String,
     relayer_config: &RelayerConfig,
-    wait_time: Option<Duration>,
 ) -> Result<(), GravityError> {
     let mut grpc_client = grpc_client;
-    let our_ethereum_address = ethereum_key.to_address();
-
-    let gravity_id = get_gravity_id_with_retry(
-        gravity_contract_address,
-        our_ethereum_address,
-        &web3,
-        wait_time,
-    )
-    .await;
-
-    // timeout expired - ethreum node not reachable
-    if gravity_id.is_err() {
-        return Err(GravityError::UnrecoverableError(
-            "Failed to get GravityID, check your ethereum node".into(),
-        ));
-    }
-
-    let gravity_id = gravity_id.unwrap();
 
     loop {
         let (async_result, _) = tokio::join!(
@@ -64,7 +51,7 @@ pub async fn relayer_main_loop(
                     &mut grpc_client,
                     gravity_contract_address,
                     gravity_id.clone(),
-                    LOOP_SPEED,
+                    TIMEOUT,
                     relayer_config,
                 )
                 .await;
@@ -76,7 +63,7 @@ pub async fn relayer_main_loop(
                     &mut grpc_client,
                     gravity_contract_address,
                     gravity_id.clone(),
-                    LOOP_SPEED,
+                    TIMEOUT,
                     relayer_config,
                 )
                 .await;
@@ -88,14 +75,27 @@ pub async fn relayer_main_loop(
                     &mut grpc_client,
                     gravity_contract_address,
                     gravity_id.clone(),
-                    LOOP_SPEED,
+                    TIMEOUT,
                     relayer_config,
                 )
                 .await;
 
+                if let (Some(cosmos_key), Some(cosmos_fee)) = (cosmos_key, cosmos_fee.clone()) {
+                    request_batches(
+                        &contact,
+                        &web3,
+                        &mut grpc_client,
+                        relayer_config.batch_request_mode,
+                        ethereum_key.to_address(),
+                        cosmos_key,
+                        cosmos_fee,
+                    )
+                    .await
+                }
+
                 Ok(())
             },
-            sleep(LOOP_SPEED)
+            sleep(TIMEOUT)
         );
 
         if let Err(e) = async_result {

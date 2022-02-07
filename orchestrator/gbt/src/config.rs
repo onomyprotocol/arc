@@ -2,7 +2,8 @@
 
 use crate::args::InitOpts;
 use clarity::PrivateKey as EthPrivateKey;
-use gravity_utils::{error::GravityError, types::GravityBridgeToolsConfig};
+use gravity_utils::error::GravityError;
+use gravity_utils::types::{GravityBridgeToolsConfig, TomlGravityBridgeToolsConfig};
 use std::{
     fs::{self, create_dir},
     path::{Path, PathBuf},
@@ -89,9 +90,14 @@ pub fn load_config(home_dir: &Path) -> Result<GravityBridgeToolsConfig, GravityE
 
     let config =
         fs::read_to_string(config_file).expect("Could not find config file! Run `gbt init`");
-
-    toml::from_str(&config)
-        .map_err(|e| GravityError::UnrecoverableError(format!("Invalid config! {:?}", e)))
+    let val: Result<TomlGravityBridgeToolsConfig, _> = toml::from_str(&config);
+    match val {
+        Ok(v) => Ok(v.into()),
+        Err(e) => Err(GravityError::UnrecoverableError(format!(
+            "Invalid config! {:?}",
+            e
+        ))),
+    }
 }
 
 /// Load the keys file, this operates at runtime
@@ -135,7 +141,9 @@ mod tests {
     /// equal to the default values of the config.
     #[test]
     fn test_default_config() {
-        let res: GravityBridgeToolsConfig = toml::from_str(&get_default_config()).unwrap();
-        assert_eq!(res, GravityBridgeToolsConfig::default())
+        // make sure the default config default-config.toml is the same as the default config struct
+        let res: TomlGravityBridgeToolsConfig = toml::from_str(&get_default_config()).unwrap();
+        let res: GravityBridgeToolsConfig = res.into();
+        assert_eq!(res, GravityBridgeToolsConfig::default());
     }
 }

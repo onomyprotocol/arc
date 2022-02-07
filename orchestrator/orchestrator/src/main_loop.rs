@@ -2,10 +2,20 @@
 //! that can only be run by a validator. This single binary the 'Orchestrator' runs not only these two rules but also the untrusted role of a relayer, that does not need any permissions and has it's
 //! own crate and binary so that anyone may run it.
 
-use crate::ethereum_event_watcher::get_block_delay;
-use crate::{ethereum_event_watcher::check_for_events, oracle_resync::get_last_checked_block};
+use std::cmp::min;
+use std::time::Duration;
+
 use clarity::PrivateKey as EthPrivateKey;
 use clarity::{address::Address as EthAddress, Uint256};
+use deep_space::error::CosmosGrpcError;
+use deep_space::Contact;
+use deep_space::{client::ChainStatus, utils::FeeInfo};
+use deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
+use futures::future::{try_join, try_join3};
+use tokio::time::sleep;
+use tonic::transport::Channel;
+use web30::client::Web3;
+
 use cosmos_gravity::query::get_gravity_params;
 use cosmos_gravity::{
     query::{
@@ -14,21 +24,15 @@ use cosmos_gravity::{
     },
     send::{send_batch_confirm, send_logic_call_confirm, send_valset_confirms},
 };
-use deep_space::error::CosmosGrpcError;
-use deep_space::Contact;
-use deep_space::{client::ChainStatus, utils::FeeInfo};
-use deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
-use futures::future::{try_join, try_join3};
 use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::error::GravityError;
 use gravity_utils::types::GravityBridgeToolsConfig;
+use metrics_exporter::{metrics_errors_counter, metrics_latest, metrics_warnings_counter};
 use relayer::main_loop::relayer_main_loop;
-use std::cmp::min;
-use std::time::Duration;
-use tokio::time::sleep;
-use tonic::transport::Channel;
-use web30::client::Web3;
+
+use crate::ethereum_event_watcher::get_block_delay;
+use crate::{ethereum_event_watcher::check_for_events, oracle_resync::get_last_checked_block};
 
 /// The execution speed governing all loops in this file
 /// which is to say all loops started by Orchestrator main
@@ -49,9 +53,9 @@ pub async fn orchestrator_main_loop(
     contact: Contact,
     grpc_client: GravityQueryClient<Channel>,
     gravity_contract_address: EthAddress,
+    gravity_id: String,
     user_fee_amount: Coin,
     config: GravityBridgeToolsConfig,
-    wait_time: Option<Duration>,
 ) -> Result<(), GravityError> {
     let fee = user_fee_amount;
 
@@ -74,11 +78,14 @@ pub async fn orchestrator_main_loop(
 
     let c = relayer_main_loop(
         ethereum_key,
+        Some(cosmos_key),
+        Some(fee),
         web3,
+        contact,
         grpc_client.clone(),
         gravity_contract_address,
+        gravity_id,
         &config.relayer,
-        wait_time,
     );
 
     // if the relayer is not enabled we just don't start the future
@@ -137,29 +144,38 @@ pub async fn eth_oracle_main_loop(
                             latest_eth_block,
                             block_height,
                         );
+
+                        metrics_latest(block_height, "latest_cosmos_block");
+                        // Converting into u64
+                        metrics_latest(latest_eth_block.to_u64_digits()[0], "latest_eth_block");
                     }
                     (Ok(_latest_eth_block), Ok(ChainStatus::Syncing)) => {
                         warn!("Cosmos node syncing, Eth oracle paused");
+                        metrics_warnings_counter(2, "Cosmos node syncing");
                         sleep(DELAY).await;
                         return None;
                     }
                     (Ok(_latest_eth_block), Ok(ChainStatus::WaitingToStart)) => {
                         warn!("Cosmos node syncing waiting for chain start, Eth oracle paused");
+                        metrics_warnings_counter(2, "Cosmos node syncing waiting for chain start");
                         sleep(DELAY).await;
                         return None;
                     }
                     (Ok(_), Err(_)) => {
                         warn!("Could not contact Cosmos grpc, trying again");
+                        metrics_warnings_counter(2, "Could not contact Cosmos grpc");
                         sleep(DELAY).await;
                         return None;
                     }
                     (Err(_), Ok(_)) => {
                         warn!("Could not contact Eth node, trying again");
+                        metrics_warnings_counter(1, "Could not contact Eth node");
                         sleep(DELAY).await;
                         return None;
                     }
                     (Err(_), Err(_)) => {
                         error!("Could not reach Ethereum or Cosmos rpc!");
+                        metrics_errors_counter(0, "Could not reach Ethereum or Cosmos rpc");
                         sleep(DELAY).await;
                         return None;
                     }
@@ -196,11 +212,17 @@ pub async fn eth_oracle_main_loop(
                             .await;
                         }
                         last_checked_event = nonces.event_nonce;
+                        if !last_checked_event.to_u64_digits().is_empty() {
+                            metrics_latest(
+                                last_checked_event.to_u64_digits()[0],
+                                "last_checked_event",
+                            );
+                        }
                     }
-                    Err(e) => error!(
-                        "Failed to get events for block range, Check your Eth node and Cosmos gRPC {:?}",
-                        e
-                    ),
+                    Err(e) => {
+                        error!("Failed to get events for block range, Check your Eth node and Cosmos gRPC {:?}", e);
+                        metrics_errors_counter(0, "Failed to get events for block range");
+                    }
                 }
 
                 Some(())
@@ -234,6 +256,7 @@ pub async fn eth_signer_main_loop(
                     Ok(p) => p,
                     Err(e) => {
                         error!("Failed to get Gravity parameters with {} correct your Cosmos gRPC connection immediately, you are risking slashing",e);
+                        metrics_errors_counter(2, "Failed to get Gravity parameters correct your Cosmos gRPC connection immediately, you are risking slashing");
                         return Ok(());
                     }
                 };
@@ -251,17 +274,26 @@ pub async fn eth_signer_main_loop(
                     Ok(ChainStatus::Syncing) => {
                         warn!("Cosmos node syncing, Eth signer paused");
                         warn!("If this operation will take more than {} blocks of time you must find another node to submit signatures or risk slashing", blocks_until_slashing);
+                        metrics_warnings_counter(2, "Cosmos node syncing, Eth signer paused");
+                        metrics_latest(blocks_until_slashing, "blocks_until_slashing");
                         sleep(DELAY).await;
                         return Ok(());
                     }
                     Ok(ChainStatus::WaitingToStart) => {
                         warn!("Cosmos node syncing waiting for chain start, Eth signer paused");
+                        metrics_warnings_counter(
+                            2,
+                            "Cosmos node syncing waiting for chain start, Eth signer paused",
+                        );
                         sleep(DELAY).await;
                         return Ok(());
                     }
                     Err(_) => {
-                        error!("Could not reach Cosmos rpc! You must correct this or you risk being slashed in {} blocks", blocks_until_slashing);
-                        sleep(DELAY).await;
+                        metrics_latest(blocks_until_slashing, "blocks_until_slashing");
+                        metrics_errors_counter(
+                            2,
+                            "Could not reach Cosmos rpc! You must correct this or you risk being slashed",
+                        );
                         return Ok(());
                     }
                 }

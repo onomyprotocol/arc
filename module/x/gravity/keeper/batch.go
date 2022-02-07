@@ -45,7 +45,7 @@ func (k Keeper) BuildOutgoingTXBatch(
 		}
 
 		lastFees := lastBatch.ToExternal().GetFees()
-		if lastFees.GT(currentFees.TotalFees) {
+		if lastFees.GTE(currentFees.TotalFees) {
 			return nil, sdkerrors.Wrap(types.ErrInvalid, "new batch would not be more profitable")
 		}
 	}
@@ -142,6 +142,8 @@ func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.Eth
 
 	// Delete batch since it is finished
 	k.DeleteBatch(ctx, *b)
+	// Delete it's confirmations as well
+	k.DeleteBatchConfirms(ctx, *b)
 }
 
 // StoreBatch stores a transaction batch, it will refuse to overwrite an existing
@@ -246,6 +248,8 @@ func (k Keeper) CancelOutgoingTXBatch(ctx sdk.Context, tokenContract types.EthAd
 
 	// Delete batch since it is finished
 	k.DeleteBatch(ctx, *batch)
+	// Delete it's confirmations as well
+	k.DeleteBatchConfirms(ctx, *batch)
 
 	batchEvent := sdk.NewEvent(
 		types.EventTypeOutgoingBatchCanceled,
@@ -292,9 +296,9 @@ func (k Keeper) GetLastOutgoingBatchByTokenType(ctx sdk.Context, token types.Eth
 	batches := k.GetOutgoingTxBatches(ctx)
 	var lastBatch *types.InternalOutgoingTxBatch = nil
 	lastNonce := uint64(0)
-	for _, batch := range batches {
+	for i, batch := range batches {
 		if batch.TokenContract.GetAddress() == token.GetAddress() && batch.BatchNonce > lastNonce {
-			lastBatch = &batch
+			lastBatch = &batches[i]
 			lastNonce = batch.BatchNonce
 		}
 	}

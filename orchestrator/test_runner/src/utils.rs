@@ -1,5 +1,5 @@
+use crate::get_deposit;
 use crate::get_fee;
-use crate::happy_path_v2::CosmosRepresentationMetadata;
 use crate::ADDRESS_PREFIX;
 use crate::COSMOS_NODE_GRPC;
 use crate::ETH_NODE;
@@ -9,14 +9,16 @@ use crate::{one_eth, MINER_PRIVATE_KEY};
 use crate::{MINER_ADDRESS, OPERATION_TIMEOUT};
 use clarity::{Address as EthAddress, Uint256};
 use clarity::{PrivateKey as EthPrivateKey, Transaction};
+use cosmos_gravity::proposals::submit_parameter_change_proposal;
+use cosmos_gravity::query::get_gravity_params;
 use deep_space::address::Address as CosmosAddress;
 use deep_space::coin::Coin;
 use deep_space::error::CosmosGrpcError;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::utils::encode_any;
 use deep_space::{Contact, Fee, Msg};
 use ethereum_gravity::utils::get_event_nonce;
 use futures::future::join_all;
+use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata;
 use gravity_proto::cosmos_sdk_proto::cosmos::gov::v1beta1::VoteOption;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::{
     ParamChange, ParameterChangeProposal,
@@ -24,7 +26,10 @@ use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::{
 use gravity_proto::cosmos_sdk_proto::cosmos::staking::v1beta1::QueryValidatorsRequest;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::MsgSendToCosmosClaim;
+use gravity_utils::types::BatchRelayingMode;
+use gravity_utils::types::BatchRequestMode;
 use gravity_utils::types::GravityBridgeToolsConfig;
+use gravity_utils::types::ValsetRelayingMode;
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
 use std::panic;
@@ -34,32 +39,41 @@ use web30::jsonrpc::error::Web3Error;
 use web30::{client::Web3, types::SendTxOption};
 
 /// returns the required denom metadata for deployed the Footoken
-/// token defined in our test environment, you could get this same
-/// data using the denom metadata endpoints.
-pub fn footoken_metadata() -> CosmosRepresentationMetadata {
-    CosmosRepresentationMetadata {
-        denom: "footoken".to_string(),
-        name: "Foo Token".to_string(),
-        symbol: "FOO".to_string(),
+/// token defined in our test environment
+pub async fn footoken_metadata(contact: &Contact) -> Metadata {
+    let metadata = contact.get_all_denoms_metadata().await.unwrap();
+    for m in metadata {
+        if m.base == "footoken" {
+            return m;
+        }
     }
+    panic!("Footoken metadata not set?");
+}
+
+pub fn get_decimals(meta: &Metadata) -> u32 {
+    for m in meta.denom_units.iter() {
+        if m.denom == meta.display {
+            return m.exponent;
+        }
+    }
+    panic!("Invalid metadata!")
 }
 
 pub fn create_default_test_config() -> GravityBridgeToolsConfig {
     let mut no_relay_market_config = GravityBridgeToolsConfig::default();
     // enable integrated relayer by default for tests
     no_relay_market_config.orchestrator.relayer_enabled = true;
-    no_relay_market_config.relayer.batch_market_enabled = false;
-    no_relay_market_config.relayer.valset_market_enabled = false;
+    no_relay_market_config.relayer.batch_relaying_mode = BatchRelayingMode::EveryBatch;
     no_relay_market_config.relayer.logic_call_market_enabled = false;
+    no_relay_market_config.relayer.valset_relaying_mode = ValsetRelayingMode::EveryValset;
+    no_relay_market_config.relayer.batch_request_mode = BatchRequestMode::EveryBatch;
+    no_relay_market_config.relayer.relayer_loop_speed = 10;
     no_relay_market_config
 }
 
-pub fn create_market_test_config() -> GravityBridgeToolsConfig {
-    let mut no_relay_market_config = GravityBridgeToolsConfig::default();
-    no_relay_market_config.orchestrator.relayer_enabled = true;
-    no_relay_market_config.relayer.batch_market_enabled = true;
-    no_relay_market_config.relayer.valset_market_enabled = false;
-    no_relay_market_config.relayer.logic_call_market_enabled = true;
+pub fn create_no_batch_requests_config() -> GravityBridgeToolsConfig {
+    let mut no_relay_market_config = create_default_test_config();
+    no_relay_market_config.relayer.batch_request_mode = BatchRequestMode::None;
     no_relay_market_config
 }
 
@@ -84,22 +98,6 @@ pub fn get_coins(denom: &str, balances: &[Coin]) -> Option<Coin> {
     for coin in balances {
         if coin.denom.starts_with(denom) {
             return Some(coin.clone());
-        }
-    }
-    None
-}
-
-pub async fn check_cosmos_balance(
-    denom: &str,
-    address: CosmosAddress,
-    contact: &Contact,
-) -> Option<Coin> {
-    let account_info = contact.get_balances(address).await.unwrap();
-    trace!("Cosmos balance {:?}", account_info);
-    for coin in account_info {
-        // make sure the name and amount is correct
-        if coin.denom.starts_with(denom) {
-            return Some(coin);
         }
     }
     None
@@ -257,7 +255,7 @@ pub fn get_user_key() -> BridgeUserKey {
         eth_dest_key,
     }
 }
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct BridgeUserKey {
     // the starting addresses that get Eth balances to send across the bridge
     pub eth_address: EthAddress,
@@ -303,9 +301,12 @@ pub async fn start_orchestrators(
             k.orch_key.to_address(ADDRESS_PREFIX.as_str()).unwrap(),
             get_operator_address(k.validator_key),
         );
-        let grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())
+        let mut grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())
             .await
             .unwrap();
+        let params = get_gravity_params(&mut grpc_client)
+            .await
+            .expect("Failed to get Gravity Bridge module parameters!");
 
         // but that will execute all the orchestrators in our test in parallel
         // by spwaning to tokio's future executor
@@ -326,9 +327,9 @@ pub async fn start_orchestrators(
                 contact,
                 grpc_client,
                 gravity_address,
+                params.gravity_id,
                 get_fee(),
                 config,
-                None,
             )
             .await;
         });
@@ -391,7 +392,6 @@ pub async fn submit_false_claims(
 pub async fn create_parameter_change_proposal(
     contact: &Contact,
     key: CosmosPrivateKey,
-    deposit: Coin,
     params_to_change: Vec<ParamChange>,
 ) {
     let proposal = ParameterChangeProposal {
@@ -399,17 +399,16 @@ pub async fn create_parameter_change_proposal(
         description: "test proposal".to_string(),
         changes: params_to_change,
     };
-    let any = encode_any(
+    let res = submit_parameter_change_proposal(
         proposal,
-        "/cosmos.params.v1beta1.ParameterChangeProposal".to_string(),
-    );
-
-    let res = contact
-        .create_gov_proposal(any, deposit, get_fee(), key, Some(TOTAL_TIMEOUT))
-        .await
-        .unwrap();
-    trace!("Gov proposal submitted with {:?}", res);
-    let res = contact.wait_for_tx(res, TOTAL_TIMEOUT).await.unwrap();
+        get_deposit(),
+        get_fee(),
+        contact,
+        key,
+        Some(TOTAL_TIMEOUT),
+    )
+    .await
+    .unwrap();
     trace!("Gov proposal executed with {:?}", res);
 }
 

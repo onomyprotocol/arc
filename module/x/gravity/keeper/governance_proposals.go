@@ -14,12 +14,28 @@ import (
 // this file contains code related to custom governance proposals
 
 func RegisterProposalTypes() {
-	govtypes.RegisterProposalType(types.ProposalTypeUnhaltBridge)
-	govtypes.RegisterProposalTypeCodec(&types.UnhaltBridgeProposal{}, "gravity/UnhaltBridge")
-	govtypes.RegisterProposalType(types.ProposalTypeAirdrop)
-	govtypes.RegisterProposalTypeCodec(&types.AirdropProposal{}, "gravity/Airdrop")
-	govtypes.RegisterProposalType(types.ProposalTypeIBCMetadata)
-	govtypes.RegisterProposalTypeCodec(&types.IBCMetadataProposal{}, "gravity/IBCMetadata")
+	// use of prefix stripping to prevent a typo between the proposal we check
+	// and the one we register, any issues with the registration string will prevent
+	// the proposal from working. We must check for double registration so that cli commands
+	// submitting these proposals work.
+	// For some reason the cli code is run during app.go startup, but of course app.go is not
+	// run during operation of one off tx commands, so we need to run this 'twice'
+	prefix := "gravity/"
+	metadata := "gravity/IBCMetadata"
+	if !govtypes.IsValidProposalType(strings.TrimPrefix(metadata, prefix)) {
+		govtypes.RegisterProposalType(types.ProposalTypeIBCMetadata)
+		govtypes.RegisterProposalTypeCodec(&types.IBCMetadataProposal{}, metadata)
+	}
+	unhalt := "gravity/UnhaltBridge"
+	if !govtypes.IsValidProposalType(strings.TrimPrefix(unhalt, prefix)) {
+		govtypes.RegisterProposalType(types.ProposalTypeUnhaltBridge)
+		govtypes.RegisterProposalTypeCodec(&types.UnhaltBridgeProposal{}, unhalt)
+	}
+	airdrop := "gravity/Airdrop"
+	if !govtypes.IsValidProposalType(strings.TrimPrefix(airdrop, prefix)) {
+		govtypes.RegisterProposalType(types.ProposalTypeAirdrop)
+		govtypes.RegisterProposalTypeCodec(&types.AirdropProposal{}, airdrop)
+	}
 }
 
 func NewGravityProposalHandler(k Keeper) govtypes.Handler {
@@ -103,43 +119,58 @@ func pruneAttestationsAfterNonce(ctx sdk.Context, k Keeper, nonceCutoff uint64) 
 
 // Allows governance to deploy an airdrop to a provided list of addresses
 func (k Keeper) HandleAirdropProposal(ctx sdk.Context, p *types.AirdropProposal) error {
-	ctx.Logger().Info("Gov vote passed: Performing airdrop", "amount", p.Amount)
+	ctx.Logger().Info("Gov vote passed: Performing airdrop")
 
-	validateDenom := sdk.ValidateDenom(p.Amount.Denom)
+	validateDenom := sdk.ValidateDenom(p.Denom)
 	if validateDenom != nil {
 		ctx.Logger().Info("Airdrop failed to execute invalid denom!")
 		return sdkerrors.Wrap(types.ErrInvalid, "Invalid airdrop denom")
 	}
 
 	feePool := k.DistKeeper.GetFeePool(ctx)
-	decAmount := sdk.NewDecCoinFromCoin(p.Amount)
-	feePoolAmount := feePool.CommunityPool.AmountOf(decAmount.Denom)
+	feePoolAmount := feePool.CommunityPool.AmountOf(p.Denom)
+
+	var airdropTotal uint64
+	for _, v := range p.Amounts {
+		airdropTotal += v
+	}
+
+	totalRequiredDecCoin := sdk.NewDecCoinFromCoin(sdk.NewCoin(p.Denom, sdk.NewIntFromUint64(airdropTotal)))
 
 	// check that we have enough tokens in the community pool to actually execute
 	// this airdrop with the provided recipients list
-	totalRequired := decAmount.Amount.MulInt64(int64(len(p.Recipients)))
-	if totalRequired.GT(feePoolAmount) {
+	totalRequiredDec := totalRequiredDecCoin.Amount
+	if totalRequiredDec.GT(feePoolAmount) {
 		ctx.Logger().Info("Airdrop failed to excute insufficient tokens in the community pool!")
 		return sdkerrors.Wrap(types.ErrInvalid, "Insufficient tokens in community pool")
 	}
 
-	parsedRecipients := make([]sdk.AccAddress, len(p.Recipients))
-	for i, addr := range p.Recipients {
-		parsedAddr, err := sdk.AccAddressFromBech32(addr)
-		if err != nil {
-			ctx.Logger().Info("invalid address in airdrop! not executing", "address", addr)
-			return err
-		}
-		parsedRecipients[i] = parsedAddr
+	// we're packing addresses as 20 bytes rather than valid bech32 in order to maximize participants
+	// so if the recipients list is not a multiple of 20 it must be invalid
+	numRecipients := len(p.Recipients) / 20
+	if len(p.Recipients)%20 != 0 || numRecipients != len(p.Amounts) {
+		ctx.Logger().Info("Airdrop failed to excute invalid recipients")
+		return sdkerrors.Wrap(types.ErrInvalid, "Invalid recipients")
+	}
+
+	parsedRecipients := make([]sdk.AccAddress, len(p.Recipients)/20)
+	for i := 0; i < numRecipients; i++ {
+		indexStart := i * 20
+		indexEnd := indexStart + 20
+		addr := p.Recipients[indexStart:indexEnd]
+		parsedRecipients[i] = addr
 	}
 
 	// the total amount actually sent in dec coins
 	totalSent := sdk.NewDec(0)
-	for _, addr := range parsedRecipients {
-		err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, disttypes.ModuleName, addr, sdk.NewCoins(p.Amount))
+	for i, addr := range parsedRecipients {
+		usersAmount := p.Amounts[i]
+		usersIntAmount := sdk.NewIntFromUint64(usersAmount)
+		usersDecAmount := sdk.NewDecFromInt(usersIntAmount)
+		err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, disttypes.ModuleName, addr, sdk.NewCoins(sdk.NewCoin(p.Denom, usersIntAmount)))
 		// if there is no error we add to the total actually sent
 		if err == nil {
-			totalSent = totalSent.Add(decAmount.Amount)
+			totalSent = totalSent.Add(usersDecAmount)
 		} else {
 			// return an err to prevent execution from finishing, this will prevent the changes we
 			// have made so far from taking effect the governance proposal will instead time out
@@ -148,11 +179,11 @@ func (k Keeper) HandleAirdropProposal(ctx sdk.Context, p *types.AirdropProposal)
 		}
 	}
 
-	newCoins, InvalidModuleBalance := feePool.CommunityPool.SafeSub(sdk.NewDecCoins(sdk.NewDecCoinFromDec(p.Amount.Denom, totalSent)))
+	newCoins, InvalidModuleBalance := feePool.CommunityPool.SafeSub(sdk.NewDecCoins(totalRequiredDecCoin))
 	// this shouldn't ever happen because we check that we have enough before starting
 	// but lets be conservative.
 	if InvalidModuleBalance {
-		panic("Negative community pool coins after airdrop, chain in invalid state")
+		return sdkerrors.Wrap(types.ErrInvalid, "internal error!")
 	}
 	feePool.CommunityPool = newCoins
 	k.DistKeeper.SetFeePool(ctx, feePool)
@@ -198,7 +229,7 @@ func (k Keeper) HandleIBCMetadataProposal(ctx sdk.Context, p *types.IBCMetadataP
 	}
 
 	// write out metadata, this will update existing metadata if no erc20 has been deployed
-	k.bankKeeper.SetDenomMetaData(ctx, *p.Metadata)
+	k.bankKeeper.SetDenomMetaData(ctx, p.Metadata)
 
 	return nil
 }

@@ -1,17 +1,17 @@
+use crate::airdrop_proposal::wait_for_proposals_to_execute;
 use crate::happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result};
 use crate::{get_deposit, utils::*, TOTAL_TIMEOUT};
 use crate::{get_fee, one_eth, OPERATION_TIMEOUT};
 use bytes::BytesMut;
 use clarity::{Address as EthAddress, Uint256};
+use cosmos_gravity::proposals::submit_unhalt_bridge_proposal;
 use cosmos_gravity::query::{get_attestations, get_last_event_nonce_for_validator};
-use deep_space::error::CosmosGrpcError;
 use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::utils::encode_any;
 use deep_space::{Contact, Fee};
-use ethereum_gravity::utils::downcast_uint256;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::MsgSendToCosmosClaim;
 use gravity_proto::gravity::UnhaltBridgeProposal;
+use gravity_utils::num_conversion::downcast_uint256;
 use prost::Message;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -50,13 +50,7 @@ pub async fn unhalt_bridge_test(
         payer: None,
     };
 
-    start_orchestrators(
-        keys.clone(),
-        gravity_address,
-        false,
-        no_relay_market_config.clone(),
-    )
-    .await;
+    start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
     let lying_validators: Vec<CosmosPrivateKey> =
         keys[1..3].iter().map(|key| key.orch_key).collect();
 
@@ -176,45 +170,16 @@ pub async fn unhalt_bridge_test(
 
     info!("Preparing governance proposal!!");
     // Unhalt the bridge
-    let _ = submit_and_pass_unhalt_bridge_proposal(initial_valid_nonce, contact, &keys)
-        .await
-        .expect("Governance proposal failed");
-    let start = Instant::now();
-    loop {
-        let new_nonces = get_nonces(&mut grpc_client, &keys, &prefix).await;
-        if new_nonces.iter().min() == after_halt_nonces.iter().max() {
-            info!(
-                "Nonces have not changed: {:?}=>{:?} sleeping before retry",
-                after_halt_nonces, new_nonces
-            );
-            if Instant::now()
-                .checked_duration_since(start)
-                .unwrap()
-                .gt(&Duration::from_secs(10 * 60))
-            {
-                panic!("10 minutes have elapsed trying to get the validator last nonces to change for val1 and val2!");
-            }
-            sleep(Duration::from_secs(10)).await;
-            continue;
-        } else {
-            info!("Nonces changed! {:?}=>{:?}", after_halt_nonces, new_nonces);
-            break;
-        }
-    }
-    let mut not_equal = false;
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        let after_unhalt_nonces = get_nonces(&mut grpc_client, &keys, &prefix).await;
-        not_equal = after_unhalt_nonces
-            .iter()
-            .all(|&nonce| nonce == initial_valid_nonce);
-        if not_equal {
-            break;
-        }
-        sleep(Duration::from_secs(1)).await;
-    }
+    submit_and_pass_unhalt_bridge_proposal(initial_valid_nonce, contact, &keys).await;
+    wait_for_proposals_to_execute(contact).await;
+
+    let after_unhalt_nonces = get_nonces(&mut grpc_client, &keys, &prefix).await;
+    let not_equal = after_unhalt_nonces
+        .iter()
+        .all(|&nonce| nonce == initial_valid_nonce);
     assert!(
         not_equal,
-        "The post-reset nonces are not equal to the initial nonce",
+        "The post-reset nonces should not be equal to the initial nonce",
     );
 
     // After the governance proposal the resync will happen on the next loop.
@@ -252,36 +217,26 @@ async fn submit_and_pass_unhalt_bridge_proposal(
     nonce: u64,
     contact: &Contact,
     keys: &[ValidatorKeys],
-) -> Result<bool, CosmosGrpcError> {
+) {
     let proposal_content = UnhaltBridgeProposal {
         title: "Proposal to reset the oracle".to_string(),
         description: "this resets the oracle to an earlier nonce".to_string(),
         target_nonce: nonce,
     };
     info!("Submit and pass gov proposal: nonce is {}", nonce);
-
-    // encode as a generic proposal
-    let any = encode_any(
+    let res = submit_unhalt_bridge_proposal(
         proposal_content,
-        "/gravity.v1.UnhaltBridgeProposal".to_string(),
-    );
-
-    let res = contact
-        .create_gov_proposal(
-            any,
-            get_deposit(),
-            get_fee(),
-            keys[0].validator_key,
-            Some(TOTAL_TIMEOUT),
-        )
-        .await
-        .unwrap();
-    trace!("Gov proposal submitted with {:?}", res);
-    let res = contact.wait_for_tx(res, TOTAL_TIMEOUT).await.unwrap();
+        get_deposit(),
+        get_fee(),
+        contact,
+        keys[0].validator_key,
+        Some(TOTAL_TIMEOUT),
+    )
+    .await
+    .unwrap();
     trace!("Gov proposal executed with {:?}", res);
 
     vote_yes_on_proposals(contact, keys, None).await;
-    Ok(true)
 }
 
 // gets the last event nonce for each validator

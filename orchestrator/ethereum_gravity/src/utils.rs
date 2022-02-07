@@ -2,72 +2,9 @@ use clarity::abi::encode_call;
 use clarity::Address as EthAddress;
 use clarity::Uint256;
 use clarity::{abi::Token, constants::ZERO_ADDRESS};
+use gravity_utils::num_conversion::downcast_uint256;
 use gravity_utils::types::*;
-use std::time::Duration;
-use std::u128::MAX as U128MAX;
-use std::u64::MAX as U64MAX;
-use tokio::time::error::Elapsed;
 use web30::{client::Web3, jsonrpc::error::Web3Error};
-
-pub fn downcast_uint256(input: Uint256) -> Option<u64> {
-    if input >= U64MAX.into() {
-        None
-    } else {
-        let val = input.to_bytes_be();
-        let mut lower_bytes: [u8; 8] = [0; 8];
-        // get the start index after the trailing zeros
-        let start_index = 8 - val.len();
-
-        // get the 'lowest' 8 bytes from a 256 bit integer
-        lower_bytes[start_index..].copy_from_slice(val.as_slice());
-        Some(u64::from_be_bytes(lower_bytes))
-    }
-}
-
-pub fn downcast_to_u128(input: Uint256) -> Option<u128> {
-    if input >= U128MAX.into() {
-        None
-    } else {
-        let val = input.to_bytes_be();
-        let mut lower_bytes: [u8; 16] = [0; 16];
-        let start_index = 16 - val.len();
-        // get the 'lowest' 16 bytes from a 256 bit integer
-        lower_bytes[start_index..].copy_from_slice(val.as_slice());
-        Some(u128::from_be_bytes(lower_bytes))
-    }
-}
-
-#[test]
-fn test_downcast_nonce() {
-    let mut i = 0u64;
-    while i < 100_000 {
-        assert_eq!(i, downcast_uint256(i.into()).unwrap());
-        i += 1
-    }
-    let mut i: u64 = std::u32::MAX.into();
-    i -= 100;
-    let end = i + 100_000;
-    while i < end {
-        assert_eq!(i, downcast_uint256(i.into()).unwrap());
-        i += 1
-    }
-}
-
-#[test]
-fn test_downcast_to_u128() {
-    let mut i = 0u128;
-    while i < 100_000 {
-        assert_eq!(i, downcast_to_u128(i.into()).unwrap());
-        i += 1
-    }
-    let mut i: u128 = std::u64::MAX.into();
-    i -= 100;
-    let end = i + 100_000;
-    while i < end {
-        assert_eq!(i, downcast_to_u128(i.into()).unwrap());
-        i += 1
-    }
-}
 
 /// Gets the latest validator set nonce
 pub async fn get_valset_nonce(
@@ -169,36 +106,8 @@ pub async fn get_event_nonce(
     Ok(downcast_uint256(real_num).expect("EventNonce nonce overflow! Bridge Halt!"))
 }
 
-/// Gets gravity id, on failure: if `wait_time` is present it will retry until elapsed
-/// if not, it will keep retrying indefinitely.
-pub async fn get_gravity_id_with_retry(
-    contract_address: EthAddress,
-    caller_address: EthAddress,
-    web3: &Web3,
-    wait_time: Option<Duration>,
-) -> Result<String, Elapsed> {
-    let gravity_id_query = async {
-        loop {
-            match get_gravity_id(contract_address, caller_address, web3).await {
-                Ok(gravity_id) => return gravity_id,
-                _ => {
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                }
-            }
-        }
-    };
-
-    let gravity_id = if wait_time.is_some() {
-        tokio::time::timeout(wait_time.unwrap(), gravity_id_query).await
-    } else {
-        Ok(gravity_id_query.await)
-    };
-
-    gravity_id
-}
-
 /// Gets the gravityID
-async fn get_gravity_id(
+pub async fn get_gravity_id(
     contract_address: EthAddress,
     caller_address: EthAddress,
     web3: &Web3,

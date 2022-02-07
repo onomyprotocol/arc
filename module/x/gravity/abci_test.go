@@ -54,7 +54,8 @@ func TestValsetSlashing_ValsetCreated_Before_ValidatorBonded(t *testing.T) {
 	pk := input.GravityKeeper
 	params := input.GravityKeeper.GetParams(ctx)
 
-	vs := pk.GetCurrentValset(ctx)
+	vs, err := pk.GetCurrentValset(ctx)
+	require.NoError(t, err)
 	height := uint64(ctx.BlockHeight()) - (params.SignedValsetsWindow + 1)
 	vs.Height = height
 	vs.Nonce = height
@@ -75,7 +76,8 @@ func TestValsetSlashing_ValsetCreated_After_ValidatorBonded(t *testing.T) {
 	params := input.GravityKeeper.GetParams(ctx)
 
 	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + int64(params.SignedValsetsWindow) + 2)
-	vs := pk.GetCurrentValset(ctx)
+	vs, err := pk.GetCurrentValset(ctx)
+	require.NoError(t, err)
 	height := uint64(ctx.BlockHeight()) - (params.SignedValsetsWindow + 1)
 	vs.Height = height
 
@@ -240,7 +242,8 @@ func TestValsetEmission(t *testing.T) {
 	pk := input.GravityKeeper
 
 	// Store a validator set with a power change as the most recent validator set
-	vs := pk.GetCurrentValset(ctx)
+	vs, err := pk.GetCurrentValset(ctx)
+	require.NoError(t, err)
 	vs.Nonce--
 	internalMembers, err := types.BridgeValidators(vs.Members).ToInternal()
 	require.NoError(t, err)
@@ -293,7 +296,7 @@ func TestBatchTimeout(t *testing.T) {
 	require.NoError(t, input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers))
 
 	// add some TX to the pool
-	for i, v := range []uint64{2, 3, 2, 1, 5, 6} {
+	for i, v := range []uint64{4, 3, 3, 4, 5, 6} {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
@@ -310,12 +313,13 @@ func TestBatchTimeout(t *testing.T) {
 	ctx = ctx.WithBlockHeight(250)
 
 	// check that we can make a batch without first setting an ethereum block height
-	b1, err1 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
+	b1, err1 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 1)
 	require.NoError(t, err1)
 	require.Equal(t, b1.BatchTimeout, uint64(0))
 
 	pk.SetLastObservedEthereumBlockHeight(ctx, 500)
 
+	//increase number of max txs to create more profitable batch
 	b2, err2 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
 	require.NoError(t, err2)
 	// this is exactly block 500 plus twelve hours
@@ -327,11 +331,31 @@ func TestBatchTimeout(t *testing.T) {
 	gotSecondBatch := input.GravityKeeper.GetOutgoingTXBatch(ctx, b2.TokenContract, b2.BatchNonce)
 	require.NotNil(t, gotSecondBatch)
 
+	// persist confirmations for second batch to test their deletion on batch timeout
+	for i, orch := range keeper.OrchAddrs {
+		ethAddr, err := types.NewEthAddress(keeper.EthAddrs[i].String())
+		require.NoError(t, err)
+
+		conf := &types.MsgConfirmBatch{
+			Nonce:         b2.BatchNonce,
+			TokenContract: b2.TokenContract.GetAddress(),
+			EthSigner:     ethAddr.GetAddress(),
+			Orchestrator:  orch.String(),
+			Signature:     "dummysig",
+		}
+
+		input.GravityKeeper.SetBatchConfirm(ctx, conf)
+	}
+
+	// verify that confirms are persisted
+	secondBatchConfirms := input.GravityKeeper.GetBatchConfirmByNonceAndTokenContract(ctx, b2.BatchNonce, b2.TokenContract)
+	require.Equal(t, len(keeper.OrchAddrs), len(secondBatchConfirms))
+
 	// when, way into the future
 	ctx = ctx.WithBlockTime(now)
 	ctx = ctx.WithBlockHeight(9)
 
-	b3, err2 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 2)
+	b3, err2 := pk.BuildOutgoingTXBatch(ctx, *tokenContract, 3)
 	require.NoError(t, err2)
 
 	EndBlocker(ctx, pk)
@@ -356,4 +380,49 @@ func TestBatchTimeout(t *testing.T) {
 	require.Nil(t, gotSecondBatch)
 	gotThirdBatch = input.GravityKeeper.GetOutgoingTXBatch(ctx, b3.TokenContract, b3.BatchNonce)
 	require.NotNil(t, gotThirdBatch)
+
+	// verify that second batch confirms are deleted
+	secondBatchConfirms = input.GravityKeeper.GetBatchConfirmByNonceAndTokenContract(ctx, b2.BatchNonce, b2.TokenContract)
+	require.Equal(t, 0, len(secondBatchConfirms))
+}
+
+func TestValsetPruning(t *testing.T) {
+	input, ctx := keeper.SetupFiveValChain(t)
+	pk := input.GravityKeeper
+	params := pk.GetParams(ctx)
+
+	// Create new validator set with nonce 1
+	pk.SetValsetRequest(ctx)
+	firstValsetNonce := pk.GetLatestValsetNonce(ctx)
+	require.NotNil(t, pk.GetValset(ctx, firstValsetNonce))
+	require.True(t, len(pk.GetValsets(ctx)) == 1)
+
+	// Create validator set confirmations
+	for i, orch := range keeper.OrchAddrs {
+		ethAddr, err := types.NewEthAddress(keeper.EthAddrs[i].String())
+		require.NoError(t, err)
+
+		conf := types.NewMsgValsetConfirm(firstValsetNonce, *ethAddr, orch, "dummysig")
+		pk.SetValsetConfirm(ctx, *conf)
+	}
+
+	require.True(t, len(pk.GetValsetConfirms(ctx, firstValsetNonce)) == len(keeper.OrchAddrs))
+
+	// Create new validator set with nonce 2
+	pk.SetValsetRequest(ctx)
+	require.True(t, len(pk.GetValsets(ctx)) == 2)
+	valset := pk.GetValset(ctx, pk.GetLatestValsetNonce(ctx))
+	require.NotNil(t, valset)
+
+	// Set validator set with nonce 2 as last observed
+	pk.SetLastObservedValset(ctx, *valset)
+	require.Equal(t, valset.Nonce, pk.GetLastObservedValset(ctx).Nonce)
+
+	// Advance enough blocks so that old validator set gets removed in EndBlocker
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + int64(params.SignedValsetsWindow+1)).WithBlockTime(time.Now().UTC())
+
+	// EndBlocker should cleanup validator set with nonce 1 and it's confirmations
+	EndBlocker(ctx, pk)
+	require.Nil(t, pk.GetValset(ctx, firstValsetNonce))
+	require.Equal(t, 0, len(pk.GetValsetConfirms(ctx, firstValsetNonce)))
 }

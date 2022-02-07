@@ -7,13 +7,17 @@ use crate::args::{ClientSubcommand, KeysSubcommand, SubCommand};
 use crate::config::init_config;
 use crate::keys::show_keys;
 use crate::{orchestrator::orchestrator, relayer::relayer};
-use args::Opts;
+use args::{GovQuerySubcommand, GovSubcommand, GovSubmitSubcommand, Opts};
 use clap::Parser;
 use client::cosmos_to_eth::cosmos_to_eth;
 use client::deploy_erc20_representation::deploy_erc20_representation;
 use client::eth_to_cosmos::eth_to_cosmos;
 use config::{get_home_dir, load_config};
 use env_logger::Env;
+use gov::proposals::{
+    submit_airdrop, submit_emergency_bridge_halt, submit_ibc_metadata, submit_oracle_unhalt,
+};
+use gov::queries::query_airdrops;
 use gravity_utils::error::GravityError;
 use keys::register_orchestrator_address::register_orchestrator_address;
 use keys::set_eth_key;
@@ -23,6 +27,7 @@ use std::process::exit;
 mod args;
 mod client;
 mod config;
+mod gov;
 mod keys;
 mod orchestrator;
 mod relayer;
@@ -41,6 +46,9 @@ async fn main() {
             GravityError::UnrecoverableError(error) => {
                 error!("{}", error);
                 exit(1);
+            }
+            GravityError::RecoverableError(error) => {
+                error!("{}", error);
             }
             GravityError::ValidationError(error) => {
                 error!("{}", error);
@@ -67,7 +75,6 @@ async fn run_gbt() -> Result<(), GravityError> {
             ClientSubcommand::EthToCosmos(eth_to_cosmos_opts) => {
                 eth_to_cosmos(eth_to_cosmos_opts, address_prefix).await
             }
-
             ClientSubcommand::CosmosToEth(cosmos_to_eth_opts) => {
                 cosmos_to_eth(cosmos_to_eth_opts, address_prefix).await
             }
@@ -99,5 +106,36 @@ async fn run_gbt() -> Result<(), GravityError> {
             relayer(relayer_opts, address_prefix, &home_dir, &config.relayer).await
         }
         SubCommand::Init(init_opts) => init_config(init_opts, home_dir),
+        SubCommand::Gov(gov_opts) => match gov_opts.subcmd {
+            GovSubcommand::Submit(submit_opts) => match submit_opts {
+                GovSubmitSubcommand::IbcMetadata(opts) => {
+                    submit_ibc_metadata(opts, address_prefix).await;
+                    // TODO make method above return error
+                    Ok(())
+                }
+                GovSubmitSubcommand::Airdrop(opts) => {
+                    submit_airdrop(opts, address_prefix).await;
+                    // TODO make method above return error
+                    Ok(())
+                }
+                GovSubmitSubcommand::EmergencyBridgeHalt(opts) => {
+                    submit_emergency_bridge_halt(opts, address_prefix).await;
+                    // TODO make method above return error
+                    Ok(())
+                }
+                GovSubmitSubcommand::OracleUnhalt(opts) => {
+                    submit_oracle_unhalt(opts, address_prefix).await;
+                    // TODO make method above return error
+                    Ok(())
+                }
+            },
+            GovSubcommand::Query(query_opts) => match query_opts {
+                GovQuerySubcommand::Airdrop(opts) => {
+                    query_airdrops(opts, address_prefix).await;
+                    // TODO make method above return error
+                    Ok(())
+                }
+            },
+        },
     }
 }

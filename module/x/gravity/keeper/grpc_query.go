@@ -29,14 +29,17 @@ func (k Keeper) Params(c context.Context, req *types.QueryParamsRequest) (*types
 	var params types.Params
 	k.paramSpace.GetParamSet(sdk.UnwrapSDKContext(c), &params)
 	return &types.QueryParamsResponse{Params: params}, nil
-
 }
 
 // CurrentValset queries the CurrentValset of the gravity module
 func (k Keeper) CurrentValset(
 	c context.Context,
 	req *types.QueryCurrentValsetRequest) (*types.QueryCurrentValsetResponse, error) {
-	return &types.QueryCurrentValsetResponse{Valset: k.GetCurrentValset(sdk.UnwrapSDKContext(c))}, nil
+	vs, err := k.GetCurrentValset(sdk.UnwrapSDKContext(c))
+	if err != nil {
+		return &types.QueryCurrentValsetResponse{}, err
+	}
+	return &types.QueryCurrentValsetResponse{Valset: vs}, nil
 }
 
 // ValsetRequest queries the ValsetRequest of the gravity module
@@ -61,11 +64,8 @@ func (k Keeper) ValsetConfirm(
 func (k Keeper) ValsetConfirmsByNonce(
 	c context.Context,
 	req *types.QueryValsetConfirmsByNonceRequest) (*types.QueryValsetConfirmsByNonceResponse, error) {
-	var confirms []types.MsgValsetConfirm
-	k.IterateValsetConfirmByNonce(sdk.UnwrapSDKContext(c), req.Nonce, func(_ []byte, c types.MsgValsetConfirm) bool {
-		confirms = append(confirms, c)
-		return false
-	})
+	confirms := k.GetValsetConfirms(sdk.UnwrapSDKContext(c), req.Nonce)
+
 	return &types.QueryValsetConfirmsByNonceResponse{Confirms: confirms}, nil
 }
 
@@ -175,7 +175,6 @@ func (k Keeper) LastPendingLogicCallByAddr(
 	if found {
 		return &types.QueryLastPendingLogicCallByAddrResponse{Call: pendingLogicReq}, nil
 	} else {
-
 		return &types.QueryLastPendingLogicCallByAddrResponse{Call: nil}, nil
 	}
 }
