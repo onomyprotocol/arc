@@ -24,7 +24,7 @@ error BatchTimedOut();
 error LogicCallTimedOut();
 
 interface IERC20Burnable {
-    function burn(uint256 amount) external;
+	function burn(uint256 amount) external;
 }
 
 // This is being used purely to avoid stack too deep errors
@@ -67,6 +67,12 @@ struct Signature {
 	bytes32 s;
 }
 
+// Used to prevent duplicate addresses for validators
+// During construction and in updateValset
+struct ValidatorData {
+	bool isFound;
+}
+
 contract Gravity is ReentrancyGuard {
 	using SafeERC20 for IERC20;
 
@@ -75,8 +81,8 @@ contract Gravity is ReentrancyGuard {
 	uint256 constant constant_powerThreshold = 2863311530;
 
 	// Address for wNOM
-    address public wNomAddress;
-    IERC20Burnable private wNomBurner;
+	address public wNomAddress;
+	IERC20Burnable private wNomBurner;
 
 	// These are updated often
 	bytes32 public state_lastValsetCheckpoint;
@@ -89,6 +95,10 @@ contract Gravity is ReentrancyGuard {
 
 	// This is set once at initialization
 	bytes32 public immutable state_gravityId;
+
+	// Used for checking validator duplicates
+	// Only gets mutated in `memory`
+	mapping(address => ValidatorData) validatorData;
 
 	// TransactionBatchExecutedEvent and SendToCosmosEvent both include the field _eventNonce.
 	// This is incremented every time one of these events is emitted. It is checked by the
@@ -177,6 +187,19 @@ contract Gravity is ReentrancyGuard {
 			_valset.validators.length != _sigs.length
 		) {
 			revert MalformedCurrentValidatorSet();
+		}
+	}
+
+	// Utility function to check for duplicate validators
+	// The checks are performed in memory and discarded
+	function checkDuplicateValidators(address[] memory validators) private view {
+		for (uint256 i = 0; i < validators.length; i++) {
+			ValidatorData memory currentValidator = validatorData[validators[i]];
+			// Duplicate validator found!
+			if (currentValidator.isFound) {
+				revert MalformedCurrentValidatorSet();
+			}
+			currentValidator.isFound = true;
 		}
 	}
 
@@ -270,6 +293,10 @@ contract Gravity is ReentrancyGuard {
 				currentNonce: _currentValset.valsetNonce
 			});
 		}
+
+		// Check for duplicate validators
+		address[] memory _new_validators = _newValset.validators;
+		checkDuplicateValidators(_new_validators);
 
 		// Check that the valset nonce is less than a million nonces forward from the old one
 		// this makes it difficult for an attacker to lock out the contract by getting a single
@@ -584,7 +611,7 @@ contract Gravity is ReentrancyGuard {
 		state_lastEventNonce = state_lastEventNonce + 1;
 
 		// If Token is wNOM then Burn it
-		if(_tokenContract == wNomAddress) {
+		if (_tokenContract == wNomAddress) {
 			wNomBurner.burn(_amount);
 		}
 
@@ -640,6 +667,9 @@ contract Gravity is ReentrancyGuard {
 		if (_validators.length != _powers.length || _validators.length == 0) {
 			revert MalformedCurrentValidatorSet();
 		}
+
+		// Check for duplicate validators
+		checkDuplicateValidators(_validators);
 
 		// Check cumulative power to ensure the contract has sufficient power to actually
 		// pass a vote
