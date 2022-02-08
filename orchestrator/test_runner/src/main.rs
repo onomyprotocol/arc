@@ -119,11 +119,11 @@ pub fn get_chain_id() -> String {
 }
 
 pub fn one_eth() -> Uint256 {
-    1000000000000000000u128.into()
+    1000000000000000u128.into()
 }
 
 pub fn one_hundred_eth() -> Uint256 {
-    (1000000000000000000u128 * 100).into()
+    (100000000000000000u128 * 1).into()
 }
 
 pub fn should_deploy_contracts() -> bool {
@@ -155,7 +155,7 @@ pub async fn main() {
 
     // if we detect this env var we are only deploying contracts, do that then exit.
     if should_deploy_contracts() {
-        info!("test-runner in contract deploying mode, deploying contracts, then exiting");
+        info!("test-runner in contract deploying mode, deploying contracts, then exiting, ETH_NODE:{:?}", ETH_NODE.as_str());
         deploy_contracts(&contact).await;
         return;
     }

@@ -93,6 +93,7 @@ pub fn get_keys() -> Vec<ValidatorKeys> {
 /// the Ethereum test chain starts in the testing environment. We write
 /// the stdout of this to a file for later test runs to parse
 pub async fn deploy_contracts(contact: &Contact) {
+    info!("Wait for next block");
     // prevents the node deployer from failing (rarely) when the chain has not
     // yet produced the next block after submitting each eth address
     contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
@@ -101,6 +102,7 @@ pub async fn deploy_contracts(contact: &Contact) {
     // and the gravity contract itself, feel free to expand this if it makes your
     // deployments more straightforward.
 
+    info!("Start the contract deployment");
     // both files are just in the PWD
     const A: [&str; 2] = ["contract-deployer", "Gravity.json"];
     // files are placed in a root /solidity/ folder

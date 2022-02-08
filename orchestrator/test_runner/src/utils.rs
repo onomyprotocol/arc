@@ -80,14 +80,14 @@ pub fn create_no_batch_requests_config() -> GravityBridgeToolsConfig {
 pub async fn send_eth_to_orchestrators(keys: &[ValidatorKeys], web30: &Web3) {
     let balance = web30.eth_get_balance(*MINER_ADDRESS).await.unwrap();
     info!(
-        "Sending orchestrators 100 eth to pay for fees miner has {} ETH",
-        balance / one_eth()
+        "Sending orchestrators {}/eth to pay for fees miner has {}/eth",
+        one_eth(), balance
     );
     let mut eth_keys = Vec::new();
     for key in keys {
         eth_keys.push(key.eth_key.to_address());
     }
-    send_eth_bulk(one_eth() * 100u16.into(), &eth_keys, web30).await;
+    send_eth_bulk(one_eth(), &eth_keys, web30).await;
 }
 
 pub async fn send_one_eth(dest: EthAddress, web30: &Web3) {
@@ -105,7 +105,7 @@ pub fn get_coins(denom: &str, balances: &[Coin]) -> Option<Coin> {
 
 /// This is a hardcoded very high gas value used in transaction stress test to counteract rollercoaster
 /// gas prices due to the way that test fills blocks
-pub const HIGH_GAS_PRICE: u64 = 1_000_000_000u64;
+pub const HIGH_GAS_PRICE: u64 = 10_000_000_000u64;
 
 /// This function efficiently distributes ERC20 tokens to a large number of provided Ethereum addresses
 /// the real problem here is that you can't do more than one send operation at a time from a
@@ -165,7 +165,7 @@ pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &
             to: *address,
             nonce: nonce.clone(),
             gas_price: HIGH_GAS_PRICE.into(),
-            gas_limit: 24000u64.into(),
+            gas_limit: 9000000u64.into(),
             value: amount.clone(),
             data: Vec::new(),
             signature: None,
