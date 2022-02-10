@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 )
 
 //nolint: exhaustivestruct
