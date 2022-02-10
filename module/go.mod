@@ -1,4 +1,4 @@
-module github.com/Gravity-Bridge/Gravity-Bridge/module
+module github.com/onomyprotocol/cosmos-gravity-bridge/module
 
 go 1.16
 

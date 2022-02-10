@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	_ "github.com/Gravity-Bridge/Gravity-Bridge/module/config"
+	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

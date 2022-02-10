@@ -10,7 +10,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 
-	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	distypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
 
