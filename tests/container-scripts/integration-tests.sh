@@ -20,7 +20,7 @@ pushd /gravity/orchestrator/test_runner
 if [[ "${USE_LOCAL_ARTIFACTS:-0}" -eq "0" ]]; then
     RUN_ARGS="cargo run --release --bin test-runner"
 else
-    RUN_ARGS=/gravity/orchestrator/target/release/test-runner
+    RUN_ARGS=/gravity/orchestrator/target/x86_64-unknown-linux-musl/release/test-runner
 fi
 
 RUST_BACKTRACE=full TEST_TYPE=$TEST_TYPE RUST_LOG=INFO PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS

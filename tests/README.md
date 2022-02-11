@@ -16,7 +16,7 @@ in which case the default behavior will build needed artifacts from scratch in a
 
 The default process takes several minutes which makes development cycles slow. Instead,
 `USE_LOCAL_ARTIFACTS=1` can be prepended (e.x.
-`USE_LOCAL_ARTIFACTS=1 bash tests/all-up-test.sh HAPPY_PATH_V2`). This will cause
+`USE_LOCAL_ARTIFACTS=1 bash all-up-test.sh HAPPY_PATH_V2`). This will cause
 `build-container.sh` to use locally built artifacts. The first build in a clean repository will be
 as slow as the default case, but every build afterwards will reuse the local incremental compilation
 data on the Rust and Go sides.

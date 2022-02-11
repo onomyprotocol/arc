@@ -66,8 +66,8 @@ go.sum: go.mod
 test:
 	@go test -mod=readonly $(PACKAGES)
 
-build-linux:
-	GOOS=linux GOARCH=amd64 go build -o build/gravity $(BUILD_FLAGS) ./cmd/gravity/main.go
+build-linux-amd64:
+	GOOS=linux GOARCH=amd64 go build -o $(BIN_PATH)gravity $(BUILD_FLAGS) ./cmd/gravity/main.go
 
 # look into .golangci.yml for enabling / disabling linters
 lint:
@@ -193,7 +193,6 @@ tools-clean:
 	rm -f proto-tools-stamp buf-stamp
 
 # below are all for the reproducible builder
-
 build-reproducible: go.sum
 	$(DOCKER) rm latest-build || true
 	$(DOCKER) run --volume=$(CURDIR)/.././:/sources:ro \
