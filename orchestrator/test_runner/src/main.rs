@@ -77,7 +77,7 @@ lazy_static! {
 /// this value reflects the contents of /tests/container-scripts/setup-validator.sh
 /// and is used to compute if a stake change is big enough to trigger a validator set
 /// update since we want to make several such changes intentionally
-pub const STAKE_SUPPLY_PER_VALIDATOR: u128 = 1000000000;
+pub const STAKE_SUPPLY_PER_VALIDATOR: u128 = 1000000000000000000000;
 /// this is the amount each validator bonds at startup
 pub const STARTING_STAKE_PER_VALIDATOR: u128 = STAKE_SUPPLY_PER_VALIDATOR / 2;
 
@@ -106,10 +106,9 @@ pub fn get_fee() -> Coin {
 pub fn get_deposit() -> Coin {
     Coin {
         denom: STAKING_TOKEN.to_string(),
-        amount: 1_000_000_000u64.into(),
+        amount: 1000000000000000000u128.into(), // 10^18
     }
 }
-
 pub fn get_test_token_name() -> String {
     "footoken".to_string()
 }
