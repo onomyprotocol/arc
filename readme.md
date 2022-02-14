@@ -52,13 +52,7 @@ These are mid-level docs which go into the most detail on various topics relatin
 
 [relaying semantics](/docs/design/relaying-semantics.md)
 
-**Components diagram**
-
-<p align="left">
-  <img src="https://user-images.githubusercontent.com/6096171/123229727-3ceea380-d4df-11eb-818c-3c996d9199aa.png?raw=true"/>
-</p>
-
-### Specs
+### Developer Guide
 
 To contribute to Gravity, refer to these guides.
 
@@ -96,13 +90,13 @@ You can keep up with the latest development by watching our [public standups](ht
   - [x] Relaying edge cases
   - [x] Transaction batch edge cases
   - [x] Support for issuing Cosmos assets on Ethereum
-  - [ ] Audit
+  - [x] Audit
 - Orchestrator / Relayer
   - [x] Validator set update relaying
   - [x] Ethereum -> Cosmos Oracle
   - [x] Transaction batch relaying
   - [ ] Tendermint KMS support
-  - [ ] Audit
+  - [x] Audit
 
 ## The design of Gravity Bridge
 
