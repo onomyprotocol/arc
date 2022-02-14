@@ -8,7 +8,7 @@ use deep_space::PrivateKey as CosmosPrivateKey;
 use deep_space::{address::Address as CosmosAddress, Coin};
 use std::path::PathBuf;
 
-/// Gravity Bridge tools (gbt) provides tools for interacting with the Althea Gravity bridge for Cosmos based blockchains.
+/// Gravity Bridge tools (gbt) provides tools for interacting with the Onomy Gravity bridge for Cosmos based blockchains.
 #[derive(Parser)]
 #[clap(version = env!("CARGO_PKG_VERSION"), author = "Justin Kilpatrick <justin@althea.net>")]
 pub struct Opts {

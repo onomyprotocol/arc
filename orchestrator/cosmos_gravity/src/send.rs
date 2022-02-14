@@ -28,7 +28,7 @@ use std::time::Duration;
 
 use crate::utils::BadSignatureEvidence;
 
-pub const MEMO: &str = "Sent using Althea Gravity Bridge Orchestrator";
+pub const MEMO: &str = "Sent using Onomy Gravity Bridge Orchestrator";
 pub const TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Send a transaction updating the eth address for the sending

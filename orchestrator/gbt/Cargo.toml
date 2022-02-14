@@ -1,11 +1,11 @@
 [package]
 authors = ["Justin Kilpatrick <justin@althea.net>"]
-description = "Gravity Bridge Tools. User tooling for the Althea Ethereum <=> Cosmos Gravtiy bridge"
+description = "Gravity Bridge Tools. User tooling for the Onomy Ethereum <=> Cosmos Gravtiy bridge"
 edition = "2018"
-homepage = "https://gravitybridge.althea.net/"
+homepage = "https://onomy.io/"
 license = "Apache-2.0"
 name = "gbt"
-repository = "https://github.com/althea-net/cosmos-gravity-bridge"
+repository = "https://github.com/onomyprotocol/cosmos-gravity-bridge"
 version = "0.5.6"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
