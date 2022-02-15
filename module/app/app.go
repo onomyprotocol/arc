@@ -61,6 +61,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/gov"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	sdkgovtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -254,6 +255,9 @@ func init() {
 	}
 
 	DefaultNodeHome = filepath.Join(userHomeDir, ".gravity")
+
+	sdk.DefaultPowerReduction = sdk.NewIntWithDecimal(1, 18)
+	sdkgovtypes.DefaultMinDepositTokens = sdk.NewIntWithDecimal(1, 18)
 }
 
 func NewGravityApp(
