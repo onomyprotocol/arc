@@ -9,10 +9,10 @@ name = "relayer"
 path = "src/lib.rs"
 
 [dependencies]
-cosmos_gravity = {path = "../cosmos_gravity"}
-ethereum_gravity = {path = "../ethereum_gravity"}
-gravity_proto = {path = "../gravity_proto/"}
-gravity_utils = {path = "../gravity_utils"}
+cosmos_gravity = { path = "../cosmos_gravity" }
+ethereum_gravity = { path = "../ethereum_gravity" }
+gravity_proto = { path = "../gravity_proto/" }
+gravity_utils = { path = "../gravity_utils" }
 
 clarity = "0.5"
 deep_space = "2.8"
@@ -26,6 +26,6 @@ openssl-probe = "0.1"
 rayon = "1.5.1"
 serde = "1.0"
 serde_derive = "1.0"
-tokio = {version = "1.4", features = ["macros", "rt-multi-thread"]}
+tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
 tonic = "0.6"
-web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4"}
+web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4" }

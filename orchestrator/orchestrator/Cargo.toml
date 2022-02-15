@@ -9,12 +9,12 @@ name = "orchestrator"
 path = "src/lib.rs"
 
 [dependencies]
-cosmos_gravity = {path = "../cosmos_gravity"}
-ethereum_gravity = {path = "../ethereum_gravity"}
-gravity_proto = {path = "../gravity_proto"}
-gravity_utils = {path = "../gravity_utils"}
-metrics_exporter = {path = "../metrics_exporter"}
-relayer = {path = "../relayer/"}
+cosmos_gravity = { path = "../cosmos_gravity" }
+ethereum_gravity = { path = "../ethereum_gravity" }
+gravity_proto = { path = "../gravity_proto" }
+gravity_utils = { path = "../gravity_utils" }
+metrics_exporter = { path = "../metrics_exporter" }
+relayer = { path = "../relayer/" }
 
 clarity = "0.5"
 deep_space = "2.8"
@@ -24,19 +24,18 @@ futures = "0.3"
 lazy_static = "1"
 log = "0.4"
 num256 = "0.3"
-openssl-probe = "0.1"
-rand = "0.8"
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-tokio = {version = "1.4", features = ["macros", "rt-multi-thread"]}
-tonic = "0.6"
-web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4"}
-
 # this is a dirty trick, we depent transitively on OpenSSL it's never
 # called directly in this crate, but if we specify this dep we can enable
 # this feature for all the crates in our dependency tree which depend on
 # this crate. This allows for easy cross compiled builds because the 'vendored'
 # feature includes it's own OpenSSL version that's compiled on the fly
 # If ANY crate in this workspace has this it will work for all of them.
-openssl = {version = "0.10", features = ["vendored"]}
+openssl = { version = "0.10", features = ["vendored"] }
+openssl-probe = "0.1"
+rand = "0.8"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
+tonic = "0.6"
+web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4" }
