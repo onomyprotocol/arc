@@ -14,11 +14,11 @@ use crate::utils::ValidatorKeys;
 use crate::MINER_ADDRESS;
 use crate::MINER_PRIVATE_KEY;
 use crate::TOTAL_TIMEOUT;
-use clarity::abi::encode_call;
-use clarity::abi::Token;
-use clarity::Address as EthAddress;
-use clarity::Address;
-use deep_space::Contact;
+use gravity_utils::clarity::abi::encode_call;
+use gravity_utils::clarity::abi::Token;
+use gravity_utils::clarity::Address as EthAddress;
+use gravity_utils::clarity::Address;
+use gravity_utils::deep_space::Contact;
 use ethereum_gravity::send_to_cosmos::SEND_TO_COSMOS_GAS_LIMIT;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use rand::distributions::Alphanumeric;
@@ -26,8 +26,8 @@ use rand::thread_rng;
 use rand::Rng;
 use std::time::Instant;
 use tonic::transport::Channel;
-use web30::client::Web3;
-use web30::types::SendTxOption;
+use gravity_utils::web30::client::Web3;
+use gravity_utils::web30::types::SendTxOption;
 
 pub async fn invalid_events(
     web30: &Web3,

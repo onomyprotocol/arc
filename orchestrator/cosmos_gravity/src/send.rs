@@ -1,11 +1,11 @@
-use clarity::{constants::ZERO_ADDRESS, Address as EthAddress};
-use clarity::{PrivateKey as EthPrivateKey, Signature};
-use deep_space::address::Address;
-use deep_space::error::CosmosGrpcError;
-use deep_space::private_key::PrivateKey;
-use deep_space::Contact;
-use deep_space::Msg;
-use deep_space::{coin::Coin, utils::bytes_to_hex_str};
+use gravity_utils::clarity::{constants::ZERO_ADDRESS, Address as EthAddress};
+use gravity_utils::clarity::{PrivateKey as EthPrivateKey, Signature};
+use gravity_utils::deep_space::address::Address;
+use gravity_utils::deep_space::error::CosmosGrpcError;
+use gravity_utils::deep_space::private_key::PrivateKey;
+use gravity_utils::deep_space::Contact;
+use gravity_utils::deep_space::Msg;
+use gravity_utils::deep_space::{coin::Coin, utils::bytes_to_hex_str};
 use ethereum_gravity::message_signatures::{
     encode_logic_call_confirm, encode_tx_batch_confirm, encode_valset_confirm,
 };

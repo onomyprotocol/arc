@@ -4,9 +4,9 @@ use crate::config::load_keys;
 use crate::config::save_keys;
 use crate::config::KeyStorage;
 use crate::utils::TIMEOUT;
-use clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
 use cosmos_gravity::send::set_gravity_delegate_addresses;
-use deep_space::{mnemonic::Mnemonic, private_key::PrivateKey as CosmosPrivateKey};
+use gravity_utils::deep_space::{mnemonic::Mnemonic, private_key::PrivateKey as CosmosPrivateKey};
 use gravity_utils::connection_prep::{
     check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready,
 };

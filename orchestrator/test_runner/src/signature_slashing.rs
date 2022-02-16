@@ -9,16 +9,16 @@ use crate::utils::{
     vote_yes_on_proposals, ValidatorKeys,
 };
 use crate::TOTAL_TIMEOUT;
-use clarity::Address as EthAddress;
+use gravity_utils::clarity::Address as EthAddress;
 use cosmos_gravity::query::get_gravity_params;
-use deep_space::client::types::ChainStatus;
-use deep_space::Contact;
+use gravity_utils::deep_space::client::types::ChainStatus;
+use gravity_utils::deep_space::Contact;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 pub async fn signature_slashing_test(
     web30: &Web3,

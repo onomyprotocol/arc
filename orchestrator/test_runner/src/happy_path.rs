@@ -6,14 +6,14 @@ use crate::MINER_PRIVATE_KEY;
 use crate::OPERATION_TIMEOUT;
 use crate::TOTAL_TIMEOUT;
 use bytes::BytesMut;
-use clarity::{Address as EthAddress, Uint256};
+use gravity_utils::clarity::{Address as EthAddress, Uint256};
 use cosmos_gravity::query::get_attestations;
 use cosmos_gravity::send::send_to_eth;
 use cosmos_gravity::{query::get_oldest_unsigned_transaction_batches, send::send_ethereum_claims};
-use deep_space::address::Address as CosmosAddress;
-use deep_space::coin::Coin;
-use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::Contact;
+use gravity_utils::deep_space::address::Address as CosmosAddress;
+use gravity_utils::deep_space::coin::Coin;
+use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
+use gravity_utils::deep_space::Contact;
 use ethereum_gravity::utils::get_valset_nonce;
 use ethereum_gravity::{send_to_cosmos::send_to_cosmos, utils::get_tx_batch_nonce};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
@@ -27,7 +27,7 @@ use std::any::type_name;
 use std::time::Duration;
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 pub async fn happy_path_test(
     web30: &Web3,

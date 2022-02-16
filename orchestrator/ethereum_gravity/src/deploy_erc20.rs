@@ -2,14 +2,14 @@
 //! the event for this deployment is then ferried over to Cosmos where the validators will accept the ERC20 contract address
 //! as the representation of this asset on Ethereum
 
-use clarity::{
+use gravity_utils::clarity::{
     abi::{encode_call, Token},
     Uint256,
 };
-use clarity::{Address, PrivateKey};
+use gravity_utils::clarity::{Address, PrivateKey};
 use gravity_utils::error::GravityError;
 use std::time::Duration;
-use web30::{client::Web3, types::SendTxOption};
+use gravity_utils::web30::{client::Web3, types::SendTxOption};
 
 /// Calls the Gravity ethereum contract to deploy the ERC20 representation of the given Cosmos asset
 /// denom. If an existing contract is already deployed representing this asset this call will cost

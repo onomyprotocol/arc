@@ -6,18 +6,18 @@ use crate::happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result};
 use crate::utils::*;
 use crate::MINER_ADDRESS;
 use crate::{get_fee, OPERATION_TIMEOUT, TOTAL_TIMEOUT};
-use clarity::Address as EthAddress;
+use gravity_utils::clarity::Address as EthAddress;
 use cosmos_gravity::query::get_gravity_params;
 use cosmos_gravity::send::{send_request_batch, send_to_eth};
-use deep_space::coin::Coin;
-use deep_space::Contact;
+use gravity_utils::deep_space::coin::Coin;
+use gravity_utils::deep_space::Contact;
 use ethereum_gravity::utils::get_tx_batch_nonce;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 /// Tests the bridge pause function, which allows a governance vote
 /// to temporarily stop token transfers while vulnerabilities are dealt with

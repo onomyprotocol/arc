@@ -5,16 +5,16 @@
 use std::cmp::min;
 use std::time::Duration;
 
-use clarity::PrivateKey as EthPrivateKey;
-use clarity::{address::Address as EthAddress, Uint256};
-use deep_space::error::CosmosGrpcError;
-use deep_space::Contact;
-use deep_space::{client::ChainStatus, utils::FeeInfo};
-use deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::clarity::{address::Address as EthAddress, Uint256};
+use gravity_utils::deep_space::error::CosmosGrpcError;
+use gravity_utils::deep_space::Contact;
+use gravity_utils::deep_space::{client::ChainStatus, utils::FeeInfo};
+use gravity_utils::deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
 use futures::future::{try_join, try_join3};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 use cosmos_gravity::query::get_gravity_params;
 use cosmos_gravity::{

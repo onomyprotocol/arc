@@ -4,14 +4,14 @@ use crate::airdrop_proposal::wait_for_proposals_to_execute;
 use crate::happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption;
 use crate::utils::{vote_yes_on_proposals, ValidatorKeys};
 use crate::{get_deposit, get_fee, TOTAL_TIMEOUT};
-use clarity::Address;
+use gravity_utils::clarity::Address;
 use cosmos_gravity::proposals::submit_ibc_metadata_proposal;
-use deep_space::Contact;
+use gravity_utils::deep_space::Contact;
 use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::{DenomUnit, Metadata};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::IbcMetadataProposal;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 pub async fn ibc_metadata_proposal_test(
     gravity_address: Address,

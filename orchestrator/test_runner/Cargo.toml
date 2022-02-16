@@ -17,8 +17,6 @@ gravity_utils = { path = "../gravity_utils" }
 orchestrator = { path = "../orchestrator/" }
 
 bytes = "1"
-clarity = "0.5"
-deep_space = "2.8"
 docopt = "1"
 env_logger = "0.9"
 futures = "0.3"
@@ -34,4 +32,3 @@ serde_json = "1.0"
 tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
 tonic = "0.6"
 url = "2"
-web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4" }

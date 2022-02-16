@@ -1,11 +1,11 @@
 //! This is a test for Evidence based slashing, we simply create a bad signature and submit it as evidence
 //! we don't launch the orchestrators here as they are not required.
 
-use clarity::utils::bytes_to_hex_str;
-use clarity::Address as EthAddress;
-use deep_space::PrivateKey;
-use deep_space::{Coin, Contact};
-use web30::client::Web3;
+use gravity_utils::clarity::utils::bytes_to_hex_str;
+use gravity_utils::clarity::Address as EthAddress;
+use gravity_utils::deep_space::PrivateKey;
+use gravity_utils::deep_space::{Coin, Contact};
+use gravity_utils::web30::client::Web3;
 
 use cosmos_gravity::{send::submit_bad_signature_evidence, utils::BadSignatureEvidence};
 use ethereum_gravity::message_signatures::{encode_valset_confirm, encode_valset_confirm_hashed};

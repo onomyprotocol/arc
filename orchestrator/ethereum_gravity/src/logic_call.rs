@@ -1,11 +1,11 @@
 use crate::message_signatures::encode_logic_call_confirm_hashed;
 use crate::utils::{encode_valset_struct, get_logic_call_nonce, GasCost};
-use clarity::{abi::Token, utils::bytes_to_hex_str, PrivateKey as EthPrivateKey};
-use clarity::{Address as EthAddress, Uint256};
+use gravity_utils::clarity::{abi::Token, utils::bytes_to_hex_str, PrivateKey as EthPrivateKey};
+use gravity_utils::clarity::{Address as EthAddress, Uint256};
 use gravity_utils::error::GravityError;
 use gravity_utils::types::*;
 use std::{cmp::min, time::Duration};
-use web30::{client::Web3, types::TransactionRequest};
+use gravity_utils::web30::{client::Web3, types::TransactionRequest};
 
 /// this function generates an appropriate Ethereum transaction
 /// to submit the provided logic call
@@ -193,7 +193,7 @@ fn encode_logic_call_payload(
         sig_arrays.sigs,
         Token::Struct(struct_tokens.to_vec()),
     ];
-    let payload = clarity::abi::encode_call(
+    let payload = gravity_utils::clarity::abi::encode_call(
         "submitLogicCall((address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[],(uint256[],address[],uint256[],address[],address,bytes,uint256,bytes32,uint256))",
         tokens,
     )
@@ -206,8 +206,8 @@ fn encode_logic_call_payload(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clarity::utils::hex_str_to_bytes;
-    use clarity::Signature;
+    use gravity_utils::clarity::utils::hex_str_to_bytes;
+    use gravity_utils::clarity::Signature;
 
     #[test]
     /// This test encodes an abiV2 function call, specifically one

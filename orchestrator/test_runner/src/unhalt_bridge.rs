@@ -3,11 +3,11 @@ use crate::happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result};
 use crate::{get_deposit, utils::*, TOTAL_TIMEOUT};
 use crate::{get_fee, one_eth, OPERATION_TIMEOUT};
 use bytes::BytesMut;
-use clarity::{Address as EthAddress, Uint256};
+use gravity_utils::clarity::{Address as EthAddress, Uint256};
 use cosmos_gravity::proposals::submit_unhalt_bridge_proposal;
 use cosmos_gravity::query::{get_attestations, get_last_event_nonce_for_validator};
-use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::{Contact, Fee};
+use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
+use gravity_utils::deep_space::{Contact, Fee};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::MsgSendToCosmosClaim;
 use gravity_proto::gravity::UnhaltBridgeProposal;
@@ -17,7 +17,7 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 // Halts the bridge by having some validators lie about a SendToCosmos claim, asserts bridge is halted,
 // then resets the bridge back to the last valid nonce via governance vote, asserts bridge resumes functioning

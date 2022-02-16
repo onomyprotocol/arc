@@ -3,7 +3,7 @@
 use crate::airdrop_proposal::wait_for_proposals_to_execute;
 use crate::utils::{create_parameter_change_proposal, vote_yes_on_proposals, ValidatorKeys};
 use cosmos_gravity::query::get_gravity_params;
-use deep_space::Contact;
+use gravity_utils::deep_space::Contact;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use tonic::transport::Channel;

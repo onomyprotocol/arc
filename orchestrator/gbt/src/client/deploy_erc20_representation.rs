@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use tokio::time::sleep;
-use web30::types::SendTxOption;
+use gravity_utils::web30::types::SendTxOption;
 
 use cosmos_gravity::query::get_gravity_params;
 use ethereum_gravity::deploy_erc20::deploy_erc20;

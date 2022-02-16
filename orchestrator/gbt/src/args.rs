@@ -2,10 +2,10 @@
 //! See the clap documentation for how exactly this works, note that doc comments are displayed to the user
 
 use clap::Parser;
-use clarity::Address as EthAddress;
-use clarity::PrivateKey as EthPrivateKey;
-use deep_space::PrivateKey as CosmosPrivateKey;
-use deep_space::{address::Address as CosmosAddress, Coin};
+use gravity_utils::clarity::Address as EthAddress;
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::deep_space::PrivateKey as CosmosPrivateKey;
+use gravity_utils::deep_space::{address::Address as CosmosAddress, Coin};
 use std::path::PathBuf;
 
 /// Gravity Bridge tools (gbt) provides tools for interacting with the Onomy Gravity bridge for Cosmos based blockchains.

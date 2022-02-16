@@ -7,15 +7,15 @@ use crate::STAKING_TOKEN;
 use crate::TOTAL_TIMEOUT;
 use crate::{one_eth, MINER_PRIVATE_KEY};
 use crate::{MINER_ADDRESS, OPERATION_TIMEOUT};
-use clarity::{Address as EthAddress, Uint256};
-use clarity::{PrivateKey as EthPrivateKey, Transaction};
+use gravity_utils::clarity::{Address as EthAddress, Uint256};
+use gravity_utils::clarity::{PrivateKey as EthPrivateKey, Transaction};
 use cosmos_gravity::proposals::submit_parameter_change_proposal;
 use cosmos_gravity::query::get_gravity_params;
-use deep_space::address::Address as CosmosAddress;
-use deep_space::coin::Coin;
-use deep_space::error::CosmosGrpcError;
-use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::{Contact, Fee, Msg};
+use gravity_utils::deep_space::address::Address as CosmosAddress;
+use gravity_utils::deep_space::coin::Coin;
+use gravity_utils::deep_space::error::CosmosGrpcError;
+use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
+use gravity_utils::deep_space::{Contact, Fee, Msg};
 use ethereum_gravity::utils::get_event_nonce;
 use futures::future::join_all;
 use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata;
@@ -35,8 +35,8 @@ use rand::Rng;
 use std::panic;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use web30::jsonrpc::error::Web3Error;
-use web30::{client::Web3, types::SendTxOption};
+use gravity_utils::web30::jsonrpc::error::Web3Error;
+use gravity_utils::web30::{client::Web3, types::SendTxOption};
 
 /// returns the required denom metadata for deployed the Footoken
 /// token defined in our test environment
@@ -311,7 +311,7 @@ pub async fn start_orchestrators(
         // but that will execute all the orchestrators in our test in parallel
         // by spwaning to tokio's future executor
         let _ = tokio::spawn(async move {
-            let web30 = web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
+            let web30 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
 
             let contact = Contact::new(
                 COSMOS_NODE_GRPC.as_str(),

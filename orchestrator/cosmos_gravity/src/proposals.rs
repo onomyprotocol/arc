@@ -1,12 +1,12 @@
 //! This file handles submitting and querying governance proposals custom to Gravity bridge
 
-use deep_space::error::AddressError;
-use deep_space::error::CosmosGrpcError;
-use deep_space::utils::encode_any;
-use deep_space::Address;
-use deep_space::Coin;
-use deep_space::Contact;
-use deep_space::PrivateKey;
+use gravity_utils::deep_space::error::AddressError;
+use gravity_utils::deep_space::error::CosmosGrpcError;
+use gravity_utils::deep_space::utils::encode_any;
+use gravity_utils::deep_space::Address;
+use gravity_utils::deep_space::Coin;
+use gravity_utils::deep_space::Contact;
+use gravity_utils::deep_space::PrivateKey;
 use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::DenomUnit;
 use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata;
 use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;

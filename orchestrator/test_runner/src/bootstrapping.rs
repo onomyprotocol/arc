@@ -2,10 +2,10 @@ use crate::ETH_NODE;
 use crate::MINER_PRIVATE_KEY;
 use crate::TOTAL_TIMEOUT;
 use crate::{utils::ValidatorKeys, COSMOS_NODE_ABCI};
-use clarity::Address as EthAddress;
-use clarity::PrivateKey as EthPrivateKey;
-use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::Contact;
+use gravity_utils::clarity::Address as EthAddress;
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
+use gravity_utils::deep_space::Contact;
 use std::process::Command;
 use std::{fs::File, path::Path};
 use std::{

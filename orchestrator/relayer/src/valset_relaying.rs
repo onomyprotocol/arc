@@ -2,8 +2,8 @@
 //! the state of both chains and perform the required operations.
 use std::time::Duration;
 
-use clarity::address::Address as EthAddress;
-use clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::clarity::address::Address as EthAddress;
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
 use cosmos_gravity::query::get_latest_valsets;
 use cosmos_gravity::query::{get_all_valset_confirms, get_valset};
 use ethereum_gravity::message_signatures::encode_valset_confirm_hashed;
@@ -17,7 +17,7 @@ use gravity_utils::prices::get_weth_price;
 use gravity_utils::types::{RelayerConfig, Valset};
 use gravity_utils::types::{ValsetConfirmResponse, ValsetRelayingMode};
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 use crate::batch_relaying::get_cost_with_margin;
 

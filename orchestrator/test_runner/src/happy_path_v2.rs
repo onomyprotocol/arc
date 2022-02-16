@@ -12,11 +12,11 @@ use crate::MINER_ADDRESS;
 use crate::MINER_PRIVATE_KEY;
 use crate::TOTAL_TIMEOUT;
 use crate::{get_fee, utils::ValidatorKeys};
-use clarity::Address as EthAddress;
-use clarity::Uint256;
+use gravity_utils::clarity::Address as EthAddress;
+use gravity_utils::clarity::Uint256;
 use cosmos_gravity::send::send_to_eth;
-use deep_space::coin::Coin;
-use deep_space::Contact;
+use gravity_utils::deep_space::coin::Coin;
+use gravity_utils::deep_space::Contact;
 use ethereum_gravity::deploy_erc20::deploy_erc20;
 use ethereum_gravity::utils::get_valset_nonce;
 use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata;
@@ -27,8 +27,8 @@ use std::panic;
 use std::time::Duration;
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
-use web30::types::SendTxOption;
+use gravity_utils::web30::client::Web3;
+use gravity_utils::web30::types::SendTxOption;
 
 pub async fn happy_path_test_v2(
     web30: &Web3,

@@ -1,6 +1,6 @@
-use clarity::abi::{encode_tokens, Token};
-use clarity::constants::ZERO_ADDRESS;
-use clarity::utils::get_ethereum_msg_hash;
+use gravity_utils::clarity::abi::{encode_tokens, Token};
+use gravity_utils::clarity::constants::ZERO_ADDRESS;
+use gravity_utils::clarity::utils::get_ethereum_msg_hash;
 use gravity_utils::types::{LogicCall, TransactionBatch, Valset};
 
 /// takes the required input data and produces the required signature to confirm a validator
@@ -97,9 +97,9 @@ pub fn encode_logic_call_confirm_hashed(gravity_id: String, call: LogicCall) -> 
 #[cfg(test)]
 mod test {
     use super::*;
-    use clarity::utils::bytes_to_hex_str;
-    use clarity::utils::hex_str_to_bytes;
-    use clarity::PrivateKey as EthPrivateKey;
+    use gravity_utils::clarity::utils::bytes_to_hex_str;
+    use gravity_utils::clarity::utils::hex_str_to_bytes;
+    use gravity_utils::clarity::PrivateKey as EthPrivateKey;
     use gravity_utils::types::BatchTransaction;
     use gravity_utils::types::Erc20Token;
     use gravity_utils::types::LogicCall;

@@ -1,6 +1,6 @@
-use clarity::{Address, Uint256};
+use gravity_utils::clarity::{Address, Uint256};
 use cosmos_gravity::utils::get_last_event_nonce_with_retry;
-use deep_space::address::Address as CosmosAddress;
+use gravity_utils::deep_space::address::Address as CosmosAddress;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::get_with_retry::get_block_number_with_retry;
 use gravity_utils::get_with_retry::RETRY_TIME;
@@ -12,7 +12,7 @@ use gravity_utils::types::{
 use metrics_exporter::metrics_errors_counter;
 use tokio::time::sleep as delay_for;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 /// This function retrieves the last event nonce this oracle has relayed to Cosmos
 /// it then uses the Ethereum indexes to determine what block the last entry

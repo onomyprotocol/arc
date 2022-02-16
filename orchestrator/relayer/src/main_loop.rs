@@ -3,15 +3,15 @@ use crate::{
     batch_relaying::relay_batches, find_latest_valset::find_latest_valset,
     logic_call_relaying::relay_logic_calls, valset_relaying::relay_valsets,
 };
-use clarity::address::Address as EthAddress;
-use clarity::PrivateKey as EthPrivateKey;
-use deep_space::{Coin, Contact, PrivateKey as CosmosPrivateKey};
+use gravity_utils::clarity::address::Address as EthAddress;
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::deep_space::{Coin, Contact, PrivateKey as CosmosPrivateKey};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{error::GravityError, types::RelayerConfig};
 use std::time::Duration;
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 

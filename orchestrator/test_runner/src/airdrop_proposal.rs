@@ -5,14 +5,14 @@ use crate::utils::{get_coins, vote_yes_on_proposals, ValidatorKeys};
 use crate::ADDRESS_PREFIX;
 use crate::STAKING_TOKEN;
 use crate::{get_deposit, get_fee, TOTAL_TIMEOUT};
-use clarity::Uint256;
+use gravity_utils::clarity::Uint256;
 use cosmos_gravity::proposals::{
     submit_airdrop_proposal, AirdropProposalJson, AIRDROP_PROPOSAL_TYPE_URL,
 };
-use deep_space::error::CosmosGrpcError;
-use deep_space::utils::encode_any;
-use deep_space::Address as CosmosAddress;
-use deep_space::Contact;
+use gravity_utils::deep_space::error::CosmosGrpcError;
+use gravity_utils::deep_space::utils::encode_any;
+use gravity_utils::deep_space::Address as CosmosAddress;
+use gravity_utils::deep_space::Contact;
 use gravity_proto::gravity::AirdropProposal as AirdropProposalMsg;
 use num::ToPrimitive;
 use rand::prelude::ThreadRng;

@@ -7,14 +7,14 @@ use crate::utils::{
     create_parameter_change_proposal, footoken_metadata, get_erc20_balance_safe,
     vote_yes_on_proposals, ValidatorKeys,
 };
-use clarity::Address as EthAddress;
+use gravity_utils::clarity::Address as EthAddress;
 use cosmos_gravity::query::get_gravity_params;
-use deep_space::coin::Coin;
-use deep_space::Contact;
+use gravity_utils::deep_space::coin::Coin;
+use gravity_utils::deep_space::Contact;
 use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 pub async fn valset_rewards_test(
     web30: &Web3,

@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
-use clarity::Address as EthAddress;
-use deep_space::address::Address;
+use gravity_utils::clarity::Address as EthAddress;
+use gravity_utils::deep_space::address::Address;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::Attestation;
 use gravity_proto::gravity::Params;

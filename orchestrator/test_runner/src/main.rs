@@ -18,10 +18,10 @@ use crate::slashing_delegation::slashing_delegation_test;
 use crate::tx_cancel::send_to_eth_and_cancel;
 use crate::utils::*;
 use crate::valset_rewards::valset_rewards_test;
-use clarity::PrivateKey as EthPrivateKey;
-use clarity::{Address as EthAddress, Uint256};
-use deep_space::coin::Coin;
-use deep_space::Contact;
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::clarity::{Address as EthAddress, Uint256};
+use gravity_utils::deep_space::coin::Coin;
+use gravity_utils::deep_space::Contact;
 use evidence_based_slashing::evidence_based_slashing;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use happy_path::happy_path_test;
@@ -149,7 +149,7 @@ pub async fn main() {
     let grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())
         .await
         .unwrap();
-    let web30 = web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
+    let web30 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
     let keys = get_keys();
 
     // if we detect this env var we are only deploying contracts, do that then exit.

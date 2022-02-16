@@ -1,10 +1,10 @@
 //! Ethereum Event watcher watches for events such as a deposit to the Gravity Ethereum contract or a validator set update
 //! or a transaction batch update. It then responds to these events by performing actions on the Cosmos chain if required
 
-use clarity::{utils::bytes_to_hex_str, Address as EthAddress, Uint256};
+use gravity_utils::clarity::{utils::bytes_to_hex_str, Address as EthAddress, Uint256};
 use cosmos_gravity::{query::get_last_event_nonce_for_validator, send::send_ethereum_claims};
-use deep_space::Contact;
-use deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
+use gravity_utils::deep_space::Contact;
+use gravity_utils::deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::get_with_retry::get_block_number_with_retry;
 use gravity_utils::get_with_retry::get_net_version_with_retry;
@@ -18,8 +18,8 @@ use gravity_utils::{
 };
 use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
-use web30::client::Web3;
-use web30::jsonrpc::error::Web3Error;
+use gravity_utils::web30::client::Web3;
+use gravity_utils::web30::jsonrpc::error::Web3Error;
 
 pub struct CheckedNonces {
     pub block_number: Uint256,

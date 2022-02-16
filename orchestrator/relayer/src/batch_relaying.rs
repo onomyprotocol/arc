@@ -1,6 +1,6 @@
-use clarity::address::Address as EthAddress;
-use clarity::PrivateKey as EthPrivateKey;
-use clarity::Uint256;
+use gravity_utils::clarity::address::Address as EthAddress;
+use gravity_utils::clarity::PrivateKey as EthPrivateKey;
+use gravity_utils::clarity::Uint256;
 use cosmos_gravity::query::get_latest_transaction_batches;
 use cosmos_gravity::query::get_transaction_batch_signatures;
 use ethereum_gravity::message_signatures::encode_tx_batch_confirm_hashed;
@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 #[derive(Debug, Clone)]
 struct SubmittableBatch {

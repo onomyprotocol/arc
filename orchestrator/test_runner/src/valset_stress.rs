@@ -2,11 +2,11 @@ use crate::happy_path::test_valset_update;
 use crate::utils::create_default_test_config;
 use crate::utils::start_orchestrators;
 use crate::utils::ValidatorKeys;
-use clarity::Address as EthAddress;
-use deep_space::Contact;
+use gravity_utils::clarity::Address as EthAddress;
+use gravity_utils::deep_space::Contact;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 pub async fn validator_set_stress_test(
     web30: &Web3,

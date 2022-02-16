@@ -226,8 +226,6 @@ dependencies = [
 name = "cosmos_gravity"
 version = "0.1.0"
 dependencies = [
- "clarity",
- "deep_space",
  "ethereum_gravity",
  "gravity_proto",
  "gravity_utils",
@@ -238,7 +236,6 @@ dependencies = [
  "sha3",
  "tokio",
  "tonic",
- "web30",
 ]
 
 [[package]]
@@ -420,15 +417,12 @@ dependencies = [
 name = "ethereum_gravity"
 version = "0.1.0"
 dependencies = [
- "clarity",
- "deep_space",
  "gravity_utils",
  "log",
  "num256",
  "rand",
  "sha3",
  "tokio",
- "web30",
 ]
 
 [[package]]
@@ -583,9 +577,7 @@ name = "gbt"
 version = "0.5.6"
 dependencies = [
  "clap",
- "clarity",
  "cosmos_gravity",
- "deep_space",
  "dirs",
  "env_logger",
  "ethereum_gravity",
@@ -604,7 +596,6 @@ dependencies = [
  "tokio",
  "toml",
  "url",
- "web30",
 ]
 
 [[package]]
@@ -1208,9 +1199,7 @@ dependencies = [
 name = "orchestrator"
 version = "0.4.3"
 dependencies = [
- "clarity",
  "cosmos_gravity",
- "deep_space",
  "ethereum_gravity",
  "futures",
  "gravity_proto",
@@ -1227,7 +1216,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tonic",
- "web30",
 ]
 
 [[package]]
@@ -1586,9 +1574,7 @@ checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 name = "relayer"
 version = "0.4.3"
 dependencies = [
- "clarity",
  "cosmos_gravity",
- "deep_space",
  "ethereum_gravity",
  "futures",
  "gravity_proto",
@@ -1601,7 +1587,6 @@ dependencies = [
  "serde",
  "tokio",
  "tonic",
- "web30",
 ]
 
 [[package]]
@@ -1851,9 +1836,7 @@ name = "test_runner"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "clarity",
  "cosmos_gravity",
- "deep_space",
  "docopt",
  "env_logger",
  "ethereum_gravity",
@@ -1873,7 +1856,6 @@ dependencies = [
  "tokio",
  "tonic",
  "url",
- "web30",
 ]
 
 [[package]]

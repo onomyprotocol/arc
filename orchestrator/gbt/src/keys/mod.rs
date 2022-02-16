@@ -4,7 +4,7 @@ use crate::{
     args::{SetEthereumKeyOpts, SetOrchestratorKeyOpts},
     config::{config_exists, load_keys, save_keys},
 };
-use deep_space::PrivateKey;
+use gravity_utils::deep_space::PrivateKey;
 use gravity_utils::error::GravityError;
 use std::path::Path;
 

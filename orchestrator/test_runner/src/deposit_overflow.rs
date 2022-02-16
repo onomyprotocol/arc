@@ -6,15 +6,15 @@ use crate::unhalt_bridge::get_nonces;
 use crate::utils::{check_cosmos_balances, get_user_key, submit_false_claims, ValidatorKeys};
 use crate::OPERATION_TIMEOUT;
 use crate::{get_fee, MINER_ADDRESS};
-use clarity::{Address as EthAddress, Uint256};
-use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::{Coin, Contact, Fee};
+use gravity_utils::clarity::{Address as EthAddress, Uint256};
+use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
+use gravity_utils::deep_space::{Coin, Contact, Fee};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_proto::gravity::QueryErc20ToDenomRequest;
 use gravity_utils::num_conversion::downcast_uint256;
 use num::Bounded;
 use tonic::transport::Channel;
-use web30::client::Web3;
+use gravity_utils::web30::client::Web3;
 
 // Tests end to end bridge function, then asserts a Uint256 max value deposit of overflowing_erc20 succeeds,
 // then asserts that other token deposits are unaffected by this transfer,
