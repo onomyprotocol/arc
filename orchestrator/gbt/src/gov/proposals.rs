@@ -1,16 +1,19 @@
-use crate::args::AirdropProposalOpts;
-use crate::args::EmergencyBridgeHaltProposalOpts;
-use crate::args::IbcMetadataProposalOpts;
-use crate::{args::OracleUnhaltProposalOpts, utils::TIMEOUT};
-use cosmos_gravity::proposals::AirdropProposalJsonUnparsed;
+use std::{convert::TryInto, fs, process::exit};
+
 use cosmos_gravity::proposals::{
     submit_airdrop_proposal, submit_ibc_metadata_proposal, submit_pause_bridge_proposal,
-    submit_unhalt_bridge_proposal, IbcMetadataProposalJson, PauseBridgeProposalJson,
-    UnhaltBridgeProposalJson,
+    submit_unhalt_bridge_proposal, AirdropProposalJsonUnparsed, IbcMetadataProposalJson,
+    PauseBridgeProposalJson, UnhaltBridgeProposalJson,
 };
 use gravity_utils::connection_prep::create_rpc_connections;
-use std::convert::TryInto;
-use std::{fs, process::exit};
+
+use crate::{
+    args::{
+        AirdropProposalOpts, EmergencyBridgeHaltProposalOpts, IbcMetadataProposalOpts,
+        OracleUnhaltProposalOpts,
+    },
+    utils::TIMEOUT,
+};
 
 pub async fn submit_ibc_metadata(opts: IbcMetadataProposalOpts, prefix: String) {
     let connections = create_rpc_connections(prefix, Some(opts.cosmos_grpc), None, TIMEOUT).await;

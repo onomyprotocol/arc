@@ -1,10 +1,11 @@
-use gravity_utils::clarity::{Address, Uint256};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_utils::types::event_signatures::*;
-use gravity_utils::types::ValsetUpdatedEvent;
-use gravity_utils::{error::GravityError, types::Valset};
+use gravity_utils::{
+    clarity::{Address, Uint256},
+    error::GravityError,
+    types::{event_signatures::*, Valset, ValsetUpdatedEvent},
+    web30::client::Web3,
+};
 use tonic::transport::Channel;
-use gravity_utils::web30::client::Web3;
 
 /// This function finds the latest valset on the Gravity contract by looking back through the event
 /// history and finding the most recent ValsetUpdatedEvent. Most of the time this will be very fast

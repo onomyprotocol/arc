@@ -1,29 +1,31 @@
 //! This is the testing module for relay market functionality, testing that
 //! relayers utilize web30 to interact with a testnet to obtain coin swap values
 //! and determine whether relays should happen or not
-use crate::happy_path::test_erc20_deposit_panic;
-use crate::utils::{get_erc20_balance_safe, send_one_eth, start_orchestrators, ValidatorKeys};
-use crate::MINER_PRIVATE_KEY;
-use crate::TOTAL_TIMEOUT;
-use crate::{one_eth, MINER_ADDRESS};
-use crate::{ADDRESS_PREFIX, OPERATION_TIMEOUT};
-use gravity_utils::clarity::PrivateKey as EthPrivateKey;
-use gravity_utils::clarity::{Address as EthAddress, Uint256};
-use cosmos_gravity::query::get_oldest_unsigned_transaction_batches;
-use cosmos_gravity::send::send_to_eth;
-use gravity_utils::deep_space::coin::Coin;
-use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use gravity_utils::deep_space::{Address, Contact};
+use std::time::{Duration, Instant};
+
+use cosmos_gravity::{query::get_oldest_unsigned_transaction_batches, send::send_to_eth};
 use ethereum_gravity::utils::get_tx_batch_nonce;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_utils::types::GravityBridgeToolsConfig;
+use gravity_utils::{
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey, Address, Contact},
+    types::GravityBridgeToolsConfig,
+    web30::{
+        amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS},
+        client::Web3,
+        jsonrpc::error::Web3Error,
+    },
+};
 use rand::Rng;
-use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use gravity_utils::web30::amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS};
-use gravity_utils::web30::client::Web3;
-use gravity_utils::web30::jsonrpc::error::Web3Error;
+
+use crate::{
+    happy_path::test_erc20_deposit_panic,
+    one_eth,
+    utils::{get_erc20_balance_safe, send_one_eth, start_orchestrators, ValidatorKeys},
+    ADDRESS_PREFIX, MINER_ADDRESS, MINER_PRIVATE_KEY, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
+};
 
 pub async fn relay_market_test(
     web30: &Web3,

@@ -1,9 +1,9 @@
-use super::*;
-use crate::error::GravityError;
-use clarity::Signature as EthSignature;
-use clarity::{utils::hex_str_to_bytes, Address as EthAddress};
+use clarity::{utils::hex_str_to_bytes, Address as EthAddress, Signature as EthSignature};
 use deep_space::Address as CosmosAddress;
 use serde::{Deserialize, Serialize};
+
+use super::*;
+use crate::error::GravityError;
 
 /// the response we get when querying for a valset confirmation
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

@@ -1,19 +1,22 @@
-use crate::{get_fee, one_eth, one_hundred_eth, utils::*, TOTAL_TIMEOUT};
-use gravity_utils::clarity::Address as EthAddress;
+use std::{collections::HashSet, time::Duration};
+
 use cosmos_gravity::{
     query::get_pending_send_to_eth,
     send::{cancel_send_to_eth, send_request_batch, send_to_eth},
 };
-use gravity_utils::deep_space::coin::Coin;
-use gravity_utils::deep_space::Contact;
 use ethereum_gravity::{send_to_cosmos::send_to_cosmos, utils::get_tx_batch_nonce};
 use futures::future::join_all;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
+use gravity_utils::{
+    clarity::Address as EthAddress,
+    deep_space::{coin::Coin, Contact},
+    web30::{client::Web3, types::SendTxOption},
+};
 use rand::seq::SliceRandom;
-use std::{collections::HashSet, time::Duration};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use gravity_utils::web30::{client::Web3, types::SendTxOption};
+
+use crate::{get_fee, one_eth, one_hundred_eth, utils::*, TOTAL_TIMEOUT};
 
 const TIMEOUT: Duration = Duration::from_secs(120);
 

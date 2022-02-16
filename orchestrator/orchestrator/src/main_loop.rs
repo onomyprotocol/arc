@@ -2,37 +2,39 @@
 //! that can only be run by a validator. This single binary the 'Orchestrator' runs not only these two rules but also the untrusted role of a relayer, that does not need any permissions and has it's
 //! own crate and binary so that anyone may run it.
 
-use std::cmp::min;
-use std::time::Duration;
+use std::{cmp::min, time::Duration};
 
-use gravity_utils::clarity::PrivateKey as EthPrivateKey;
-use gravity_utils::clarity::{address::Address as EthAddress, Uint256};
-use gravity_utils::deep_space::error::CosmosGrpcError;
-use gravity_utils::deep_space::Contact;
-use gravity_utils::deep_space::{client::ChainStatus, utils::FeeInfo};
-use gravity_utils::deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey};
-use futures::future::{try_join, try_join3};
-use tokio::time::sleep;
-use tonic::transport::Channel;
-use gravity_utils::web30::client::Web3;
-
-use cosmos_gravity::query::get_gravity_params;
 use cosmos_gravity::{
     query::{
-        get_oldest_unsigned_logic_calls, get_oldest_unsigned_transaction_batches,
-        get_oldest_unsigned_valsets,
+        get_gravity_params, get_oldest_unsigned_logic_calls,
+        get_oldest_unsigned_transaction_batches, get_oldest_unsigned_valsets,
     },
     send::{send_batch_confirm, send_logic_call_confirm, send_valset_confirms},
 };
-use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_utils::error::GravityError;
-use gravity_utils::types::GravityBridgeToolsConfig;
+use futures::future::{try_join, try_join3};
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse,
+    gravity::query_client::QueryClient as GravityQueryClient,
+};
+use gravity_utils::{
+    clarity::{address::Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    deep_space::{
+        client::ChainStatus, coin::Coin, error::CosmosGrpcError,
+        private_key::PrivateKey as CosmosPrivateKey, utils::FeeInfo, Contact,
+    },
+    error::GravityError,
+    types::GravityBridgeToolsConfig,
+    web30::client::Web3,
+};
 use metrics_exporter::{metrics_errors_counter, metrics_latest, metrics_warnings_counter};
 use relayer::main_loop::relayer_main_loop;
+use tokio::time::sleep;
+use tonic::transport::Channel;
 
-use crate::ethereum_event_watcher::get_block_delay;
-use crate::{ethereum_event_watcher::check_for_events, oracle_resync::get_last_checked_block};
+use crate::{
+    ethereum_event_watcher::{check_for_events, get_block_delay},
+    oracle_resync::get_last_checked_block,
+};
 
 /// The execution speed governing all loops in this file
 /// which is to say all loops started by Orchestrator main

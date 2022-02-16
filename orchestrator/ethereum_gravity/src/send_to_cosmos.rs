@@ -1,13 +1,16 @@
 //! Helper functions for sending tokens to Cosmos
 
-use gravity_utils::clarity::abi::{encode_call, Token};
-use gravity_utils::clarity::PrivateKey as EthPrivateKey;
-use gravity_utils::clarity::{Address, Uint256};
-use gravity_utils::deep_space::address::Address as CosmosAddress;
-use gravity_utils::error::GravityError;
 use std::time::{Duration, Instant};
-use gravity_utils::web30::client::Web3;
-use gravity_utils::web30::types::SendTxOption;
+
+use gravity_utils::{
+    clarity::{
+        abi::{encode_call, Token},
+        Address, PrivateKey as EthPrivateKey, Uint256,
+    },
+    deep_space::address::Address as CosmosAddress,
+    error::GravityError,
+    web30::{client::Web3, types::SendTxOption},
+};
 
 pub const SEND_TO_COSMOS_GAS_LIMIT: u128 = 100_000;
 

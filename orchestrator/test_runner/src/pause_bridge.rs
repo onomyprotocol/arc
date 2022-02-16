@@ -1,23 +1,32 @@
 //! this test simulates pausing and unpausing the bridge via governance action. This would be used in an emergency
 //! situation to prevent the bridge from being drained of funds
 //!
-use crate::airdrop_proposal::wait_for_proposals_to_execute;
-use crate::happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result};
-use crate::utils::*;
-use crate::MINER_ADDRESS;
-use crate::{get_fee, OPERATION_TIMEOUT, TOTAL_TIMEOUT};
-use gravity_utils::clarity::Address as EthAddress;
-use cosmos_gravity::query::get_gravity_params;
-use cosmos_gravity::send::{send_request_batch, send_to_eth};
-use gravity_utils::deep_space::coin::Coin;
-use gravity_utils::deep_space::Contact;
-use ethereum_gravity::utils::get_tx_batch_nonce;
-use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use std::time::{Duration, Instant};
+
+use cosmos_gravity::{
+    query::get_gravity_params,
+    send::{send_request_batch, send_to_eth},
+};
+use ethereum_gravity::utils::get_tx_batch_nonce;
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange,
+    gravity::query_client::QueryClient as GravityQueryClient,
+};
+use gravity_utils::{
+    clarity::Address as EthAddress,
+    deep_space::{coin::Coin, Contact},
+    web30::client::Web3,
+};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use gravity_utils::web30::client::Web3;
+
+use crate::{
+    airdrop_proposal::wait_for_proposals_to_execute,
+    get_fee,
+    happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result},
+    utils::*,
+    MINER_ADDRESS, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
+};
 
 /// Tests the bridge pause function, which allows a governance vote
 /// to temporarily stop token transfers while vulnerabilities are dealt with

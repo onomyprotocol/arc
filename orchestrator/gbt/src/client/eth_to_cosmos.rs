@@ -1,12 +1,11 @@
-use crate::args::EthToCosmosOpts;
-use crate::utils::TIMEOUT;
-use ethereum_gravity::send_to_cosmos::send_to_cosmos;
-use ethereum_gravity::utils::get_valset_nonce;
-use gravity_utils::error::GravityError;
+use ethereum_gravity::{send_to_cosmos::send_to_cosmos, utils::get_valset_nonce};
 use gravity_utils::{
     connection_prep::{check_for_eth, create_rpc_connections},
+    error::GravityError,
     num_conversion::fraction_to_exponent,
 };
+
+use crate::{args::EthToCosmosOpts, utils::TIMEOUT};
 
 pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), GravityError> {
     let gravity_address = args.gravity_contract_address;

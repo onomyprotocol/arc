@@ -1,13 +1,18 @@
-use crate::message_signatures::encode_tx_batch_confirm_hashed;
-use crate::utils::{encode_valset_struct, get_tx_batch_nonce, GasCost};
-use gravity_utils::clarity::PrivateKey as EthPrivateKey;
-use gravity_utils::clarity::{Address as EthAddress, Uint256};
-use gravity_utils::error::GravityError;
-use gravity_utils::types::*;
 use std::{cmp::min, time::Duration};
-use gravity_utils::web30::{
-    client::Web3,
-    types::{SendTxOption, TransactionRequest},
+
+use gravity_utils::{
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    error::GravityError,
+    types::*,
+    web30::{
+        client::Web3,
+        types::{SendTxOption, TransactionRequest},
+    },
+};
+
+use crate::{
+    message_signatures::encode_tx_batch_confirm_hashed,
+    utils::{encode_valset_struct, get_tx_batch_nonce, GasCost},
 };
 
 /// this function generates an appropriate Ethereum transaction

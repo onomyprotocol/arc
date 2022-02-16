@@ -2,22 +2,22 @@
 //! the state of both chains and perform the required operations.
 use std::time::Duration;
 
-use gravity_utils::clarity::address::Address as EthAddress;
-use gravity_utils::clarity::PrivateKey as EthPrivateKey;
-use cosmos_gravity::query::get_latest_valsets;
-use cosmos_gravity::query::{get_all_valset_confirms, get_valset};
-use ethereum_gravity::message_signatures::encode_valset_confirm_hashed;
+use cosmos_gravity::query::{get_all_valset_confirms, get_latest_valsets, get_valset};
 use ethereum_gravity::{
-    utils::get_valset_nonce, utils::GasCost, valset_update::send_eth_valset_update,
+    message_signatures::encode_valset_confirm_hashed,
+    utils::{get_valset_nonce, GasCost},
+    valset_update::send_eth_valset_update,
 };
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_utils::error::GravityError;
-use gravity_utils::num_conversion::{print_eth, print_gwei};
-use gravity_utils::prices::get_weth_price;
-use gravity_utils::types::{RelayerConfig, Valset};
-use gravity_utils::types::{ValsetConfirmResponse, ValsetRelayingMode};
+use gravity_utils::{
+    clarity::{address::Address as EthAddress, PrivateKey as EthPrivateKey},
+    error::GravityError,
+    num_conversion::{print_eth, print_gwei},
+    prices::get_weth_price,
+    types::{RelayerConfig, Valset, ValsetConfirmResponse, ValsetRelayingMode},
+    web30::client::Web3,
+};
 use tonic::transport::Channel;
-use gravity_utils::web30::client::Web3;
 
 use crate::batch_relaying::get_cost_with_margin;
 

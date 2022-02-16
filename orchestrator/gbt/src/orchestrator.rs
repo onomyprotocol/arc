@@ -1,24 +1,26 @@
-use crate::args::OrchestratorOpts;
-use crate::config::config_exists;
-use crate::config::load_keys;
-use crate::utils::print_relaying_explanation;
-use gravity_utils::clarity::constants::ZERO_ADDRESS;
+use std::{cmp::min, path::Path, time::Duration};
+
 use cosmos_gravity::query::get_gravity_params;
-use gravity_utils::deep_space::PrivateKey as CosmosPrivateKey;
-use gravity_utils::connection_prep::{
-    check_delegate_addresses, check_for_eth, wait_for_cosmos_node_ready,
+use gravity_utils::{
+    clarity::constants::ZERO_ADDRESS,
+    connection_prep::{
+        check_delegate_addresses, check_for_eth, check_for_fee, create_rpc_connections,
+        wait_for_cosmos_node_ready,
+    },
+    deep_space::PrivateKey as CosmosPrivateKey,
+    error::GravityError,
+    types::{BatchRequestMode, GravityBridgeToolsConfig},
 };
-use gravity_utils::connection_prep::{check_for_fee, create_rpc_connections};
-use gravity_utils::error::GravityError;
-use gravity_utils::types::BatchRequestMode;
-use gravity_utils::types::GravityBridgeToolsConfig;
 use metrics_exporter::metrics_server;
 use orchestrator::main_loop::{
     orchestrator_main_loop, ETH_ORACLE_LOOP_SPEED, ETH_SIGNER_LOOP_SPEED,
 };
-use std::cmp::min;
-use std::path::Path;
-use std::time::Duration;
+
+use crate::{
+    args::OrchestratorOpts,
+    config::{config_exists, load_keys},
+    utils::print_relaying_explanation,
+};
 
 pub async fn orchestrator(
     args: OrchestratorOpts,

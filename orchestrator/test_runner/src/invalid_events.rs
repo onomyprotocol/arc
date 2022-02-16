@@ -2,32 +2,31 @@
 //! with every possible variant of invalid data and ensure that in all cases the community pool deposit
 //! works correctly.
 
-use crate::happy_path::test_erc20_deposit_panic;
-use crate::happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption;
-use crate::one_eth;
-use crate::utils::create_default_test_config;
-use crate::utils::footoken_metadata;
-use crate::utils::get_event_nonce_safe;
-use crate::utils::get_user_key;
-use crate::utils::start_orchestrators;
-use crate::utils::ValidatorKeys;
-use crate::MINER_ADDRESS;
-use crate::MINER_PRIVATE_KEY;
-use crate::TOTAL_TIMEOUT;
-use gravity_utils::clarity::abi::encode_call;
-use gravity_utils::clarity::abi::Token;
-use gravity_utils::clarity::Address as EthAddress;
-use gravity_utils::clarity::Address;
-use gravity_utils::deep_space::Contact;
+use std::time::Instant;
+
 use ethereum_gravity::send_to_cosmos::SEND_TO_COSMOS_GAS_LIMIT;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use rand::distributions::Alphanumeric;
-use rand::thread_rng;
-use rand::Rng;
-use std::time::Instant;
+use gravity_utils::{
+    clarity::{
+        abi::{encode_call, Token},
+        Address as EthAddress, Address,
+    },
+    deep_space::Contact,
+    web30::{client::Web3, types::SendTxOption},
+};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tonic::transport::Channel;
-use gravity_utils::web30::client::Web3;
-use gravity_utils::web30::types::SendTxOption;
+
+use crate::{
+    happy_path::test_erc20_deposit_panic,
+    happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption,
+    one_eth,
+    utils::{
+        create_default_test_config, footoken_metadata, get_event_nonce_safe, get_user_key,
+        start_orchestrators, ValidatorKeys,
+    },
+    MINER_ADDRESS, MINER_PRIVATE_KEY, TOTAL_TIMEOUT,
+};
 
 pub async fn invalid_events(
     web30: &Web3,

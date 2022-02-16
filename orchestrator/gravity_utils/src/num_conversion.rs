@@ -1,6 +1,6 @@
+use std::{u128::MAX as U128MAX, u64::MAX as U64MAX};
+
 use clarity::Uint256;
-use std::u128::MAX as U128MAX;
-use std::u64::MAX as U64MAX;
 
 const ONE_ETH: u128 = 1000000000000000000;
 const ONE_ETH_FLOAT: f64 = ONE_ETH as f64;

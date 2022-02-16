@@ -1,15 +1,16 @@
-use crate::error::GravityError;
-use clarity::Address as EthAddress;
-use num256::Uint256;
-use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 pub use batches::*;
+use clarity::Address as EthAddress;
 pub use config::*;
 pub use ethereum_events::*;
 pub use logic_call::*;
+use num256::Uint256;
+use serde::{Deserialize, Serialize};
 pub use signatures::*;
 pub use valsets::*;
+
+use crate::error::GravityError;
 
 mod batches;
 mod config;

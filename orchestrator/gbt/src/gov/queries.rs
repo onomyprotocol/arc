@@ -1,10 +1,11 @@
-use crate::args::AirdropQueryOpts;
-use cosmos_gravity::send::TIMEOUT;
-use gravity_utils::deep_space::Address;
-use gravity_proto::gravity::AirdropProposal;
-use gravity_utils::connection_prep::create_rpc_connections;
-use prost::{bytes::BytesMut, Message};
 use std::process::exit;
+
+use cosmos_gravity::send::TIMEOUT;
+use gravity_proto::gravity::AirdropProposal;
+use gravity_utils::{connection_prep::create_rpc_connections, deep_space::Address};
+use prost::{bytes::BytesMut, Message};
+
+use crate::args::AirdropQueryOpts;
 
 pub async fn query_airdrops(opts: AirdropQueryOpts, prefix: String) {
     let connections =

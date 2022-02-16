@@ -1,34 +1,19 @@
 use std::convert::TryFrom;
 
-use gravity_utils::clarity::Address as EthAddress;
-use gravity_utils::deep_space::address::Address;
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_proto::gravity::Attestation;
-use gravity_proto::gravity::Params;
-use gravity_proto::gravity::QueryAttestationsRequest;
-use gravity_proto::gravity::QueryBatchConfirmsRequest;
-use gravity_proto::gravity::QueryBatchFeeRequest;
-use gravity_proto::gravity::QueryBatchFeeResponse;
-use gravity_proto::gravity::QueryCurrentValsetRequest;
-use gravity_proto::gravity::QueryDenomToErc20Request;
-use gravity_proto::gravity::QueryDenomToErc20Response;
-use gravity_proto::gravity::QueryErc20ToDenomRequest;
-use gravity_proto::gravity::QueryErc20ToDenomResponse;
-use gravity_proto::gravity::QueryLastEventNonceByAddrRequest;
-use gravity_proto::gravity::QueryLastPendingBatchRequestByAddrRequest;
-use gravity_proto::gravity::QueryLastPendingLogicCallByAddrRequest;
-use gravity_proto::gravity::QueryLastPendingValsetRequestByAddrRequest;
-use gravity_proto::gravity::QueryLastValsetRequestsRequest;
-use gravity_proto::gravity::QueryLogicConfirmsRequest;
-use gravity_proto::gravity::QueryOutgoingLogicCallsRequest;
-use gravity_proto::gravity::QueryOutgoingTxBatchesRequest;
-use gravity_proto::gravity::QueryParamsRequest;
-use gravity_proto::gravity::QueryPendingSendToEth;
-use gravity_proto::gravity::QueryPendingSendToEthResponse;
-use gravity_proto::gravity::QueryValsetConfirmsByNonceRequest;
-use gravity_proto::gravity::QueryValsetRequestRequest;
-use gravity_utils::error::GravityError;
-use gravity_utils::types::*;
+use gravity_proto::gravity::{
+    query_client::QueryClient as GravityQueryClient, Attestation, Params, QueryAttestationsRequest,
+    QueryBatchConfirmsRequest, QueryBatchFeeRequest, QueryBatchFeeResponse,
+    QueryCurrentValsetRequest, QueryDenomToErc20Request, QueryDenomToErc20Response,
+    QueryErc20ToDenomRequest, QueryErc20ToDenomResponse, QueryLastEventNonceByAddrRequest,
+    QueryLastPendingBatchRequestByAddrRequest, QueryLastPendingLogicCallByAddrRequest,
+    QueryLastPendingValsetRequestByAddrRequest, QueryLastValsetRequestsRequest,
+    QueryLogicConfirmsRequest, QueryOutgoingLogicCallsRequest, QueryOutgoingTxBatchesRequest,
+    QueryParamsRequest, QueryPendingSendToEth, QueryPendingSendToEthResponse,
+    QueryValsetConfirmsByNonceRequest, QueryValsetRequestRequest,
+};
+use gravity_utils::{
+    clarity::Address as EthAddress, deep_space::address::Address, error::GravityError, types::*,
+};
 use tonic::transport::Channel;
 
 /// Gets the Gravity module parameters from the Gravity module

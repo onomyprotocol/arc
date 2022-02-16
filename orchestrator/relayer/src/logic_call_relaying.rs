@@ -1,17 +1,21 @@
-use gravity_utils::clarity::{address::Address as EthAddress, utils::bytes_to_hex_str};
-use gravity_utils::clarity::{PrivateKey as EthPrivateKey, Uint256};
+use std::{collections::HashMap, time::Duration};
+
 use cosmos_gravity::query::{get_latest_logic_calls, get_logic_call_signatures};
-use ethereum_gravity::message_signatures::encode_logic_call_confirm_hashed;
-use ethereum_gravity::{logic_call::send_eth_logic_call, utils::get_logic_call_nonce};
+use ethereum_gravity::{
+    logic_call::send_eth_logic_call, message_signatures::encode_logic_call_confirm_hashed,
+    utils::get_logic_call_nonce,
+};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_utils::num_conversion::{print_eth, print_gwei};
-use gravity_utils::types::{LogicCall, RelayerConfig};
-use gravity_utils::types::{LogicCallConfirmResponse, Valset};
-use std::collections::HashMap;
-use std::time::Duration;
+use gravity_utils::{
+    clarity::{
+        address::Address as EthAddress, utils::bytes_to_hex_str, PrivateKey as EthPrivateKey,
+        Uint256,
+    },
+    num_conversion::{print_eth, print_gwei},
+    types::{LogicCall, LogicCallConfirmResponse, RelayerConfig, Valset},
+    web30::{amm::WETH_CONTRACT_ADDRESS, client::Web3},
+};
 use tonic::transport::Channel;
-use gravity_utils::web30::amm::WETH_CONTRACT_ADDRESS;
-use gravity_utils::web30::client::Web3;
 
 // Determines whether or not submitting `logic_call` will be profitable given the estimated `cost`
 // and the current exchange rate available on uniswap

@@ -1,25 +1,24 @@
-use gravity_utils::clarity::address::Address as EthAddress;
-use gravity_utils::clarity::PrivateKey as EthPrivateKey;
-use gravity_utils::clarity::Uint256;
-use cosmos_gravity::query::get_latest_transaction_batches;
-use cosmos_gravity::query::get_transaction_batch_signatures;
-use ethereum_gravity::message_signatures::encode_tx_batch_confirm_hashed;
-use ethereum_gravity::submit_batch::send_eth_transaction_batch;
-use ethereum_gravity::utils::get_tx_batch_nonce;
+use std::{collections::HashMap, sync::Arc, time::Duration};
+
+use cosmos_gravity::query::{get_latest_transaction_batches, get_transaction_batch_signatures};
+use ethereum_gravity::{
+    message_signatures::encode_tx_batch_confirm_hashed, submit_batch::send_eth_transaction_batch,
+    utils::get_tx_batch_nonce,
+};
 use futures::stream::{self, StreamExt};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_utils::num_conversion::print_eth;
-use gravity_utils::num_conversion::print_gwei;
-use gravity_utils::prices::get_weth_price;
-use gravity_utils::types::BatchRelayingMode;
-use gravity_utils::types::WhitelistToken;
-use gravity_utils::types::{BatchConfirmResponse, RelayerConfig, TransactionBatch, Valset};
+use gravity_utils::{
+    clarity::{address::Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    num_conversion::{print_eth, print_gwei},
+    prices::get_weth_price,
+    types::{
+        BatchConfirmResponse, BatchRelayingMode, RelayerConfig, TransactionBatch, Valset,
+        WhitelistToken,
+    },
+    web30::client::Web3,
+};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
 use tonic::transport::Channel;
-use gravity_utils::web30::client::Web3;
 
 #[derive(Debug, Clone)]
 struct SubmittableBatch {

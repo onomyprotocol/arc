@@ -1,17 +1,16 @@
-use crate::ETH_NODE;
-use crate::MINER_PRIVATE_KEY;
-use crate::TOTAL_TIMEOUT;
-use crate::{utils::ValidatorKeys, COSMOS_NODE_ABCI};
-use gravity_utils::clarity::Address as EthAddress;
-use gravity_utils::clarity::PrivateKey as EthPrivateKey;
-use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use gravity_utils::deep_space::Contact;
-use std::process::Command;
-use std::{fs::File, path::Path};
 use std::{
+    fs::File,
     io::{BufRead, BufReader, Read, Write},
-    process::ExitStatus,
+    path::Path,
+    process::{Command, ExitStatus},
 };
+
+use gravity_utils::{
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey},
+    deep_space::{private_key::PrivateKey as CosmosPrivateKey, Contact},
+};
+
+use crate::{utils::ValidatorKeys, COSMOS_NODE_ABCI, ETH_NODE, MINER_PRIVATE_KEY, TOTAL_TIMEOUT};
 
 /// Ethereum private keys for the validators are generated using the gravity eth_keys add command
 /// and dumped into a file /validator-eth-keys in the container, from there they are then used by

@@ -1,8 +1,8 @@
 //! Basic utility functions to stubbornly get data
-use clarity::Address as EthAddress;
-use clarity::Uint256;
-use deep_space::{address::Address as CosmosAddress, Coin, Contact};
 use std::time::Duration;
+
+use clarity::{Address as EthAddress, Uint256};
+use deep_space::{address::Address as CosmosAddress, Coin, Contact};
 use tokio::time::sleep;
 use web30::client::Web3;
 

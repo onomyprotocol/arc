@@ -1,42 +1,37 @@
-use crate::get_deposit;
-use crate::get_fee;
-use crate::ADDRESS_PREFIX;
-use crate::COSMOS_NODE_GRPC;
-use crate::ETH_NODE;
-use crate::STAKING_TOKEN;
-use crate::TOTAL_TIMEOUT;
-use crate::{one_eth, MINER_PRIVATE_KEY};
-use crate::{MINER_ADDRESS, OPERATION_TIMEOUT};
-use gravity_utils::clarity::{Address as EthAddress, Uint256};
-use gravity_utils::clarity::{PrivateKey as EthPrivateKey, Transaction};
-use cosmos_gravity::proposals::submit_parameter_change_proposal;
-use cosmos_gravity::query::get_gravity_params;
-use gravity_utils::deep_space::address::Address as CosmosAddress;
-use gravity_utils::deep_space::coin::Coin;
-use gravity_utils::deep_space::error::CosmosGrpcError;
-use gravity_utils::deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use gravity_utils::deep_space::{Contact, Fee, Msg};
+use std::{
+    panic,
+    time::{Duration, Instant},
+};
+
+use cosmos_gravity::{proposals::submit_parameter_change_proposal, query::get_gravity_params};
 use ethereum_gravity::utils::get_event_nonce;
 use futures::future::join_all;
-use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata;
-use gravity_proto::cosmos_sdk_proto::cosmos::gov::v1beta1::VoteOption;
-use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::{
-    ParamChange, ParameterChangeProposal,
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::{
+        bank::v1beta1::Metadata,
+        gov::v1beta1::VoteOption,
+        params::v1beta1::{ParamChange, ParameterChangeProposal},
+        staking::v1beta1::QueryValidatorsRequest,
+    },
+    gravity::{query_client::QueryClient as GravityQueryClient, MsgSendToCosmosClaim},
 };
-use gravity_proto::cosmos_sdk_proto::cosmos::staking::v1beta1::QueryValidatorsRequest;
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_proto::gravity::MsgSendToCosmosClaim;
-use gravity_utils::types::BatchRelayingMode;
-use gravity_utils::types::BatchRequestMode;
-use gravity_utils::types::GravityBridgeToolsConfig;
-use gravity_utils::types::ValsetRelayingMode;
+use gravity_utils::{
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Transaction, Uint256},
+    deep_space::{
+        address::Address as CosmosAddress, coin::Coin, error::CosmosGrpcError,
+        private_key::PrivateKey as CosmosPrivateKey, Contact, Fee, Msg,
+    },
+    types::{BatchRelayingMode, BatchRequestMode, GravityBridgeToolsConfig, ValsetRelayingMode},
+    web30::{client::Web3, jsonrpc::error::Web3Error, types::SendTxOption},
+};
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
-use std::panic;
-use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use gravity_utils::web30::jsonrpc::error::Web3Error;
-use gravity_utils::web30::{client::Web3, types::SendTxOption};
+
+use crate::{
+    get_deposit, get_fee, one_eth, ADDRESS_PREFIX, COSMOS_NODE_GRPC, ETH_NODE, MINER_ADDRESS,
+    MINER_PRIVATE_KEY, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
+};
 
 /// returns the required denom metadata for deployed the Footoken
 /// token defined in our test environment
@@ -311,7 +306,8 @@ pub async fn start_orchestrators(
         // but that will execute all the orchestrators in our test in parallel
         // by spwaning to tokio's future executor
         let _ = tokio::spawn(async move {
-            let web30 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
+            let web30 =
+                gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
 
             let contact = Contact::new(
                 COSMOS_NODE_GRPC.as_str(),

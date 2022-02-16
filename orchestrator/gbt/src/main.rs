@@ -1,26 +1,34 @@
 #[macro_use]
 extern crate log;
 
-use crate::args::{ClientSubcommand, KeysSubcommand, SubCommand};
-use crate::config::init_config;
-use crate::keys::show_keys;
-use crate::{orchestrator::orchestrator, relayer::relayer};
+use std::process::exit;
+
 use args::{GovQuerySubcommand, GovSubcommand, GovSubmitSubcommand, Opts};
 use clap::Parser;
-use client::cosmos_to_eth::cosmos_to_eth;
-use client::deploy_erc20_representation::deploy_erc20_representation;
-use client::eth_to_cosmos::eth_to_cosmos;
+use client::{
+    cosmos_to_eth::cosmos_to_eth, deploy_erc20_representation::deploy_erc20_representation,
+    eth_to_cosmos::eth_to_cosmos,
+};
 use config::{get_home_dir, load_config};
 use env_logger::Env;
-use gov::proposals::{
-    submit_airdrop, submit_emergency_bridge_halt, submit_ibc_metadata, submit_oracle_unhalt,
+use gov::{
+    proposals::{
+        submit_airdrop, submit_emergency_bridge_halt, submit_ibc_metadata, submit_oracle_unhalt,
+    },
+    queries::query_airdrops,
 };
-use gov::queries::query_airdrops;
 use gravity_utils::error::GravityError;
-use keys::register_orchestrator_address::register_orchestrator_address;
-use keys::set_eth_key;
-use keys::set_orchestrator_key;
-use std::process::exit;
+use keys::{
+    register_orchestrator_address::register_orchestrator_address, set_eth_key, set_orchestrator_key,
+};
+
+use crate::{
+    args::{ClientSubcommand, KeysSubcommand, SubCommand},
+    config::init_config,
+    keys::show_keys,
+    orchestrator::orchestrator,
+    relayer::relayer,
+};
 
 mod args;
 mod client;

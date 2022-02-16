@@ -1,18 +1,17 @@
-use super::*;
-use crate::error::GravityError;
-use clarity::constants::ZERO_ADDRESS;
-use clarity::Address as EthAddress;
-use clarity::Signature as EthSignature;
-use deep_space::error::CosmosGrpcError;
-use deep_space::Address as CosmosAddress;
-use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
-use std::fmt::Debug;
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
+    convert::TryFrom,
     fmt,
+    fmt::Debug,
 };
+
+use clarity::{constants::ZERO_ADDRESS, Address as EthAddress, Signature as EthSignature};
+use deep_space::{error::CosmosGrpcError, Address as CosmosAddress};
+use serde::{Deserialize, Serialize};
+
+use super::*;
+use crate::error::GravityError;
 
 /// The total power in the Gravity bridge is normalized to 2^32 every
 /// time a validator set is created. So this is the total power
