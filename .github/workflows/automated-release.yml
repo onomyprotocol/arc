@@ -43,6 +43,9 @@ jobs:
       - name: Build Gravity.sol
         run: cd solidity && npm ci && npm run typechain
 
+      - name: Build contract deployment script into a static binary
+        run: cd solidity && npm ci && npm run compile-deployer
+
       - name: Build Gravity Bridge tools
         run: |
           cargo install cross
