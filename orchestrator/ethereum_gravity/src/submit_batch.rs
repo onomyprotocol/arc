@@ -1,7 +1,7 @@
 use std::{cmp::min, time::Duration};
 
 use gravity_utils::{
-    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    clarity::{abi::encode_call, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
     error::GravityError,
     types::*,
     web30::{
@@ -170,7 +170,7 @@ fn encode_batch_payload(
         batch.token_contract.into(),
         batch.batch_timeout.into(),
     ];
-    let payload = gravity_utils::clarity::abi::encode_call("submitBatch((address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[],uint256[],address[],uint256[],uint256,address,uint256)",
+    let payload = encode_call("submitBatch((address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[],uint256[],address[],uint256[],uint256,address,uint256)",
     tokens).unwrap();
     trace!("Tokens {:?}", tokens);
 

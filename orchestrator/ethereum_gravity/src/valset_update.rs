@@ -1,7 +1,7 @@
 use std::{cmp::min, time::Duration};
 
 use gravity_utils::{
-    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    clarity::{abi::encode_call, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
     error::GravityError,
     types::*,
     web30::{
@@ -151,7 +151,7 @@ pub fn encode_valset_update_payload(
     // // These are arrays of the parts of the current validator's signatures
     // Signature[] _sigs,
     let tokens = &[new_valset_token, old_valset_token, sig_arrays.sigs];
-    let payload = gravity_utils::clarity::abi::encode_call("updateValset((address[],uint256[],uint256,uint256,address),(address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[])",
+    let payload = encode_call("updateValset((address[],uint256[],uint256,uint256,address),(address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[])",
     tokens).unwrap();
 
     Ok(payload)

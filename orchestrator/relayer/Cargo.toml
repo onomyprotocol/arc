@@ -14,12 +14,12 @@ ethereum_gravity = { path = "../ethereum_gravity" }
 gravity_proto = { path = "../gravity_proto/" }
 gravity_utils = { path = "../gravity_utils" }
 
-futures = "0.3.19"
+futures = "0.3"
 lazy_static = "1"
 log = "0.4"
 num256 = "0.3"
 openssl-probe = "0.1"
 rayon = "1.5.1"
-serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1.17", features = ["macros", "rt-multi-thread"] }
 tonic = "0.6"

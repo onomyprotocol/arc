@@ -10,7 +10,7 @@ gravity_utils = { path = "../gravity_utils" }
 log = "0.4"
 num256 = "0.3"
 sha3 = "0.10"
-tokio = { version = "1.4", features = ["time"] }
+tokio = { version = "1.17", features = ["time"] }
 
 [dev_dependencies]
 rand = "0.8"

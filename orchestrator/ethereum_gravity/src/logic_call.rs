@@ -2,8 +2,9 @@ use std::{cmp::min, time::Duration};
 
 use gravity_utils::{
     clarity::{
-        abi::Token, utils::bytes_to_hex_str, Address as EthAddress, PrivateKey as EthPrivateKey,
-        Uint256,
+        abi::{encode_call, Token},
+        utils::bytes_to_hex_str,
+        Address as EthAddress, PrivateKey as EthPrivateKey, Uint256,
     },
     error::GravityError,
     types::*,
@@ -201,7 +202,7 @@ fn encode_logic_call_payload(
         sig_arrays.sigs,
         Token::Struct(struct_tokens.to_vec()),
     ];
-    let payload = gravity_utils::clarity::abi::encode_call(
+    let payload = encode_call(
         "submitLogicCall((address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[],(uint256[],address[],uint256[],address[],address,bytes,uint256,bytes32,uint256))",
         tokens,
     )

@@ -5,11 +5,13 @@
 mod tests {
     use std::fs::read_to_string;
 
-    use clarity::{
-        utils::{bytes_to_hex_str, hex_str_to_bytes},
-        PrivateKey,
+    use gravity_utils::{
+        clarity::{
+            utils::{bytes_to_hex_str, hex_str_to_bytes},
+            PrivateKey,
+        },
+        types::{Valset, ValsetConfirmResponse, ValsetMember},
     };
-    use gravity_utils::types::{Valset, ValsetConfirmResponse, ValsetMember};
 
     use crate::{
         message_signatures::encode_valset_confirm, valset_update::encode_valset_update_payload,
