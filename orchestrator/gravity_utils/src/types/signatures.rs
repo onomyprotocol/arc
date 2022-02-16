@@ -1,6 +1,7 @@
 use clarity::Signature as EthSignature;
 use clarity::{abi::Token, Address as EthAddress};
 use num256::Uint256;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 /// A sortable struct of a validator and it's signatures

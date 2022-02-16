@@ -6,6 +6,7 @@ use clarity::Signature as EthSignature;
 use clarity::{abi::Token, Address as EthAddress};
 use deep_space::Address as CosmosAddress;
 use log::LevelFilter;
+use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use tokio::join;
 use web30::client::Web3;

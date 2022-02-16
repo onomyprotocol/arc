@@ -14,13 +14,8 @@ deep_space = "2.8"
 log = "0.4"
 num256 = "0.3"
 prost-types = "0.9"
-serde = "1.0"
-serde_derive = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 sha3 = "0.10"
 tokio = { version = "1.4", features = ["macros", "rt-multi-thread"] }
 tonic = "0.6"
 web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4" }
-
-[dev-dependencies]
-env_logger = "0.9"
-rand = "0.8"

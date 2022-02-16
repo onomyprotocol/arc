@@ -4,6 +4,7 @@ use crate::args::InitOpts;
 use clarity::PrivateKey as EthPrivateKey;
 use gravity_utils::error::GravityError;
 use gravity_utils::types::{GravityBridgeToolsConfig, TomlGravityBridgeToolsConfig};
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, create_dir},
     path::{Path, PathBuf},

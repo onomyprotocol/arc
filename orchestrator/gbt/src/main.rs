@@ -1,7 +1,5 @@
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate serde_derive;
 
 use crate::args::{ClientSubcommand, KeysSubcommand, SubCommand};
 use crate::config::init_config;

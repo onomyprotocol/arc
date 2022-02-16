@@ -3,6 +3,7 @@ use crate::error::GravityError;
 use clarity::Signature as EthSignature;
 use clarity::{utils::hex_str_to_bytes, Address as EthAddress};
 use deep_space::Address as CosmosAddress;
+use serde::{Deserialize, Serialize};
 
 /// the response we get when querying for a valset confirmation
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

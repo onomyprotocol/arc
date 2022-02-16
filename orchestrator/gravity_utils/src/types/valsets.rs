@@ -5,6 +5,7 @@ use clarity::Address as EthAddress;
 use clarity::Signature as EthSignature;
 use deep_space::error::CosmosGrpcError;
 use deep_space::Address as CosmosAddress;
+use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::{

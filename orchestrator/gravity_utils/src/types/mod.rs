@@ -1,6 +1,7 @@
 use crate::error::GravityError;
 use clarity::Address as EthAddress;
 use num256::Uint256;
+use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 pub use batches::*;

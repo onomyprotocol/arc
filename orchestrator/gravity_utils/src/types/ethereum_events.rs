@@ -14,6 +14,7 @@ use clarity::Address as EthAddress;
 use deep_space::utils::bytes_to_hex_str;
 use deep_space::Address as CosmosAddress;
 use num256::Uint256;
+use serde::{Deserialize, Serialize};
 use std::unimplemented;
 use web30::types::Log;
 
