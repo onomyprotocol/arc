@@ -6,8 +6,7 @@ scripts like `run-tests.sh` after the container has been built with `build-conta
 run with `start-chains.sh`. `all-up-test.sh` and `run-all-test.sh` automatically run the whole
 process from building the container to executing scripts in it.
 
-NOTE: `git archive ... HEAD` is used so that only committed changes will be used, both in the
-default case and with USE_LOCAL_ARTIFACTS.
+NOTE: in the default case, `git archive ... HEAD` is used so that only committed changes will be used.
 
 ## USE_LOCAL_ARTIFACTS
 
@@ -20,3 +19,7 @@ The default process takes several minutes which makes development cycles slow. I
 `build-container.sh` to use locally built artifacts. The first build in a clean repository will be
 as slow as the default case, but every build afterwards will reuse the local incremental compilation
 data on the Rust and Go sides.
+
+One more thing which can reduce build time is to comment out the line below "build npm artifacts"
+in `build-container.sh` (because `npm` is slow at rebuilding when no changes have been made), but
+only do this after the first build after changes to `solidity/`

@@ -12,7 +12,7 @@ if [[ "${USE_LOCAL_ARTIFACTS:-0}" -eq "0" ]]; then
     npm run typechain
     RUN_ARGS="cargo run --release --bin test-runner"
 else
-    RUN_ARGS=/gravity/orchestrator/target/x86_64-unknown-linux-musl/release/test-runner
+    RUN_ARGS=/gravity/tests/dockerfile/test-runner
 fi
 
 bash /gravity/tests/container-scripts/setup-validators.sh $NODES
