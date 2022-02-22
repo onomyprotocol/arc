@@ -16,11 +16,6 @@ do
     rm -rf "/validator$i"
 done
 
-
-cd /gravity/module/
-export PATH=$PATH:/usr/local/go/bin
-make
-make install
 cd /gravity/
 tests/container-scripts/setup-validators.sh $NODES
 tests/container-scripts/run-testnet.sh $NODES $TEST_TYPE $ALCHEMY_ID

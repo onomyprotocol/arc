@@ -1,12 +1,13 @@
 pub mod register_orchestrator_address;
 
+use std::path::Path;
+
+use gravity_utils::{deep_space::PrivateKey, error::GravityError};
+
 use crate::{
     args::{SetEthereumKeyOpts, SetOrchestratorKeyOpts},
     config::{config_exists, load_keys, save_keys},
 };
-use deep_space::PrivateKey;
-use gravity_utils::error::GravityError;
-use std::path::Path;
 
 pub fn show_keys(home_dir: &Path, prefix: &str) -> Result<(), GravityError> {
     if !config_exists(home_dir) {

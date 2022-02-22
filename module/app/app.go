@@ -61,6 +61,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/gov"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+	sdkgovtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -93,10 +94,10 @@ import (
 	// unnamed import of statik for swagger UI support
 	_ "github.com/cosmos/cosmos-sdk/client/docs/statik"
 
-	gravityparams "github.com/Gravity-Bridge/Gravity-Bridge/module/app/params"
-	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity"
-	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/keeper"
-	gravitytypes "github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
+	gravityparams "github.com/onomyprotocol/cosmos-gravity-bridge/module/app/params"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
+	gravitytypes "github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 )
 
 const appName = "app"
@@ -254,6 +255,9 @@ func init() {
 	}
 
 	DefaultNodeHome = filepath.Join(userHomeDir, ".gravity")
+
+	sdk.DefaultPowerReduction = sdk.NewIntWithDecimal(1, 18)
+	sdkgovtypes.DefaultMinDepositTokens = sdk.NewIntWithDecimal(1, 18)
 }
 
 func NewGravityApp(

@@ -2,7 +2,9 @@ node_modules
 typechain
 target
 tests/test-runner/Cargo.lock
-tests/dockerfile/gravity.tar.gz
+tests/dockerfile/gravity.tar
+tests/dockerfile/gravity
+tests/dockerfile/test-runner
 solidity/dist
 orchestrator/bins
 

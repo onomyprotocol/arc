@@ -1,14 +1,14 @@
-use crate::args::CosmosToEthOpts;
-use crate::utils::TIMEOUT;
-use cosmos_gravity::query::get_denom_to_erc20;
-use cosmos_gravity::send::send_to_eth;
+use std::process::exit;
+
+use cosmos_gravity::{query::get_denom_to_erc20, send::send_to_eth};
 use gravity_proto::gravity::QueryDenomToErc20Request;
-use gravity_utils::error::GravityError;
 use gravity_utils::{
     connection_prep::{check_for_fee, create_rpc_connections},
+    error::GravityError,
     num_conversion::{print_atom, print_eth},
 };
-use std::process::exit;
+
+use crate::{args::CosmosToEthOpts, utils::TIMEOUT};
 
 pub async fn cosmos_to_eth(
     args: CosmosToEthOpts,

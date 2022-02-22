@@ -1,20 +1,26 @@
 //! This is a test for validator set relaying rewards
 
-use crate::airdrop_proposal::wait_for_proposals_to_execute;
-use crate::happy_path::test_valset_update;
-use crate::happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption;
-use crate::utils::{
-    create_parameter_change_proposal, footoken_metadata, get_erc20_balance_safe,
-    vote_yes_on_proposals, ValidatorKeys,
-};
-use clarity::Address as EthAddress;
 use cosmos_gravity::query::get_gravity_params;
-use deep_space::coin::Coin;
-use deep_space::Contact;
-use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange,
+    gravity::query_client::QueryClient as GravityQueryClient,
+};
+use gravity_utils::{
+    clarity::Address as EthAddress,
+    deep_space::{coin::Coin, Contact},
+    web30::client::Web3,
+};
 use tonic::transport::Channel;
-use web30::client::Web3;
+
+use crate::{
+    airdrop_proposal::wait_for_proposals_to_execute,
+    happy_path::test_valset_update,
+    happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption,
+    utils::{
+        create_parameter_change_proposal, footoken_metadata, get_erc20_balance_safe,
+        vote_yes_on_proposals, ValidatorKeys,
+    },
+};
 
 pub async fn valset_rewards_test(
     web30: &Web3,

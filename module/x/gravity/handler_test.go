@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/Gravity-Bridge/Gravity-Bridge/module/config"
-	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/keeper"
-	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
+	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 )
 
 //nolint: exhaustivestruct
@@ -194,6 +194,67 @@ func TestMsgSendToCosmosClaim(t *testing.T) {
 
 	balance = input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
 	assert.Equal(t, sdk.Coins{sdk.NewCoin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", amountB)}, balance)
+}
+
+//nolint: exhaustivestruct
+func TestMsgSendToCosmosClaimWithDenomSwap(t *testing.T) {
+	var (
+		myCosmosAddr, _ = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
+		anyETHAddr      = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
+		tokenETHAddr    = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
+		myBlockTime     = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
+		amountA, _      = sdk.NewIntFromString("50000000000000000000") // 50 ETH
+		swapDenom       = "swap-denom"
+	)
+	input, ctx := keeper.SetupFiveValChain(t)
+	params := input.GravityKeeper.GetParams(input.Context)
+	params.Erc20ToDenomPermanentSwap = types.ERC20ToDenom{
+		Erc20: tokenETHAddr,
+		Denom: swapDenom,
+	}
+	input.GravityKeeper.SetParams(input.Context, params)
+
+	h := NewHandler(input.GravityKeeper)
+
+	myErc20 := types.ERC20Token{
+		Amount:   amountA,
+		Contract: tokenETHAddr,
+	}
+
+	// send attestations from all five validators
+	for _, v := range keeper.OrchAddrs {
+		ethClaim := types.MsgSendToCosmosClaim{
+			EventNonce:     uint64(1),
+			TokenContract:  myErc20.Contract,
+			Amount:         myErc20.Amount,
+			EthereumSender: anyETHAddr,
+			CosmosReceiver: myCosmosAddr.String(),
+			Orchestrator:   v.String(),
+		}
+		// each msg goes into it's own block
+		ctx = ctx.WithBlockTime(myBlockTime)
+		_, err := h(ctx, &ethClaim)
+		EndBlocker(ctx, input.GravityKeeper)
+		require.NoError(t, err)
+
+		// and attestation persisted
+		hash, err := ethClaim.ClaimHash()
+		require.NoError(t, err)
+		a := input.GravityKeeper.GetAttestation(ctx, uint64(1), hash)
+		require.NotNil(t, a)
+
+		// Test to reject duplicate deposit
+		// when
+		ctx = ctx.WithBlockTime(myBlockTime)
+		_, err = h(ctx, &ethClaim)
+		EndBlocker(ctx, input.GravityKeeper)
+		// then
+		require.Error(t, err)
+	}
+
+	// and vouchers added to the account
+	balance := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
+	assert.Equal(t, sdk.Coins{sdk.NewCoin(swapDenom, amountA)}, balance)
 }
 
 //nolint: exhaustivestruct

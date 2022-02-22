@@ -4,18 +4,13 @@ edition = "2018"
 name = "ethereum_gravity"
 version = "0.1.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-gravity_utils = {path = "../gravity_utils"}
+gravity_utils = { path = "../gravity_utils" }
 
-clarity = "0.5"
-deep_space = "2.8"
 log = "0.4"
 num256 = "0.3"
 sha3 = "0.10"
-tokio = {version = "1.4", features = ["time"]}
-web30 = {git = "https://github.com/onomyprotocol/web30.git", rev = "0f96ccd53867bafe4c08ae59a1266ec0256e1cd4"}
+tokio = { version = "1.17", features = ["time"] }
 
 [dev_dependencies]
 rand = "0.8"

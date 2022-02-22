@@ -1,23 +1,24 @@
 //! This is a test for Evidence based slashing, we simply create a bad signature and submit it as evidence
 //! we don't launch the orchestrators here as they are not required.
 
-use clarity::utils::bytes_to_hex_str;
-use clarity::Address as EthAddress;
-use deep_space::PrivateKey;
-use deep_space::{Coin, Contact};
-use web30::client::Web3;
-
 use cosmos_gravity::{send::submit_bad_signature_evidence, utils::BadSignatureEvidence};
-use ethereum_gravity::message_signatures::{encode_valset_confirm, encode_valset_confirm_hashed};
-use ethereum_gravity::utils::get_gravity_id;
+use ethereum_gravity::{
+    message_signatures::{encode_valset_confirm, encode_valset_confirm_hashed},
+    utils::get_gravity_id,
+};
 use gravity_proto::cosmos_sdk_proto::cosmos::staking::v1beta1::QueryValidatorsRequest;
-use gravity_utils::types::{Valset, ValsetMember};
+use gravity_utils::{
+    clarity::{utils::bytes_to_hex_str, Address as EthAddress},
+    deep_space::{Coin, Contact, PrivateKey},
+    types::{Valset, ValsetMember},
+    web30::client::Web3,
+};
 
-use crate::utils::ValidatorKeys;
-use crate::STAKING_TOKEN;
-use crate::STARTING_STAKE_PER_VALIDATOR;
-use crate::TOTAL_TIMEOUT;
-use crate::{get_fee, utils::get_operator_address};
+use crate::{
+    get_fee,
+    utils::{get_operator_address, ValidatorKeys},
+    STAKING_TOKEN, STARTING_STAKE_PER_VALIDATOR, TOTAL_TIMEOUT,
+};
 
 pub async fn evidence_based_slashing(
     web30: &Web3,

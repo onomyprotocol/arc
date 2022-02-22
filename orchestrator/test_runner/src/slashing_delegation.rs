@@ -2,18 +2,24 @@
 //! after a bug caused delegations and delegation withdraws to fail when a validator was slashed in a specific way
 //! and exists to prevent regressions and hopefully find any new bugs of the same nature
 
-use crate::happy_path::test_valset_update;
-use crate::signature_slashing::{reduce_slashing_window, wait_for_height};
-use crate::utils::{
-    create_default_test_config, get_operator_address, get_user_key, start_orchestrators,
-    ValidatorKeys,
-};
-use crate::{get_fee, STAKING_TOKEN, TOTAL_TIMEOUT};
-use clarity::Address as EthAddress;
-use deep_space::{Coin, Contact};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
+use gravity_utils::{
+    clarity::Address as EthAddress,
+    deep_space::{Coin, Contact},
+    web30::client::Web3,
+};
 use tonic::transport::Channel;
-use web30::client::Web3;
+
+use crate::{
+    get_fee,
+    happy_path::test_valset_update,
+    signature_slashing::{reduce_slashing_window, wait_for_height},
+    utils::{
+        create_default_test_config, get_operator_address, get_user_key, start_orchestrators,
+        ValidatorKeys,
+    },
+    STAKING_TOKEN, TOTAL_TIMEOUT,
+};
 
 pub async fn slashing_delegation_test(
     web30: &Web3,

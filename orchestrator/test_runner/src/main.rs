@@ -6,33 +6,31 @@
 #[macro_use]
 extern crate log;
 
-use crate::airdrop_proposal::airdrop_proposal_test;
-use crate::bootstrapping::*;
-use crate::deposit_overflow::deposit_overflow_test;
-use crate::ethereum_blacklist_test::ethereum_blacklist_test;
-use crate::ibc_metadata::ibc_metadata_proposal_test;
-use crate::invalid_events::invalid_events;
-use crate::pause_bridge::pause_bridge_test;
-use crate::signature_slashing::signature_slashing_test;
-use crate::slashing_delegation::slashing_delegation_test;
-use crate::tx_cancel::send_to_eth_and_cancel;
-use crate::utils::*;
-use crate::valset_rewards::valset_rewards_test;
-use clarity::PrivateKey as EthPrivateKey;
-use clarity::{Address as EthAddress, Uint256};
-use deep_space::coin::Coin;
-use deep_space::Contact;
+use std::{env, time::Duration};
+
 use evidence_based_slashing::evidence_based_slashing;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
+use gravity_utils::{
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    deep_space::{coin::Coin, Contact},
+};
 use happy_path::happy_path_test;
 use happy_path_v2::happy_path_test_v2;
 use lazy_static::lazy_static;
 use orch_keys::orch_keys;
 use relay_market::relay_market_test;
-use std::{env, time::Duration};
 use transaction_stress_test::transaction_stress_test;
 use unhalt_bridge::unhalt_bridge_test;
 use valset_stress::validator_set_stress_test;
+
+use crate::{
+    airdrop_proposal::airdrop_proposal_test, bootstrapping::*,
+    deposit_overflow::deposit_overflow_test, ethereum_blacklist_test::ethereum_blacklist_test,
+    ibc_metadata::ibc_metadata_proposal_test, invalid_events::invalid_events,
+    pause_bridge::pause_bridge_test, signature_slashing::signature_slashing_test,
+    slashing_delegation::slashing_delegation_test, tx_cancel::send_to_eth_and_cancel, utils::*,
+    valset_rewards::valset_rewards_test,
+};
 
 mod airdrop_proposal;
 mod bootstrapping;
@@ -77,7 +75,7 @@ lazy_static! {
 /// this value reflects the contents of /tests/container-scripts/setup-validator.sh
 /// and is used to compute if a stake change is big enough to trigger a validator set
 /// update since we want to make several such changes intentionally
-pub const STAKE_SUPPLY_PER_VALIDATOR: u128 = 1000000000;
+pub const STAKE_SUPPLY_PER_VALIDATOR: u128 = 1000000000000000000000;
 /// this is the amount each validator bonds at startup
 pub const STARTING_STAKE_PER_VALIDATOR: u128 = STAKE_SUPPLY_PER_VALIDATOR / 2;
 
@@ -106,10 +104,9 @@ pub fn get_fee() -> Coin {
 pub fn get_deposit() -> Coin {
     Coin {
         denom: STAKING_TOKEN.to_string(),
-        amount: 1_000_000_000u64.into(),
+        amount: 1000000000000000000u128.into(), // 10^18
     }
 }
-
 pub fn get_test_token_name() -> String {
     "footoken".to_string()
 }
@@ -150,7 +147,7 @@ pub async fn main() {
     let grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())
         .await
         .unwrap();
-    let web30 = web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
+    let web30 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
     let keys = get_keys();
 
     // if we detect this env var we are only deploying contracts, do that then exit.

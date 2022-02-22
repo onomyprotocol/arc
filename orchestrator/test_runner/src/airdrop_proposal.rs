@@ -1,29 +1,35 @@
 //! This is a test for the Airdrop proposal governance handler, which allows the community to propose
 //! and automatically execute an Airdrop out of the community pool
 
-use crate::utils::{get_coins, vote_yes_on_proposals, ValidatorKeys};
-use crate::ADDRESS_PREFIX;
-use crate::STAKING_TOKEN;
-use crate::{get_deposit, get_fee, TOTAL_TIMEOUT};
-use clarity::Uint256;
+use std::time::{Duration, Instant};
+
 use cosmos_gravity::proposals::{
     submit_airdrop_proposal, AirdropProposalJson, AIRDROP_PROPOSAL_TYPE_URL,
 };
-use deep_space::error::CosmosGrpcError;
-use deep_space::utils::encode_any;
-use deep_space::Address as CosmosAddress;
-use deep_space::Contact;
 use gravity_proto::gravity::AirdropProposal as AirdropProposalMsg;
-use rand::prelude::ThreadRng;
-use rand::Rng;
-use std::time::{Duration, Instant};
+use gravity_utils::{
+    clarity::Uint256,
+    deep_space::{error::CosmosGrpcError, utils::encode_any, Address as CosmosAddress, Contact},
+};
+use num::ToPrimitive;
+use rand::{prelude::ThreadRng, Rng};
 use tokio::time::sleep;
 
-const NUM_AIRDROP_RECIPIENTS: usize = 45_000;
+use crate::{
+    get_deposit, get_fee,
+    utils::{get_coins, vote_yes_on_proposals, ValidatorKeys},
+    ADDRESS_PREFIX, STAKING_TOKEN, TOTAL_TIMEOUT,
+};
+
+const NUM_AIRDROP_RECIPIENTS: usize = 40_000;
 // note this test can only be run once because we exhaust the community pool
 // after that the chain must be restarted to reset that state.
 pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) {
     let community_pool_contents_start = contact.query_community_pool().await.unwrap();
+    info!(
+        "Current community pool: {:?}",
+        &community_pool_contents_start
+    );
     let starting_amount_in_pool =
         get_coins(&*STAKING_TOKEN, &community_pool_contents_start).unwrap();
     let bad_airdrop_denom = "notoken".to_string();
@@ -31,7 +37,7 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
     info!("Starting user key generation");
     let mut rng = rand::thread_rng();
     let (user_addresses, amounts) =
-        generate_valid_accounts_and_amounts(&mut rng, starting_amount_in_pool.amount.clone());
+        generate_accounts_and_amounts(&mut rng, starting_amount_in_pool.amount.clone());
     info!("Finished user key generation");
 
     // submit an invalid airdrop token type
@@ -192,6 +198,10 @@ async fn submit_and_fail_airdrop_proposal(
         )
         .await;
     assert!(res.is_err());
+    info!(
+        "Handled expected create gov airdrop proposal error: {:?}",
+        res.err()
+    )
 }
 
 /// waits for the governance proposal to execute by waiting for it to leave
@@ -212,30 +222,24 @@ pub async fn wait_for_proposals_to_execute(contact: &Contact) {
     }
 }
 
-fn generate_accounts_and_amounts(rng: &mut ThreadRng) -> (Vec<CosmosAddress>, Vec<u64>) {
+fn generate_accounts_and_amounts(
+    rng: &mut ThreadRng,
+    max: Uint256,
+) -> (Vec<CosmosAddress>, Vec<u64>) {
     // Generate user keys for the airdrop, converting between private key and address
-    // is quite slow, so we skip that step and go directly to an address
+    // is quite slow, so we skip that step and go directly to an address.
+    // The total sum of amounts will be a bit less than the max.
     let mut user_addresses = Vec::new();
     let mut amounts: Vec<u64> = Vec::new();
     for _ in 0..NUM_AIRDROP_RECIPIENTS {
         let secret: [u8; 20] = rng.gen();
-        let amount: u32 = rng.gen();
+        let amount: u64 = (max.clone() / NUM_AIRDROP_RECIPIENTS.into())
+            .to_u64()
+            .unwrap()
+            - rng.gen_range(0..100);
         let cosmos_address = CosmosAddress::from_bytes(secret, ADDRESS_PREFIX.as_str()).unwrap();
         user_addresses.push(cosmos_address);
-        amounts.push(amount.into())
-    }
-    (user_addresses, amounts)
-}
-
-fn generate_valid_accounts_and_amounts(
-    rng: &mut ThreadRng,
-    max: Uint256,
-) -> (Vec<CosmosAddress>, Vec<u64>) {
-    let (user_addresses, mut amounts) = generate_accounts_and_amounts(rng);
-    while total_array_u256(&amounts) > max {
-        let random_idx = rng.gen_range(0..amounts.len());
-        let new_val: u16 = rng.gen();
-        amounts[random_idx] = new_val.into();
+        amounts.push(amount)
     }
     (user_addresses, amounts)
 }
@@ -246,8 +250,4 @@ fn total_array(input: &[u64]) -> u64 {
         out += *v
     }
     out
-}
-
-fn total_array_u256(input: &[u64]) -> Uint256 {
-    total_array(input).into()
 }

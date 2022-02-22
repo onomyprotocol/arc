@@ -1,10 +1,11 @@
+use std::net::SocketAddr;
+
 use gravity_utils::types::MetricsConfig;
 use lazy_static::lazy_static;
 use prometheus_exporter::prometheus::{
-    register_int_counter, register_int_counter_vec, register_int_gauge_vec,
+    register_int_counter, register_int_counter_vec, register_int_gauge_vec, IntCounter,
+    IntCounterVec, IntGaugeVec,
 };
-use prometheus_exporter::prometheus::{IntCounter, IntCounterVec, IntGaugeVec};
-use std::net::SocketAddr;
 
 lazy_static! {
 

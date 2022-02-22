@@ -2,22 +2,25 @@
 //! It's a common problem to have conflicts between ipv4 and ipv6 localhost and this module is first and foremost supposed to resolve that problem
 //! by trying more than one thing to handle potentially misconfigured inputs.
 
-use crate::error::GravityError;
-use crate::get_with_retry::get_balances_with_retry;
-use crate::get_with_retry::get_eth_balances_with_retry;
-use clarity::Address as EthAddress;
-use deep_space::error::CosmosGrpcError;
-use deep_space::Address as CosmosAddress;
-use deep_space::Contact;
-use deep_space::{client::ChainStatus, Coin};
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_proto::gravity::QueryDelegateKeysByEthAddress;
-use gravity_proto::gravity::QueryDelegateKeysByOrchestratorAddress;
 use std::time::Duration;
+
+use clarity::Address as EthAddress;
+use deep_space::{
+    client::ChainStatus, error::CosmosGrpcError, Address as CosmosAddress, Coin, Contact,
+};
+use gravity_proto::gravity::{
+    query_client::QueryClient as GravityQueryClient, QueryDelegateKeysByEthAddress,
+    QueryDelegateKeysByOrchestratorAddress,
+};
 use tokio::time::sleep as delay_for;
 use tonic::transport::Channel;
 use url::Url;
 use web30::client::Web3;
+
+use crate::{
+    error::GravityError,
+    get_with_retry::{get_balances_with_retry, get_eth_balances_with_retry},
+};
 
 pub struct Connections {
     pub web3: Option<Web3>,
@@ -273,7 +276,7 @@ pub async fn check_delegate_addresses(
                 error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
                 error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
                 error!("If you can not find the private key and phrase for these addresses you will need to create a new validator");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
                     "Ethereum orchestrator addresses incorrect".into(),
                 ))
@@ -285,7 +288,7 @@ pub async fn check_delegate_addresses(
                 );
                 error!("In order to resolve this issue locate the private key you registered for this validator and run the following command");
                 error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
                     "Delegate Ethereum address is incorrect".into(),
                 ))
@@ -297,7 +300,7 @@ pub async fn check_delegate_addresses(
                 );
                 error!("In order to resolve this issue locate the key phrase you registered for this validator and run the following command");
                 error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
                     "Delegate Orchestrator address is incorrect".into(),
                 ))
@@ -306,7 +309,7 @@ pub async fn check_delegate_addresses(
                     "You are using Gravity delegate keys from two different validator addresses!"
                 );
                 error!("If you get this error message I would just blow everything away and start again");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
                     "Delegate keys from two different validator addresses".into(),
                 ))
@@ -316,7 +319,7 @@ pub async fn check_delegate_addresses(
         }
         (Err(e), Ok(_)) => {
             error!("Your Gravity Orchestrator Ethereum key is incorrect, please double check you private key. If you can't locate the correct private key you will need to create a new validator {:?}", e);
-            error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+            error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
             Err(GravityError::UnrecoverableError(format!(
                 "Your delegate Ethereum address is incorrect: {:?}",
                 e
@@ -324,7 +327,7 @@ pub async fn check_delegate_addresses(
         }
         (Ok(_), Err(e)) => {
             error!("Your Gravity Orchestrator Cosmos key is incorrect, please double check your phrase. If you can't locate the correct phrase you will need to create a new validator {:?}", e);
-            error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+            error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
             Err(GravityError::UnrecoverableError(format!(
                 "Gravity Orchestrator Cosmos key is incorrect: {:?}",
                 e
@@ -334,7 +337,7 @@ pub async fn check_delegate_addresses(
             error!("Gravity Delegate keys are not set! Please Register your Gravity delegate keys");
             error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
             error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
-            error!("If you are seeing this error please read this documentation carefully https://github.com/Gravity-Bridge/Gravity-Docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
+            error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
             Err(GravityError::UnrecoverableError(
                 "Delegate keys are not set".into(),
             ))

@@ -8,10 +8,8 @@ authors = ["Max Nikolaev <maxn@amhost.net>"]
 name = "metrics_exporter"
 path = "src/metrics_exporter.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-gravity_utils = {path = "../gravity_utils"}
+gravity_utils = { path = "../gravity_utils" }
 
-prometheus_exporter = {git="https://github.com/jkilpatr/prometheus_exporter", rev="c6a720a907db92a4d620d3fd54ac5bb656a1fad6"}
 lazy_static = "1.4"
+prometheus_exporter = { git = "https://github.com/jkilpatr/prometheus_exporter", rev = "c6a720a907db92a4d620d3fd54ac5bb656a1fad6" }

@@ -3,15 +3,17 @@
 //! logic has not been implemented. If at some point in the future that is implemented it would be
 //! checked in this test
 
-use crate::utils::ValidatorKeys;
-use clarity::Address as EthAddress;
-use deep_space::address::Address as CosmosAddress;
-use deep_space::Contact;
 use gravity_proto::gravity::{
     query_client::QueryClient as GravityQueryClient, QueryDelegateKeysByEthAddress,
     QueryDelegateKeysByOrchestratorAddress,
 };
+use gravity_utils::{
+    clarity::Address as EthAddress,
+    deep_space::{address::Address as CosmosAddress, Contact},
+};
 use tonic::transport::Channel;
+
+use crate::utils::ValidatorKeys;
 
 pub async fn orch_keys(
     grpc_client: GravityQueryClient<Channel>,

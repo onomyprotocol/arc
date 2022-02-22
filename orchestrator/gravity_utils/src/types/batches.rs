@@ -1,14 +1,18 @@
-use super::*;
-use crate::error::GravityError;
-use crate::num_conversion::print_eth;
-use crate::prices::{get_dai_price, get_weth_price};
-use clarity::Signature as EthSignature;
-use clarity::{abi::Token, Address as EthAddress};
+use std::convert::TryFrom;
+
+use clarity::{abi::Token, Address as EthAddress, Signature as EthSignature};
 use deep_space::Address as CosmosAddress;
 use log::LevelFilter;
-use std::convert::TryFrom;
+use serde::{Deserialize, Serialize};
 use tokio::join;
 use web30::client::Web3;
+
+use super::*;
+use crate::{
+    error::GravityError,
+    num_conversion::print_eth,
+    prices::{get_dai_price, get_weth_price},
+};
 
 /// This represents an individual transaction being bridged over to Ethereum
 /// parallel is the OutgoingTransferTx in x/gravity/types/batch.go

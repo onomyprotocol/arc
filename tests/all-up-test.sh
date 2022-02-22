@@ -3,6 +3,7 @@ set -eux
 # the directory of this script, useful for allowing this script
 # to be run with any PWD
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+REPOFOLDER=$DIR/..
 
 # builds the container containing various system deps
 # also builds Gravity once in order to cache Go deps, this container
@@ -32,11 +33,12 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
        PLATFORM_CMD="--platform=linux/amd64"; fi
 fi
 
-if [ ! -v ETH_NODE ] #note the lack of a $ sigil
-then
-    echo "Variable ETH_NODE is unset"
-    exit 1
+# use value instead of git archive in case of USE_LOCAL_ARTIFACTS tests
+if [[ "${USE_LOCAL_ARTIFACTS:-0}" -eq "0" ]]; then
+   VOLUME_ARGS=""
+else
+   VOLUME_ARGS="-v $REPOFOLDER:/gravity"
 fi
 
 # Run new test container instance
-docker run --name gravity_all_up_test_instance -e ETH_NODE=$ETH_NODE $PLATFORM_CMD --cap-add=NET_ADMIN -t gravity-base /bin/bash /gravity/tests/container-scripts/all-up-test-internal.sh $NODES $TEST_TYPE $ALCHEMY_ID
+docker run --name gravity_all_up_test_instance $VOLUME_ARGS --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} $PLATFORM_CMD --cap-add=NET_ADMIN -t gravity-base /bin/bash /gravity/tests/container-scripts/all-up-test-internal.sh $NODES $TEST_TYPE $ALCHEMY_ID

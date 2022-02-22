@@ -1,18 +1,19 @@
-use crate::args::RegisterOrchestratorAddressOpts;
-use crate::config::config_exists;
-use crate::config::load_keys;
-use crate::config::save_keys;
-use crate::config::KeyStorage;
-use crate::utils::TIMEOUT;
-use clarity::PrivateKey as EthPrivateKey;
-use cosmos_gravity::send::set_gravity_delegate_addresses;
-use deep_space::{mnemonic::Mnemonic, private_key::PrivateKey as CosmosPrivateKey};
-use gravity_utils::connection_prep::{
-    check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready,
-};
-use gravity_utils::error::GravityError;
-use rand::{thread_rng, Rng};
 use std::path::PathBuf;
+
+use cosmos_gravity::send::set_gravity_delegate_addresses;
+use gravity_utils::{
+    clarity::PrivateKey as EthPrivateKey,
+    connection_prep::{check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready},
+    deep_space::{mnemonic::Mnemonic, private_key::PrivateKey as CosmosPrivateKey},
+    error::GravityError,
+};
+use rand::{thread_rng, Rng};
+
+use crate::{
+    args::RegisterOrchestratorAddressOpts,
+    config::{config_exists, load_keys, save_keys, KeyStorage},
+    utils::TIMEOUT,
+};
 
 pub async fn register_orchestrator_address(
     args: RegisterOrchestratorAddressOpts,
@@ -125,7 +126,7 @@ pub async fn register_orchestrator_address(
         let phrase = match (generated_cosmos, cosmos_phrase) {
             (Some(v), None) => v.to_string(),
             (None, Some(s)) => s,
-            (_, _) => {
+            (..) => {
                 // in this case the user has set keys in the config
                 // and then registered them so lets just load the config
                 // value again

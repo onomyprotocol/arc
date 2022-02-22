@@ -10,8 +10,8 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 
-	"github.com/Gravity-Bridge/Gravity-Bridge/module/x/gravity/types"
 	distypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 )
 
 // Check that distKeeper implements the expected type
@@ -103,6 +103,7 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation, claim
 			swapPair := a.keeper.GetParams(ctx).Erc20ToDenomPermanentSwap
 			if swapPair.Erc20 != "" && swapPair.Denom != "" && denom == types.ModuleName+swapPair.Erc20 {
 				denom = swapPair.Denom
+				coins[0].Denom = swapPair.Denom
 			}
 			// We need to mint eth-originated coins (aka vouchers)
 			// Make sure that users are not bridging an impossible amount
