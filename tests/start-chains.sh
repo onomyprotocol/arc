@@ -24,4 +24,4 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
        PLATFORM_CMD="--platform=linux/amd64"; fi
 fi
 # Run new test container instance
-docker run --name gravity_test_instance --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} $PLATFORM_CMD --mount type=bind,source="$(pwd)"/,target=/gravity --cap-add=NET_ADMIN -p 9090:9090 -p 26657:26657 -p 1317:1317 -p 8545:8545 -it gravity-base /bin/bash /gravity/tests/container-scripts/reload-code.sh $NODES $TEST_TYPE $ALCHEMY_ID
+docker run --name gravity_test_instance --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} --env ETH_NODE=$ETH_NODE $PLATFORM_CMD --mount type=bind,source="$(pwd)"/,target=/gravity --cap-add=NET_ADMIN -p 9090:9090 -p 26657:26657 -p 1317:1317 -p 8545:8545 -it gravity-base /bin/bash /gravity/tests/container-scripts/reload-code.sh $NODES $TEST_TYPE $ALCHEMY_ID

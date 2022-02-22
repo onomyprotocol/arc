@@ -41,4 +41,4 @@ else
 fi
 
 # Run new test container instance
-docker run --name gravity_all_up_test_instance $VOLUME_ARGS --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} $PLATFORM_CMD --cap-add=NET_ADMIN -t gravity-base /bin/bash /gravity/tests/container-scripts/all-up-test-internal.sh $NODES $TEST_TYPE $ALCHEMY_ID
+docker run --name gravity_all_up_test_instance $VOLUME_ARGS --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} --env ETH_NODE=$ETH_NODE $PLATFORM_CMD --cap-add=NET_ADMIN -t gravity-base /bin/bash /gravity/tests/container-scripts/all-up-test-internal.sh $NODES $TEST_TYPE $ALCHEMY_ID
