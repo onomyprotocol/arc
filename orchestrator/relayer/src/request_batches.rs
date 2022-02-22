@@ -3,17 +3,19 @@
 //! By having batches requested by relayers instead of created automatically the chain can outsource
 //! the significant work of checking if a batch is profitable before creating it
 
-use clarity::Address as EthAddress;
-use clarity::Uint256;
-use cosmos_gravity::query::get_erc20_to_denom;
-use cosmos_gravity::query::get_pending_batch_fees;
-use cosmos_gravity::send::send_request_batch;
-use deep_space::{Coin, Contact, PrivateKey};
+use cosmos_gravity::{
+    query::{get_erc20_to_denom, get_pending_batch_fees},
+    send::send_request_batch,
+};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_utils::prices::get_weth_price;
-use gravity_utils::types::BatchRequestMode;
+use gravity_utils::{
+    clarity::{Address as EthAddress, Uint256},
+    deep_space::{Coin, Contact, PrivateKey},
+    prices::get_weth_price,
+    types::BatchRequestMode,
+    web30::client::Web3,
+};
 use tonic::transport::Channel;
-use web30::client::Web3;
 
 pub async fn request_batches(
     contact: &Contact,

@@ -1,24 +1,21 @@
 //! This file handles submitting and querying governance proposals custom to Gravity bridge
 
-use deep_space::error::AddressError;
-use deep_space::error::CosmosGrpcError;
-use deep_space::utils::encode_any;
-use deep_space::Address;
-use deep_space::Coin;
-use deep_space::Contact;
-use deep_space::PrivateKey;
-use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::DenomUnit;
-use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata;
-use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;
-use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
-use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParameterChangeProposal;
-use gravity_proto::gravity::AirdropProposal as AirdropProposalMsg;
-use gravity_proto::gravity::IbcMetadataProposal;
-use gravity_proto::gravity::UnhaltBridgeProposal;
-use serde::Deserialize;
-use serde::Serialize;
-use std::convert::TryFrom;
-use std::time::Duration;
+use std::{convert::TryFrom, time::Duration};
+
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::{
+        bank::v1beta1::{DenomUnit, Metadata},
+        base::abci::v1beta1::TxResponse,
+        params::v1beta1::{ParamChange, ParameterChangeProposal},
+    },
+    gravity::{AirdropProposal as AirdropProposalMsg, IbcMetadataProposal, UnhaltBridgeProposal},
+};
+use gravity_utils::deep_space::{
+    error::{AddressError, CosmosGrpcError},
+    utils::encode_any,
+    Address, Coin, Contact, PrivateKey,
+};
+use serde::{Deserialize, Serialize};
 
 pub const AIRDROP_PROPOSAL_TYPE_URL: &str = "/gravity.v1.AirdropProposal";
 pub const UNHALT_BRIDGE_PROPOSAL_TYPE_URL: &str = "/gravity.v1.UnhaltBridgeProposal";

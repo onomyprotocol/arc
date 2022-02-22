@@ -8,13 +8,14 @@
 // delete all files except gravity.v1.rs
 // re-write calls to super::super::cosmos as cosmos-sdk-proto::cosmos
 
-use regex::Regex;
 use std::{
     ffi::OsStr,
     fs::{self, create_dir_all, remove_dir_all},
-    path::PathBuf,
+    io,
+    path::{Path, PathBuf},
 };
-use std::{io, path::Path};
+
+use regex::Regex;
 use walkdir::WalkDir;
 
 /// Protos belonging to these Protobuf packages will be excluded

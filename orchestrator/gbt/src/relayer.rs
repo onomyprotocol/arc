@@ -1,20 +1,22 @@
-use crate::args::RelayerOpts;
-use crate::config::config_exists;
-use crate::config::load_keys;
-use crate::utils::print_relaying_explanation;
-use clarity::constants::ZERO_ADDRESS;
-use cosmos_gravity::query::get_gravity_params;
-use deep_space::PrivateKey as CosmosPrivateKey;
-use gravity_utils::connection_prep::check_for_fee;
-use gravity_utils::connection_prep::{
-    check_for_eth, create_rpc_connections, wait_for_cosmos_node_ready,
-};
-use gravity_utils::error::GravityError;
-use gravity_utils::types::BatchRequestMode;
-use gravity_utils::types::RelayerConfig;
-use relayer::main_loop::relayer_main_loop;
-use relayer::main_loop::TIMEOUT;
 use std::path::Path;
+
+use cosmos_gravity::query::get_gravity_params;
+use gravity_utils::{
+    clarity::constants::ZERO_ADDRESS,
+    connection_prep::{
+        check_for_eth, check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready,
+    },
+    deep_space::PrivateKey as CosmosPrivateKey,
+    error::GravityError,
+    types::{BatchRequestMode, RelayerConfig},
+};
+use relayer::main_loop::{relayer_main_loop, TIMEOUT};
+
+use crate::{
+    args::RelayerOpts,
+    config::{config_exists, load_keys},
+    utils::print_relaying_explanation,
+};
 
 pub async fn relayer(
     args: RelayerOpts,

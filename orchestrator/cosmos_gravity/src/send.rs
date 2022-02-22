@@ -1,30 +1,28 @@
-use clarity::{constants::ZERO_ADDRESS, Address as EthAddress};
-use clarity::{PrivateKey as EthPrivateKey, Signature};
-use deep_space::address::Address;
-use deep_space::error::CosmosGrpcError;
-use deep_space::private_key::PrivateKey;
-use deep_space::Contact;
-use deep_space::Msg;
-use deep_space::{coin::Coin, utils::bytes_to_hex_str};
+use std::{collections::BTreeMap, time::Duration};
+
 use ethereum_gravity::message_signatures::{
     encode_logic_call_confirm, encode_tx_batch_confirm, encode_valset_confirm,
 };
-use gravity_proto::cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse;
-use gravity_proto::gravity::MsgConfirmLogicCall;
-use gravity_proto::gravity::MsgErc20DeployedClaim;
-use gravity_proto::gravity::MsgLogicCallExecutedClaim;
-use gravity_proto::gravity::MsgRequestBatch;
-use gravity_proto::gravity::MsgSendToCosmosClaim;
-use gravity_proto::gravity::MsgSendToEth;
-use gravity_proto::gravity::MsgSetOrchestratorAddress;
-use gravity_proto::gravity::MsgValsetConfirm;
-use gravity_proto::gravity::MsgValsetUpdatedClaim;
-use gravity_proto::gravity::{MsgBatchSendToEthClaim, MsgSubmitBadSignatureEvidence};
-use gravity_proto::gravity::{MsgCancelSendToEth, MsgConfirmBatch};
-use gravity_utils::num_conversion::downcast_uint256;
-use gravity_utils::types::*;
-use std::collections::BTreeMap;
-use std::time::Duration;
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::base::abci::v1beta1::TxResponse,
+    gravity::{
+        MsgBatchSendToEthClaim, MsgCancelSendToEth, MsgConfirmBatch, MsgConfirmLogicCall,
+        MsgErc20DeployedClaim, MsgLogicCallExecutedClaim, MsgRequestBatch, MsgSendToCosmosClaim,
+        MsgSendToEth, MsgSetOrchestratorAddress, MsgSubmitBadSignatureEvidence, MsgValsetConfirm,
+        MsgValsetUpdatedClaim,
+    },
+};
+use gravity_utils::{
+    clarity::{
+        constants::ZERO_ADDRESS, Address as EthAddress, PrivateKey as EthPrivateKey, Signature,
+    },
+    deep_space::{
+        address::Address, coin::Coin, error::CosmosGrpcError, private_key::PrivateKey,
+        utils::bytes_to_hex_str, Contact, Msg,
+    },
+    num_conversion::downcast_uint256,
+    types::*,
+};
 
 use crate::utils::BadSignatureEvidence;
 

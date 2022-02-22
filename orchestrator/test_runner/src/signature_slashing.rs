@@ -2,23 +2,30 @@
 //! the default timeline for signature slashing is quite long (10k blocks) so this test reduces that with a governance
 //! proposal and then waits for slashing code to execute before performing a final test to ensure everything is good
 
-use crate::airdrop_proposal::wait_for_proposals_to_execute;
-use crate::happy_path::test_valset_update;
-use crate::utils::{
-    create_default_test_config, create_parameter_change_proposal, start_orchestrators,
-    vote_yes_on_proposals, ValidatorKeys,
-};
-use crate::TOTAL_TIMEOUT;
-use clarity::Address as EthAddress;
-use cosmos_gravity::query::get_gravity_params;
-use deep_space::client::types::ChainStatus;
-use deep_space::Contact;
-use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use std::time::{Duration, Instant};
+
+use cosmos_gravity::query::get_gravity_params;
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange,
+    gravity::query_client::QueryClient as GravityQueryClient,
+};
+use gravity_utils::{
+    clarity::Address as EthAddress,
+    deep_space::{client::types::ChainStatus, Contact},
+    web30::client::Web3,
+};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+
+use crate::{
+    airdrop_proposal::wait_for_proposals_to_execute,
+    happy_path::test_valset_update,
+    utils::{
+        create_default_test_config, create_parameter_change_proposal, start_orchestrators,
+        vote_yes_on_proposals, ValidatorKeys,
+    },
+    TOTAL_TIMEOUT,
+};
 
 pub async fn signature_slashing_test(
     web30: &Web3,

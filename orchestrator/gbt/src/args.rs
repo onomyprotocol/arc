@@ -1,12 +1,13 @@
 //! Command line argument definitions for Gravity bridge tools
 //! See the clap documentation for how exactly this works, note that doc comments are displayed to the user
 
-use clap::Parser;
-use clarity::Address as EthAddress;
-use clarity::PrivateKey as EthPrivateKey;
-use deep_space::PrivateKey as CosmosPrivateKey;
-use deep_space::{address::Address as CosmosAddress, Coin};
 use std::path::PathBuf;
+
+use clap::Parser;
+use gravity_utils::{
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey},
+    deep_space::{address::Address as CosmosAddress, Coin, PrivateKey as CosmosPrivateKey},
+};
 
 /// Gravity Bridge tools (gbt) provides tools for interacting with the Onomy Gravity bridge for Cosmos based blockchains.
 #[derive(Parser)]

@@ -1,34 +1,29 @@
 //! This is the happy path test for Cosmos to Ethereum asset transfers, meaning assets originated on Cosmos
 
-use crate::utils::create_default_test_config;
-use crate::utils::footoken_metadata;
-use crate::utils::get_decimals;
-use crate::utils::get_erc20_balance_safe;
-use crate::utils::get_event_nonce_safe;
-use crate::utils::get_user_key;
-use crate::utils::send_one_eth;
-use crate::utils::start_orchestrators;
-use crate::MINER_ADDRESS;
-use crate::MINER_PRIVATE_KEY;
-use crate::TOTAL_TIMEOUT;
-use crate::{get_fee, utils::ValidatorKeys};
-use clarity::Address as EthAddress;
-use clarity::Uint256;
+use std::{panic, time::Duration};
+
 use cosmos_gravity::send::send_to_eth;
-use deep_space::coin::Coin;
-use deep_space::Contact;
-use ethereum_gravity::deploy_erc20::deploy_erc20;
-use ethereum_gravity::utils::get_valset_nonce;
-use gravity_proto::cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata;
-use gravity_proto::gravity::{
-    query_client::QueryClient as GravityQueryClient, QueryDenomToErc20Request,
+use ethereum_gravity::{deploy_erc20::deploy_erc20, utils::get_valset_nonce};
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::bank::v1beta1::Metadata,
+    gravity::{query_client::QueryClient as GravityQueryClient, QueryDenomToErc20Request},
 };
-use std::panic;
-use std::time::Duration;
+use gravity_utils::{
+    clarity::{Address as EthAddress, Uint256},
+    deep_space::{coin::Coin, Contact},
+    web30::{client::Web3, types::SendTxOption},
+};
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
-use web30::types::SendTxOption;
+
+use crate::{
+    get_fee,
+    utils::{
+        create_default_test_config, footoken_metadata, get_decimals, get_erc20_balance_safe,
+        get_event_nonce_safe, get_user_key, send_one_eth, start_orchestrators, ValidatorKeys,
+    },
+    MINER_ADDRESS, MINER_PRIVATE_KEY, TOTAL_TIMEOUT,
+};
 
 pub async fn happy_path_test_v2(
     web30: &Web3,

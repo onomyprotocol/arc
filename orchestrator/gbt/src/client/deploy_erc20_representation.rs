@@ -1,15 +1,14 @@
 use std::time::Duration;
 
-use tokio::time::sleep;
-use web30::types::SendTxOption;
-
 use cosmos_gravity::query::get_gravity_params;
 use ethereum_gravity::deploy_erc20::deploy_erc20;
 use gravity_proto::gravity::QueryDenomToErc20Request;
 use gravity_utils::{
     connection_prep::{check_for_eth, create_rpc_connections},
     error::GravityError,
+    web30::types::SendTxOption,
 };
+use tokio::time::sleep;
 
 use crate::{args::DeployErc20RepresentationOpts, utils::TIMEOUT};
 

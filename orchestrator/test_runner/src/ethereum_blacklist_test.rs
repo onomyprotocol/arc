@@ -1,12 +1,17 @@
 //! This is a test for the Ethereum blacklist, which prevents specific addresses from depositing to or withdrawing from the bridge
 
-use crate::airdrop_proposal::wait_for_proposals_to_execute;
-use crate::utils::{create_parameter_change_proposal, vote_yes_on_proposals, ValidatorKeys};
 use cosmos_gravity::query::get_gravity_params;
-use deep_space::Contact;
-use gravity_proto::cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange;
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
+use gravity_proto::{
+    cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange,
+    gravity::query_client::QueryClient as GravityQueryClient,
+};
+use gravity_utils::deep_space::Contact;
 use tonic::transport::Channel;
+
+use crate::{
+    airdrop_proposal::wait_for_proposals_to_execute,
+    utils::{create_parameter_change_proposal, vote_yes_on_proposals, ValidatorKeys},
+};
 pub async fn ethereum_blacklist_test(
     grpc_client: GravityQueryClient<Channel>,
     contact: &Contact,

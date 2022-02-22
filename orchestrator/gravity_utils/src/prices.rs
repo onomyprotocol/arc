@@ -1,9 +1,9 @@
-use clarity::address::Address as EthAddress;
-use clarity::Uint256;
-use web30::amm::DAI_CONTRACT_ADDRESS;
-use web30::amm::WETH_CONTRACT_ADDRESS;
-use web30::client::Web3;
-use web30::jsonrpc::error::Web3Error;
+use clarity::{address::Address as EthAddress, Uint256};
+use web30::{
+    amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS},
+    client::Web3,
+    jsonrpc::error::Web3Error,
+};
 
 /// utility function, gets the price of a given ERC20 token in uniswap in WETH given the erc20 address and amount
 pub async fn get_weth_price(

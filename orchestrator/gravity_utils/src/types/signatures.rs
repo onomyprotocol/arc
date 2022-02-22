@@ -1,7 +1,8 @@
-use clarity::Signature as EthSignature;
-use clarity::{abi::Token, Address as EthAddress};
-use num256::Uint256;
 use std::cmp::Ordering;
+
+use clarity::{abi::Token, Address as EthAddress, Signature as EthSignature};
+use num256::Uint256;
+use serde::{Deserialize, Serialize};
 
 /// A sortable struct of a validator and it's signatures
 /// this can be used for either transaction batch or validator
@@ -76,9 +77,9 @@ pub struct SigWithAddress {
 
 #[cfg(test)]
 mod tests {
+    use rand::{seq::SliceRandom, thread_rng};
+
     use super::*;
-    use rand::seq::SliceRandom;
-    use rand::thread_rng;
 
     #[test]
     fn test_valset_sort() {

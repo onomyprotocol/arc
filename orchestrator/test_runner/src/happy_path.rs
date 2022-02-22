@@ -1,33 +1,37 @@
-use crate::get_fee;
-use crate::utils::check_erc20_balance;
-use crate::utils::*;
-use crate::MINER_ADDRESS;
-use crate::MINER_PRIVATE_KEY;
-use crate::OPERATION_TIMEOUT;
-use crate::TOTAL_TIMEOUT;
+use std::{any::type_name, time::Duration};
+
 use bytes::BytesMut;
-use clarity::{Address as EthAddress, Uint256};
-use cosmos_gravity::query::get_attestations;
-use cosmos_gravity::send::send_to_eth;
-use cosmos_gravity::{query::get_oldest_unsigned_transaction_batches, send::send_ethereum_claims};
-use deep_space::address::Address as CosmosAddress;
-use deep_space::coin::Coin;
-use deep_space::private_key::PrivateKey as CosmosPrivateKey;
-use deep_space::Contact;
-use ethereum_gravity::utils::get_valset_nonce;
-use ethereum_gravity::{send_to_cosmos::send_to_cosmos, utils::get_tx_batch_nonce};
-use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
-use gravity_proto::gravity::MsgSendToCosmosClaim;
-use gravity_proto::gravity::MsgValsetUpdatedClaim;
-use gravity_utils::error::GravityError;
-use gravity_utils::types::SendToCosmosEvent;
+use cosmos_gravity::{
+    query::{get_attestations, get_oldest_unsigned_transaction_batches},
+    send::{send_ethereum_claims, send_to_eth},
+};
+use ethereum_gravity::{
+    send_to_cosmos::send_to_cosmos,
+    utils::{get_tx_batch_nonce, get_valset_nonce},
+};
+use gravity_proto::gravity::{
+    query_client::QueryClient as GravityQueryClient, MsgSendToCosmosClaim, MsgValsetUpdatedClaim,
+};
+use gravity_utils::{
+    clarity::{Address as EthAddress, Uint256},
+    deep_space::{
+        address::Address as CosmosAddress, coin::Coin, private_key::PrivateKey as CosmosPrivateKey,
+        Contact,
+    },
+    error::GravityError,
+    types::SendToCosmosEvent,
+    web30::client::Web3,
+};
 use num::CheckedAdd;
 use prost::Message;
-use std::any::type_name;
-use std::time::Duration;
 use tokio::time::sleep;
 use tonic::transport::Channel;
-use web30::client::Web3;
+
+use crate::{
+    get_fee,
+    utils::{check_erc20_balance, *},
+    MINER_ADDRESS, MINER_PRIVATE_KEY, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
+};
 
 pub async fn happy_path_test(
     web30: &Web3,

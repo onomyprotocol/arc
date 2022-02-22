@@ -1,5 +1,6 @@
-use gravity_utils::types::{BatchRequestMode, RelayerConfig, ValsetRelayingMode};
 use std::time::Duration;
+
+use gravity_utils::types::{BatchRequestMode, RelayerConfig, ValsetRelayingMode};
 
 pub const TIMEOUT: Duration = Duration::from_secs(60);
 

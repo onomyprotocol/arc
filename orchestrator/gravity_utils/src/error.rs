@@ -1,11 +1,11 @@
 //! for things that don't belong in the cosmos or ethereum libraries but also don't belong
 //! in a function specific library
 
-use clarity::Error as ClarityError;
-use deep_space::error::AddressError as CosmosAddressError;
-use deep_space::error::CosmosGrpcError;
-use num_bigint::ParseBigIntError;
 use std::fmt::Debug;
+
+use clarity::Error as ClarityError;
+use deep_space::error::{AddressError as CosmosAddressError, CosmosGrpcError};
+use num_bigint::ParseBigIntError;
 use tonic::Status;
 use web30::jsonrpc::error::Web3Error;
 

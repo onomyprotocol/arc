@@ -7,15 +7,16 @@
 // TODO this file needs static assertions that prevent it from compiling on 16 bit systems.
 // we assume a system bit width of at least 32
 
+use std::unimplemented;
+
+use clarity::{constants::ZERO_ADDRESS, Address as EthAddress};
+use deep_space::{utils::bytes_to_hex_str, Address as CosmosAddress};
+use num256::Uint256;
+use serde::{Deserialize, Serialize};
+use web30::types::Log;
+
 use super::ValsetMember;
 use crate::error::GravityError;
-use clarity::constants::ZERO_ADDRESS;
-use clarity::Address as EthAddress;
-use deep_space::utils::bytes_to_hex_str;
-use deep_space::Address as CosmosAddress;
-use num256::Uint256;
-use std::unimplemented;
-use web30::types::Log;
 
 /// Used to limit the length of variable length user provided inputs like
 /// ERC20 names and deposit destination strings
@@ -831,15 +832,16 @@ fn _debug_print_data(input: &[u8]) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::time::{Duration, Instant};
+
     use clarity::utils::hex_str_to_bytes;
-    use rand::distributions::Distribution;
-    use rand::distributions::Uniform;
-    use rand::prelude::ThreadRng;
-    use rand::thread_rng;
-    use rand::Rng;
-    use std::time::Duration;
-    use std::time::Instant;
+    use rand::{
+        distributions::{Distribution, Uniform},
+        prelude::ThreadRng,
+        thread_rng, Rng,
+    };
+
+    use super::*;
 
     /// Five minutes fuzzing by default
     const FUZZ_TIME: Duration = Duration::from_secs(30);

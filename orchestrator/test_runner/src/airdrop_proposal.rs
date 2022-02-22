@@ -1,24 +1,25 @@
 //! This is a test for the Airdrop proposal governance handler, which allows the community to propose
 //! and automatically execute an Airdrop out of the community pool
 
-use crate::utils::{get_coins, vote_yes_on_proposals, ValidatorKeys};
-use crate::ADDRESS_PREFIX;
-use crate::STAKING_TOKEN;
-use crate::{get_deposit, get_fee, TOTAL_TIMEOUT};
-use clarity::Uint256;
+use std::time::{Duration, Instant};
+
 use cosmos_gravity::proposals::{
     submit_airdrop_proposal, AirdropProposalJson, AIRDROP_PROPOSAL_TYPE_URL,
 };
-use deep_space::error::CosmosGrpcError;
-use deep_space::utils::encode_any;
-use deep_space::Address as CosmosAddress;
-use deep_space::Contact;
 use gravity_proto::gravity::AirdropProposal as AirdropProposalMsg;
+use gravity_utils::{
+    clarity::Uint256,
+    deep_space::{error::CosmosGrpcError, utils::encode_any, Address as CosmosAddress, Contact},
+};
 use num::ToPrimitive;
-use rand::prelude::ThreadRng;
-use rand::Rng;
-use std::time::{Duration, Instant};
+use rand::{prelude::ThreadRng, Rng};
 use tokio::time::sleep;
+
+use crate::{
+    get_deposit, get_fee,
+    utils::{get_coins, vote_yes_on_proposals, ValidatorKeys},
+    ADDRESS_PREFIX, STAKING_TOKEN, TOTAL_TIMEOUT,
+};
 
 const NUM_AIRDROP_RECIPIENTS: usize = 40_000;
 // note this test can only be run once because we exhaust the community pool
