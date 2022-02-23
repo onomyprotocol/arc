@@ -9,9 +9,8 @@
 
 use std::unimplemented;
 
-use clarity::{constants::ZERO_ADDRESS, Address as EthAddress};
+use clarity::{constants::ZERO_ADDRESS, Address as EthAddress, Uint256};
 use deep_space::{utils::bytes_to_hex_str, Address as CosmosAddress};
-use num256::Uint256;
 use serde::{Deserialize, Serialize};
 use web30::types::Log;
 
@@ -21,6 +20,9 @@ use crate::error::GravityError;
 /// Used to limit the length of variable length user provided inputs like
 /// ERC20 names and deposit destination strings
 const ONE_MEGABYTE: usize = 1000usize.pow(3);
+const U32_MAX: Uint256 = Uint256::from_u32(u32::MAX);
+const U64_MAX: Uint256 = Uint256::from_u64(u64::MAX);
+const USIZE_MAX: Uint256 = Uint256::from_u128(usize::MAX as u128);
 
 /// A parsed struct representing the Ethereum event fired by the Gravity contract
 /// when the validator set is updated.
@@ -58,8 +60,8 @@ impl ValsetUpdatedEvent {
         let index_start = 0;
         let index_end = index_start + 32;
         let nonce_data = &input[index_start..index_end];
-        let event_nonce = Uint256::from_bytes_be(nonce_data);
-        if event_nonce > u64::MAX.into() {
+        let event_nonce = Uint256::from_bytes_be(nonce_data).unwrap();
+        if event_nonce > U64_MAX {
             return Err(GravityError::ValidationError(
                 "Nonce overflow, probably incorrect parsing".into(),
             ));
@@ -70,7 +72,7 @@ impl ValsetUpdatedEvent {
         let index_start = 32;
         let index_end = index_start + 32;
         let reward_amount_data = &input[index_start..index_end];
-        let reward_amount = Uint256::from_bytes_be(reward_amount_data);
+        let reward_amount = Uint256::from_bytes_be(reward_amount_data).unwrap();
 
         // reward token
         let index_start = 2 * 32;
@@ -87,7 +89,7 @@ impl ValsetUpdatedEvent {
         let reward_token = reward_token.unwrap();
         // zero address represents no reward, so we replace it here with a none
         // for ease of checking in the future
-        let reward_token = if reward_token == *ZERO_ADDRESS {
+        let reward_token = if reward_token == ZERO_ADDRESS {
             None
         } else {
             Some(reward_token)
@@ -103,8 +105,8 @@ impl ValsetUpdatedEvent {
             ));
         }
 
-        let len_eth_addresses = Uint256::from_bytes_be(&input[index_start..index_end]);
-        if len_eth_addresses > usize::MAX.into() {
+        let len_eth_addresses = Uint256::from_bytes_be(&input[index_start..index_end]).unwrap();
+        if len_eth_addresses > USIZE_MAX {
             return Err(GravityError::ValidationError(
                 "Ethereum array len overflow, probably incorrect parsing".to_string(),
             ));
@@ -119,8 +121,8 @@ impl ValsetUpdatedEvent {
             ));
         }
 
-        let len_powers = Uint256::from_bytes_be(&input[index_start..index_end]);
-        if len_powers > usize::MAX.into() {
+        let len_powers = Uint256::from_bytes_be(&input[index_start..index_end]).unwrap();
+        if len_powers > USIZE_MAX {
             return Err(GravityError::ValidationError(
                 "Powers array len overflow, probably incorrect parsing".to_string(),
             ));
@@ -145,7 +147,7 @@ impl ValsetUpdatedEvent {
                 ));
             }
 
-            let power = Uint256::from_bytes_be(&input[power_start..power_end]);
+            let power = Uint256::from_bytes_be(&input[power_start..power_end]).unwrap();
             // an eth address at 20 bytes is 12 bytes shorter than the Uint256 it's stored in.
             let eth_address = EthAddress::from_slice(&input[address_start + 12..address_end]);
             if eth_address.is_err() {
@@ -154,7 +156,7 @@ impl ValsetUpdatedEvent {
                 ));
             }
             let eth_address = eth_address.unwrap();
-            if power > u64::MAX.into() {
+            if power > U64_MAX {
                 return Err(GravityError::ValidationError(
                     "Power greater than u64::MAX, probably incorrect parsing".to_string(),
                 ));
@@ -190,16 +192,16 @@ impl ValsetUpdatedEvent {
             return Err(GravityError::ValidationError("Too few topics".to_string()));
         }
         let valset_nonce_data = &input.topics[1];
-        let valset_nonce = Uint256::from_bytes_be(valset_nonce_data);
-        if valset_nonce > u64::MAX.into() {
+        let valset_nonce = Uint256::from_bytes_be(valset_nonce_data).unwrap();
+        if valset_nonce > U64_MAX {
             return Err(GravityError::ValidationError(
                 "Nonce overflow, probably incorrect parsing".to_string(),
             ));
         }
         let valset_nonce: u64 = valset_nonce.to_string().parse().unwrap();
 
-        let block_height = if let Some(bn) = input.block_number.clone() {
-            if bn > u64::MAX.into() {
+        let block_height = if let Some(bn) = input.block_number {
+            if bn > U64_MAX {
                 return Err(GravityError::ValidationError(
                     "Event nonce overflow! probably incorrect parsing".to_string(),
                 ));
@@ -268,11 +270,11 @@ impl TransactionBatchExecutedEvent {
         if let (Some(batch_nonce_data), Some(erc20_data)) =
             (input.topics.get(1), input.topics.get(2))
         {
-            let batch_nonce = Uint256::from_bytes_be(batch_nonce_data);
+            let batch_nonce = Uint256::from_bytes_be(batch_nonce_data).unwrap();
             let erc20 = EthAddress::from_slice(&erc20_data[12..32])?;
-            let event_nonce = Uint256::from_bytes_be(&input.data);
-            let block_height = if let Some(bn) = input.block_number.clone() {
-                if bn > u64::MAX.into() {
+            let event_nonce = Uint256::from_bytes_be(&input.data).unwrap();
+            let block_height = if let Some(bn) = input.block_number {
+                if bn > U64_MAX {
                     return Err(GravityError::ValidationError(
                         "Block height overflow! probably incorrect parsing".to_string(),
                     ));
@@ -285,10 +287,7 @@ impl TransactionBatchExecutedEvent {
                         .to_string(),
                 ));
             };
-            if event_nonce > u64::MAX.into()
-                || batch_nonce > u64::MAX.into()
-                || block_height > u64::MAX.into()
-            {
+            if event_nonce > U64_MAX || batch_nonce > U64_MAX || block_height > U64_MAX {
                 Err(GravityError::ValidationError(
                     "Event nonce overflow, probably incorrect parsing".to_string(),
                 ))
@@ -369,8 +368,8 @@ impl SendToCosmosEvent {
         if let (Some(erc20_data), Some(sender_data)) = topics {
             let erc20 = EthAddress::from_slice(&erc20_data[12..32])?;
             let sender = EthAddress::from_slice(&sender_data[12..32])?;
-            let block_height = if let Some(bn) = input.block_number.clone() {
-                if bn > u64::MAX.into() {
+            let block_height = if let Some(bn) = input.block_number {
+                if bn > U64_MAX {
                     return Err(GravityError::ValidationError(
                         "Block height overflow! probably incorrect parsing".to_string(),
                     ));
@@ -385,7 +384,7 @@ impl SendToCosmosEvent {
             };
 
             let data = SendToCosmosEvent::decode_data_bytes(&input.data)?;
-            if data.event_nonce > u64::MAX.into() || block_height > u64::MAX.into() {
+            if data.event_nonce > U64_MAX || block_height > U64_MAX {
                 Err(GravityError::ValidationError(
                     "Event nonce overflow, probably incorrect parsing".to_string(),
                 ))
@@ -423,16 +422,17 @@ impl SendToCosmosEvent {
             ));
         }
 
-        let amount = Uint256::from_bytes_be(&data[32..64]);
-        let event_nonce = Uint256::from_bytes_be(&data[64..96]);
+        let amount = Uint256::from_bytes_be(&data[32..64]).unwrap();
+        let event_nonce = Uint256::from_bytes_be(&data[64..96]).unwrap();
 
         // discard words three and four which contain the data type and length
         let destination_str_len_start = 3 * 32;
         let destination_str_len_end = 4 * 32;
         let destination_str_len =
-            Uint256::from_bytes_be(&data[destination_str_len_start..destination_str_len_end]);
+            Uint256::from_bytes_be(&data[destination_str_len_start..destination_str_len_end])
+                .unwrap();
 
-        if destination_str_len > u32::MAX.into() {
+        if destination_str_len > U32_MAX {
             return Err(GravityError::ValidationError(
                 "denom length overflow, probably incorrect parsing".to_string(),
             ));
@@ -543,8 +543,8 @@ impl Erc20DeployedEvent {
         if let Some(new_token_contract_data) = token_contract {
             let erc20 = EthAddress::from_slice(&new_token_contract_data[12..32])?;
 
-            let block_height = if let Some(bn) = input.block_number.clone() {
-                if bn > u64::MAX.into() {
+            let block_height = if let Some(bn) = input.block_number {
+                if bn > U64_MAX {
                     return Err(GravityError::ValidationError(
                         "Event nonce overflow! probably incorrect parsing".to_string(),
                     ));
@@ -584,8 +584,8 @@ impl Erc20DeployedEvent {
         let index_start = 3 * 32;
         let index_end = index_start + 32;
 
-        let decimals = Uint256::from_bytes_be(&data[index_start..index_end]);
-        if decimals > u8::MAX.into() {
+        let decimals = Uint256::from_bytes_be(&data[index_start..index_end]).unwrap();
+        if decimals > Uint256::from_u8(u8::MAX) {
             return Err(GravityError::ValidationError(
                 "Decimals overflow, probably incorrect parsing".to_string(),
             ));
@@ -594,8 +594,8 @@ impl Erc20DeployedEvent {
 
         let index_start = 4 * 32;
         let index_end = index_start + 32;
-        let nonce = Uint256::from_bytes_be(&data[index_start..index_end]);
-        if nonce > u64::MAX.into() {
+        let nonce = Uint256::from_bytes_be(&data[index_start..index_end]).unwrap();
+        if nonce > U64_MAX {
             return Err(GravityError::ValidationError(
                 "Nonce overflow, probably incorrect parsing".to_string(),
             ));
@@ -604,9 +604,9 @@ impl Erc20DeployedEvent {
 
         let index_start = 5 * 32;
         let index_end = index_start + 32;
-        let denom_len = Uint256::from_bytes_be(&data[index_start..index_end]);
+        let denom_len = Uint256::from_bytes_be(&data[index_start..index_end]).unwrap();
         // it's not probable that we have 4+ gigabytes of event data
-        if denom_len > u32::MAX.into() {
+        if denom_len > U32_MAX {
             return Err(GravityError::ValidationError(
                 "denom length overflow, probably incorrect parsing".to_string(),
             ));
@@ -657,9 +657,9 @@ impl Erc20DeployedEvent {
             ));
         }
 
-        let erc20_name_len = Uint256::from_bytes_be(&data[index_start..index_end]);
+        let erc20_name_len = Uint256::from_bytes_be(&data[index_start..index_end]).unwrap();
         // it's not probable that we have 4+ gigabytes of event data
-        if erc20_name_len > u32::MAX.into() {
+        if erc20_name_len > U32_MAX {
             return Err(GravityError::ValidationError(
                 "ERC20 Name length overflow, probably incorrect parsing".to_string(),
             ));
@@ -711,9 +711,9 @@ impl Erc20DeployedEvent {
             ));
         }
 
-        let symbol_len = Uint256::from_bytes_be(&data[index_start..index_end]);
+        let symbol_len = Uint256::from_bytes_be(&data[index_start..index_end]).unwrap();
         // it's not probable that we have 4+ gigabytes of event data
-        if symbol_len > u32::MAX.into() {
+        if symbol_len > U32_MAX {
             return Err(GravityError::ValidationError(
                 "Symbol length overflow, probably incorrect parsing".to_string(),
             ));
@@ -832,7 +832,7 @@ fn _debug_print_data(input: &[u8]) {
 
 #[cfg(test)]
 mod tests {
-    use clarity::utils::hex_str_to_bytes;
+    use clarity::{u256, utils::hex_str_to_bytes};
     use rand::{
         distributions::{Distribution, Uniform},
         prelude::ThreadRng,
@@ -874,7 +874,7 @@ mod tests {
 
         let correct = ValsetDataBytes {
             event_nonce: 1u8.into(),
-            reward_amount: 0u8.into(),
+            reward_amount: u256!(0),
             reward_token: None,
             members: vec![
                 ValsetMember {
@@ -914,8 +914,8 @@ mod tests {
 
         let correct = SendToCosmosEventData {
             destination: "gravity1194za6yvg7djz3c6vqlcxzxwcjkaz9rdqs2eg9p".to_string(),
-            amount: 100u8.into(),
-            event_nonce: 2u8.into(),
+            amount: u256!(100),
+            event_nonce: u256!(2),
         };
         let res = SendToCosmosEvent::decode_data_bytes(&event_bytes).unwrap();
         assert_eq!(correct, res);

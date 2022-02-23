@@ -17,13 +17,14 @@ use gravity_proto::{
     gravity::query_client::QueryClient as GravityQueryClient,
 };
 use gravity_utils::{
-    clarity::{address::Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    clarity::{address::Address as EthAddress, u256, PrivateKey as EthPrivateKey, Uint256},
     deep_space::{
         client::ChainStatus, coin::Coin, error::CosmosGrpcError,
         private_key::PrivateKey as CosmosPrivateKey, utils::FeeInfo, Contact,
     },
     error::GravityError,
     types::GravityBridgeToolsConfig,
+    u64_array_bigints,
     web30::client::Web3,
 };
 use metrics_exporter::{metrics_errors_counter, metrics_latest, metrics_warnings_counter};
@@ -129,7 +130,7 @@ pub async fn eth_oracle_main_loop(
 
     // In case of governance vote to unhalt bridge, need to replay old events. Keep track of the
     // last checked event nonce to detect when this happens
-    let mut last_checked_event: Uint256 = 0u8.into();
+    let mut last_checked_event = u256!(0);
     info!("Oracle resync complete, Oracle now operational");
     let mut grpc_client = grpc_client;
 
@@ -149,7 +150,7 @@ pub async fn eth_oracle_main_loop(
 
                         metrics_latest(block_height, "latest_cosmos_block");
                         // Converting into u64
-                        metrics_latest(latest_eth_block.to_u64_digits()[0], "latest_eth_block");
+                        metrics_latest(latest_eth_block.resize_to_u64(), "latest_eth_block");
                     }
                     (Ok(_latest_eth_block), Ok(ChainStatus::Syncing)) => {
                         warn!("Cosmos node syncing, Eth oracle paused");
@@ -191,8 +192,8 @@ pub async fn eth_oracle_main_loop(
                     gravity_contract_address,
                     cosmos_key,
                     fee.clone(),
-                    last_checked_block.clone(),
-                    block_delay.clone(),
+                    last_checked_block,
+                    block_delay,
                 )
                 .await
                 {
@@ -214,12 +215,7 @@ pub async fn eth_oracle_main_loop(
                             .await;
                         }
                         last_checked_event = nonces.event_nonce;
-                        if !last_checked_event.to_u64_digits().is_empty() {
-                            metrics_latest(
-                                last_checked_event.to_u64_digits()[0],
-                                "last_checked_event",
-                            );
-                        }
+                        metrics_latest(last_checked_event.resize_to_u64(), "last_checked_event");
                     }
                     Err(e) => {
                         error!("Failed to get events for block range, Check your Eth node and Cosmos gRPC {:?}", e);

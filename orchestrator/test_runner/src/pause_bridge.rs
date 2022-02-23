@@ -13,8 +13,9 @@ use gravity_proto::{
     gravity::query_client::QueryClient as GravityQueryClient,
 };
 use gravity_utils::{
-    clarity::Address as EthAddress,
+    clarity::{u256, Address as EthAddress},
     deep_space::{coin::Coin, Contact},
+    u64_array_bigints,
     web30::client::Web3,
 };
 use tokio::time::sleep;
@@ -61,7 +62,7 @@ pub async fn pause_bridge_test(
         user_keys.cosmos_address,
         gravity_address,
         erc20_address,
-        100u64.into(),
+        u256!(100),
         None,
         None,
     )
@@ -96,7 +97,7 @@ pub async fn pause_bridge_test(
         user_keys.cosmos_address,
         gravity_address,
         erc20_address,
-        100u64.into(),
+        u256!(100),
         Some(OPERATION_TIMEOUT),
         None,
     )
@@ -121,15 +122,15 @@ pub async fn pause_bridge_test(
 
     let bridge_denom_fee = Coin {
         denom: token_name.clone(),
-        amount: 1u64.into(),
+        amount: u256!(1),
     };
-    let amount = amount - 5u64.into();
+    let amount = amount.checked_sub(u256!(5)).unwrap();
     send_to_eth(
         user_keys.cosmos_key,
         user_keys.eth_address,
         Coin {
             denom: token_name.clone(),
-            amount: amount.clone(),
+            amount,
         },
         bridge_denom_fee.clone(),
         bridge_denom_fee.clone(),
@@ -158,7 +159,7 @@ pub async fn pause_bridge_test(
         get_erc20_balance_safe(erc20_address, web30, user_keys.eth_address)
             .await
             .unwrap()
-            == 0u8.into()
+            .is_zero()
     );
     info!("Batch creation was blocked by bridge pause!");
 
@@ -192,7 +193,7 @@ pub async fn pause_bridge_test(
         .unwrap();
     // check that our balance is equal to 200 (two deposits) minus 95 (sent to eth) - 1 (fee) - 1 (fee for batch request)
     // NOTE this makes the test not imdepotent but it's not anyways, a crash may leave the bridge halted
-    assert_eq!(res.amount, 103u8.into());
+    assert_eq!(res.amount, u256!(103));
 
     let mut current_eth_batch_nonce =
         get_tx_batch_nonce(gravity_address, erc20_address, *MINER_ADDRESS, web30)

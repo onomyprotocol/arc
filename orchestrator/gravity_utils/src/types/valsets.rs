@@ -6,7 +6,7 @@ use std::{
     fmt::Debug,
 };
 
-use clarity::{constants::ZERO_ADDRESS, Address as EthAddress, Signature as EthSignature};
+use clarity::{constants::ZERO_ADDRESS, u256, Address as EthAddress, Signature as EthSignature};
 use deep_space::{error::CosmosGrpcError, Address as CosmosAddress};
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ struct SignatureStatus {
 }
 
 /// the response we get when querying for a valset confirmation
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct ValsetConfirmResponse {
     pub orchestrator: CosmosAddress,
     pub eth_address: EthAddress,
@@ -66,7 +66,7 @@ impl Confirm for ValsetConfirmResponse {
         self.eth_address
     }
     fn get_signature(&self) -> EthSignature {
-        self.eth_signature.clone()
+        self.eth_signature
     }
 }
 
@@ -143,9 +143,9 @@ impl Valset {
                     out.push(GravitySignature {
                         power: member.power,
                         eth_address: sig.get_eth_address(),
-                        v: sig.get_signature().v.clone(),
-                        r: sig.get_signature().r.clone(),
-                        s: sig.get_signature().s.clone(),
+                        v: sig.get_signature().v,
+                        r: sig.get_signature().r,
+                        s: sig.get_signature().s,
                     });
                     power_of_good_sigs += member.power;
                 } else {
@@ -164,9 +164,9 @@ impl Valset {
                 out.push(GravitySignature {
                     power: member.power,
                     eth_address: member.eth_address,
-                    v: 0u8.into(),
-                    r: 0u8.into(),
-                    s: 0u8.into(),
+                    v: u256!(0),
+                    r: u256!(0),
+                    s: u256!(0),
                 });
                 power_of_nonvoters += member.power;
                 number_of_nonvoters += 1;
@@ -297,7 +297,7 @@ impl From<gravity_proto::gravity::Valset> for Valset {
 impl From<&gravity_proto::gravity::Valset> for Valset {
     fn from(input: &gravity_proto::gravity::Valset) -> Self {
         let parsed_reward_token = input.reward_token.parse().unwrap();
-        let reward_token = if parsed_reward_token == *ZERO_ADDRESS {
+        let reward_token = if parsed_reward_token == ZERO_ADDRESS {
             None
         } else {
             Some(parsed_reward_token)
@@ -305,14 +305,14 @@ impl From<&gravity_proto::gravity::Valset> for Valset {
         Valset {
             nonce: input.nonce,
             members: input.members.iter().map(|i| i.into()).collect(),
-            reward_amount: input.reward_amount.parse().unwrap(),
+            reward_amount: Uint256::from_dec_or_hex_str_restricted(&input.reward_amount).unwrap(),
             reward_token,
         }
     }
 }
 
 /// a list of validators, powers, and eth addresses at a given block height
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct ValsetMember {
     // ord sorts on the first member first, so this produces the correct sorting
     pub power: u64,
@@ -424,10 +424,7 @@ impl Into<gravity_proto::gravity::Valset> for &Valset {
             height: 0,
             members: self.members.iter().map(|v| v.into()).collect(),
             reward_amount: self.reward_amount.to_string(),
-            reward_token: self
-                .reward_token
-                .unwrap_or(*clarity::constants::ZERO_ADDRESS)
-                .to_string(),
+            reward_token: self.reward_token.unwrap_or(ZERO_ADDRESS).to_string(),
         }
     }
 }

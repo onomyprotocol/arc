@@ -6,8 +6,9 @@ use gravity_proto::{
     gravity::query_client::QueryClient as GravityQueryClient,
 };
 use gravity_utils::{
-    clarity::Address as EthAddress,
+    clarity::{u256, Address as EthAddress},
     deep_space::{coin::Coin, Contact},
+    u64_array_bigints,
     web30::client::Web3,
 };
 use tonic::transport::Channel;
@@ -47,7 +48,7 @@ pub async fn valset_rewards_test(
     // reward of 1 mfootoken
     let valset_reward = Coin {
         denom: token_to_send_to_eth,
-        amount: 1_000_000u64.into(),
+        amount: u256!(1_000_000),
     };
 
     let mut params_to_change = Vec::new();

@@ -17,7 +17,6 @@ gravity_utils = { path = "../gravity_utils" }
 futures = "0.3"
 lazy_static = "1"
 log = "0.4"
-num256 = "0.3"
 openssl-probe = "0.1"
 rayon = "1.5.1"
 serde = { version = "1", features = ["derive"] }

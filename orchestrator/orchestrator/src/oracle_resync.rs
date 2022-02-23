@@ -1,13 +1,14 @@
 use cosmos_gravity::utils::get_last_event_nonce_with_retry;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{Address, Uint256},
+    clarity::{u256, Address, Uint256},
     deep_space::address::Address as CosmosAddress,
     get_with_retry::{get_block_number_with_retry, RETRY_TIME},
     types::{
         event_signatures::*, Erc20DeployedEvent, LogicCallExecutedEvent, SendToCosmosEvent,
         TransactionBatchExecutedEvent, ValsetUpdatedEvent,
     },
+    u64_array_bigints,
     web30::client::Web3,
 };
 use metrics_exporter::metrics_errors_counter;
@@ -24,61 +25,58 @@ pub async fn get_last_checked_block(
     web3: &Web3,
 ) -> Uint256 {
     let mut grpc_client = grpc_client;
-    const BLOCKS_TO_SEARCH: u128 = 5_000u128;
+    const BLOCKS_TO_SEARCH: Uint256 = u256!(5_000);
 
     let latest_block = get_block_number_with_retry(web3).await;
-    let mut last_event_nonce: Uint256 =
-        get_last_event_nonce_with_retry(&mut grpc_client, our_cosmos_address, prefix)
-            .await
-            .into();
+    let mut last_event_nonce = Uint256::from_u64(
+        get_last_event_nonce_with_retry(&mut grpc_client, our_cosmos_address, prefix).await,
+    );
 
     // zero indicates this oracle has never submitted an event before since there is no
     // zero event nonce (it's pre-incremented in the solidity contract) we have to go
     // and look for event nonce one.
-    if last_event_nonce == 0u8.into() {
-        last_event_nonce = 1u8.into();
+    if last_event_nonce.is_zero() {
+        last_event_nonce = u256!(1);
     }
 
-    let mut current_block: Uint256 = latest_block.clone();
+    let mut current_block: Uint256 = latest_block;
 
-    while current_block.clone() > 0u8.into() {
+    while !current_block.is_zero() {
         info!(
             "Oracle is resyncing, looking back into the history to find our last event nonce {}, on block {}",
             last_event_nonce, current_block
         );
-        let end_search = if current_block.clone() < BLOCKS_TO_SEARCH.into() {
-            0u8.into()
-        } else {
-            current_block.clone() - BLOCKS_TO_SEARCH.into()
-        };
+        let end_search = current_block
+            .checked_sub(BLOCKS_TO_SEARCH)
+            .unwrap_or_else(|| u256!(0));
         let batch_events = web3
             .check_for_events(
-                end_search.clone(),
-                Some(current_block.clone()),
+                end_search,
+                Some(current_block),
                 vec![gravity_contract_address],
                 vec![TRANSACTION_BATCH_EXECUTED_EVENT_SIG],
             )
             .await;
         let send_to_cosmos_events = web3
             .check_for_events(
-                end_search.clone(),
-                Some(current_block.clone()),
+                end_search,
+                Some(current_block),
                 vec![gravity_contract_address],
                 vec![SENT_TO_COSMOS_EVENT_SIG],
             )
             .await;
         let erc20_deployed_events = web3
             .check_for_events(
-                end_search.clone(),
-                Some(current_block.clone()),
+                end_search,
+                Some(current_block),
                 vec![gravity_contract_address],
                 vec![ERC20_DEPLOYED_EVENT_SIG],
             )
             .await;
         let logic_call_executed_events = web3
             .check_for_events(
-                end_search.clone(),
-                Some(current_block.clone()),
+                end_search,
+                Some(current_block),
                 vec![gravity_contract_address],
                 vec![LOGIC_CALL_EVENT_SIG],
             )
@@ -91,8 +89,8 @@ pub async fn get_last_checked_block(
         // history
         let valset_events = web3
             .check_for_events(
-                end_search.clone(),
-                Some(current_block.clone()),
+                end_search,
+                Some(current_block),
                 vec![gravity_contract_address],
                 vec![VALSET_UPDATED_EVENT_SIG],
             )
@@ -126,7 +124,8 @@ pub async fn get_last_checked_block(
                         batch.event_nonce,
                         last_event_nonce
                     );
-                    if upcast(batch.event_nonce) == last_event_nonce && event.block_number.is_some()
+                    if Uint256::from_u64(batch.event_nonce) == last_event_nonce
+                        && event.block_number.is_some()
                     {
                         return event.block_number.unwrap();
                     }
@@ -145,7 +144,8 @@ pub async fn get_last_checked_block(
                         send.event_nonce,
                         last_event_nonce
                     );
-                    if upcast(send.event_nonce) == last_event_nonce && event.block_number.is_some()
+                    if Uint256::from_u64(send.event_nonce) == last_event_nonce
+                        && event.block_number.is_some()
                     {
                         return event.block_number.unwrap();
                     }
@@ -164,7 +164,7 @@ pub async fn get_last_checked_block(
                         deploy.event_nonce,
                         last_event_nonce
                     );
-                    if upcast(deploy.event_nonce) == last_event_nonce
+                    if Uint256::from_u64(deploy.event_nonce) == last_event_nonce
                         && event.block_number.is_some()
                     {
                         return event.block_number.unwrap();
@@ -184,7 +184,8 @@ pub async fn get_last_checked_block(
                         call.event_nonce,
                         last_event_nonce
                     );
-                    if upcast(call.event_nonce) == last_event_nonce && event.block_number.is_some()
+                    if Uint256::from_u64(call.event_nonce) == last_event_nonce
+                        && event.block_number.is_some()
                     {
                         return event.block_number.unwrap();
                     }
@@ -208,9 +209,9 @@ pub async fn get_last_checked_block(
                     // if we've found this event it is the first possible event from the contract
                     // no other events can come before it, therefore either there's been a parsing error
                     // or no events have been submitted on this chain yet.
-                    let bootstrapping = valset.valset_nonce == 0 && last_event_nonce == 1u8.into();
+                    let bootstrapping = valset.valset_nonce == 0 && last_event_nonce == u256!(1);
                     // our last event was a valset update event, treat as normal case
-                    let common_case = upcast(valset.event_nonce) == last_event_nonce
+                    let common_case = Uint256::from_u64(valset.event_nonce) == last_event_nonce
                         && event.block_number.is_some();
                     trace!(
                         "{} valset event nonce {} last event nonce",
@@ -222,7 +223,7 @@ pub async fn get_last_checked_block(
                     }
                     // if we're looking for a later event nonce and we find the deployment of the contract
                     // we must have failed to parse the event we're looking for. The oracle can not start
-                    else if valset.valset_nonce == 0 && last_event_nonce > 1u8.into() {
+                    else if valset.valset_nonce == 0 && last_event_nonce > u256!(1) {
                         panic!("Could not find the last event relayed by {}, Last Event nonce is {} but no event matching that could be found!", our_cosmos_address, last_event_nonce)
                     }
                 }
@@ -238,8 +239,4 @@ pub async fn get_last_checked_block(
     // we should exit above when we find the zero valset, if we have the wrong contract address through we could be at it a while as we go over
     // the entire history to 'prove' it.
     panic!("You have reached the end of block history without finding the Gravity contract deploy event! You must have the wrong contract address!");
-}
-
-fn upcast(input: u64) -> Uint256 {
-    input.into()
 }

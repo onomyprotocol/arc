@@ -11,7 +11,6 @@ use gravity_utils::{
     clarity::Uint256,
     deep_space::{error::CosmosGrpcError, utils::encode_any, Address as CosmosAddress, Contact},
 };
-use num::ToPrimitive;
 use rand::{prelude::ThreadRng, Rng};
 use tokio::time::sleep;
 
@@ -21,7 +20,8 @@ use crate::{
     ADDRESS_PREFIX, STAKING_TOKEN, TOTAL_TIMEOUT,
 };
 
-const NUM_AIRDROP_RECIPIENTS: usize = 40_000;
+const NUM_AIRDROP_RECIPIENTS: u64 = 40_000;
+
 // note this test can only be run once because we exhaust the community pool
 // after that the chain must be restarted to reset that state.
 pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) {
@@ -37,7 +37,7 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
     info!("Starting user key generation");
     let mut rng = rand::thread_rng();
     let (user_addresses, amounts) =
-        generate_accounts_and_amounts(&mut rng, starting_amount_in_pool.amount.clone());
+        generate_accounts_and_amounts(&mut rng, starting_amount_in_pool.amount);
     info!("Finished user key generation");
 
     // submit an invalid airdrop token type
@@ -83,7 +83,7 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
             .unwrap();
 
         assert!(balances.is_some());
-        let big_amount: Uint256 = (*amount).into();
+        let big_amount = Uint256::from_u64(*amount);
         assert_eq!(balances.unwrap().amount, big_amount);
     }
 
@@ -108,7 +108,7 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
     // and that we have subtracted at least enough to fund the airdrop, the problem is
     // that tokens are added to the pool via inflation while this whole test is running
     // meaning we can't just check that it all adds up (we do that in the go unit test though)
-    assert!(starting_amount_in_pool.amount - end.amount >= 0u8.into());
+    assert!(starting_amount_in_pool.amount >= end.amount);
 
     info!("Successfully Issued Airdrop!");
 }
@@ -234,10 +234,14 @@ fn generate_accounts_and_amounts(
     let mut amounts: Vec<u64> = Vec::new();
     for _ in 0..NUM_AIRDROP_RECIPIENTS {
         let secret: [u8; 20] = rng.gen();
-        let amount: u64 = (max.clone() / NUM_AIRDROP_RECIPIENTS.into())
-            .to_u64()
+        let amount: u64 = max
+            .divide(Uint256::from_u64(NUM_AIRDROP_RECIPIENTS))
             .unwrap()
-            - rng.gen_range(0..100);
+            .0
+            .try_resize_to_u64()
+            .unwrap()
+            .checked_sub(rng.gen_range(0..100))
+            .unwrap();
         let cosmos_address = CosmosAddress::from_bytes(secret, ADDRESS_PREFIX.as_str()).unwrap();
         user_addresses.push(cosmos_address);
         amounts.push(amount)

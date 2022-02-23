@@ -4,13 +4,14 @@ use cosmos_gravity::{
 };
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::Address as EthAddress,
+    clarity::{u256, Address as EthAddress},
     deep_space::{coin::Coin, Contact},
+    u64_array_bigints,
     web30::client::Web3,
 };
 use tonic::transport::Channel;
 
-use crate::{happy_path::test_erc20_deposit_panic, one_eth, utils::*};
+use crate::{happy_path::test_erc20_deposit_panic, utils::*, ONE_ETH};
 
 // Justin: Here's the method I set up to test out sending and cancelling, but I have not been able to get any transaction ids
 // So I have not been able to generate the cancel request
@@ -37,7 +38,7 @@ pub async fn send_to_eth_and_cancel(
         user_keys.cosmos_address,
         gravity_address,
         erc20_address,
-        one_eth(),
+        ONE_ETH,
         None,
         None,
     )
@@ -47,9 +48,9 @@ pub async fn send_to_eth_and_cancel(
 
     let bridge_denom_fee = Coin {
         denom: token_name.clone(),
-        amount: 500u64.into(),
+        amount: u256!(500),
     };
-    let amount = one_eth() - 1_500u64.into();
+    let amount = ONE_ETH.checked_sub(u256!(1_500)).unwrap();
     info!(
         "Sending {}{} from {} on Cosmos back to Ethereum",
         amount, token_name, user_keys.cosmos_address
@@ -61,7 +62,7 @@ pub async fn send_to_eth_and_cancel(
         user_keys.eth_address,
         Coin {
             denom: token_name.clone(),
-            amount: amount.clone(),
+            amount,
         },
         bridge_denom_fee.clone(),
         bridge_denom_fee.clone(),

@@ -35,7 +35,7 @@ impl Confirm for LogicCallConfirmResponse {
         self.ethereum_signer
     }
     fn get_signature(&self) -> EthSignature {
-        self.eth_signature.clone()
+        self.eth_signature
     }
 }
 

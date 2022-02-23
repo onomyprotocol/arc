@@ -4,8 +4,9 @@
 
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::Address as EthAddress,
+    clarity::{u256, Address as EthAddress},
     deep_space::{Coin, Contact},
+    u64_array_bigints,
     web30::client::Web3,
 };
 use tonic::transport::Channel;
@@ -32,14 +33,14 @@ pub async fn slashing_delegation_test(
 
     let amount_to_delegate = Coin {
         denom: STAKING_TOKEN.clone(),
-        amount: 100_000_000u32.into(),
+        amount: u256!(100_000_000),
     };
     let amount_to_unbond = Coin {
         denom: STAKING_TOKEN.clone(),
-        amount: 50_000_000u32.into(),
+        amount: u256!(50_000_000),
     };
     let mut fee_send = get_fee();
-    fee_send.amount *= 1000u16.into();
+    fee_send.amount = fee_send.amount.checked_mul(u256!(1000)).unwrap();
 
     // create a user and send them some coins to delegate
     // things we are testing
@@ -82,8 +83,8 @@ pub async fn slashing_delegation_test(
     start_orchestrators(keys.clone(), gravity_address, true, no_relay_market_config).await;
     // below logic does not work for a single validator
     assert!(keys.len() > 1);
-    let slashed_validator = keys.iter().last().unwrap().clone();
-    let redelegation_target = keys.get(0).unwrap().clone();
+    let slashed_validator = keys.iter().last().unwrap();
+    let redelegation_target = keys.get(0).unwrap();
 
     // delegate to the validator that is about to be slashed from a new address
 

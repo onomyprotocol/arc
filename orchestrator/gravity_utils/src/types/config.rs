@@ -78,7 +78,7 @@ pub enum ValsetRelayingMode {
     /// considerations. Profitable being defined as the value of
     /// the reward token in uniswap being greater than WETH cost of
     /// relaying * margin
-    ProfitableOnly { margin: f32 },
+    ProfitableOnly { margin: f64 },
     /// Relay validator sets when continued operation of the chain
     /// requires it, this will cost some ETH
     Altruistic,
@@ -90,7 +90,7 @@ pub enum ValsetRelayingMode {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct TomlValsetRelayingMode {
     mode: String,
-    margin: Option<f32>,
+    margin: Option<f64>,
 }
 
 impl From<TomlValsetRelayingMode> for ValsetRelayingMode {
@@ -122,7 +122,7 @@ pub enum BatchRequestMode {
 
 /// A whitelisted token that will be relayed given the batch
 /// provides at least amount of this specific token
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub struct WhitelistToken {
     /// the amount which the batch must have to be relayed
     pub amount: Uint256,
@@ -139,14 +139,14 @@ pub enum BatchRelayingMode {
     /// Only consider batches that are profitable as defined by
     /// the given token being listed in Uniswap for a WETH value
     /// higher than cost of relaying * margin
-    ProfitableOnly { margin: f32 },
+    ProfitableOnly { margin: f64 },
     /// Consider and relay batches that are profitable as previously
     /// defined, but also consider specific tokens with the given value
     /// as an acceptable reward. This is an advanced mode and may lose money
     /// if not carefully configured
     ProfitableWithWhitelist {
         /// The margin for all token types not in the whitelist
-        margin: f32,
+        margin: f64,
         whitelist: Vec<WhitelistToken>,
     },
 }
@@ -155,7 +155,7 @@ pub enum BatchRelayingMode {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct TomlBatchRelayingMode {
     mode: String,
-    margin: Option<f32>,
+    margin: Option<f64>,
     whitelist: Option<Vec<WhitelistToken>>,
 }
 

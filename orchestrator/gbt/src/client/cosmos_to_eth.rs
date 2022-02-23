@@ -68,7 +68,7 @@ pub async fn cosmos_to_eth(
 
     match balance {
         Some(balance) => {
-            if balance.amount < amount.amount.clone() + bridge_fee.amount.clone() {
+            if balance.amount < amount.amount.checked_add(bridge_fee.amount).unwrap() {
                 return if is_cosmos_originated {
                     Err(GravityError::UnrecoverableError(
                         format!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!",

@@ -4,7 +4,7 @@
 use cosmos_gravity::{query::get_last_event_nonce_for_validator, send::send_ethereum_claims};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{utils::bytes_to_hex_str, Address as EthAddress, Uint256},
+    clarity::{u256, utils::bytes_to_hex_str, Address as EthAddress, Uint256},
     deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey, Contact},
     error::GravityError,
     get_with_retry::{get_block_number_with_retry, get_net_version_with_retry},
@@ -12,11 +12,13 @@ use gravity_utils::{
         event_signatures::*, Erc20DeployedEvent, LogicCallExecutedEvent, SendToCosmosEvent,
         TransactionBatchExecutedEvent, ValsetUpdatedEvent,
     },
+    u64_array_bigints,
     web30::{client::Web3, jsonrpc::error::Web3Error},
 };
 use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
 
+#[derive(Clone, Copy)]
 pub struct CheckedNonces {
     pub block_number: Uint256,
     pub event_nonce: Uint256,
@@ -35,12 +37,12 @@ pub async fn check_for_events(
 ) -> Result<CheckedNonces, GravityError> {
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
     let latest_block = get_block_number_with_retry(web3).await;
-    let latest_block = latest_block - block_delay;
+    let latest_block = latest_block.checked_sub(block_delay).unwrap();
 
     let deposits = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block.clone()),
+            starting_block,
+            Some(latest_block),
             vec![gravity_contract_address],
             vec![SENT_TO_COSMOS_EVENT_SIG],
         )
@@ -49,8 +51,8 @@ pub async fn check_for_events(
 
     let batches = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block.clone()),
+            starting_block,
+            Some(latest_block),
             vec![gravity_contract_address],
             vec![TRANSACTION_BATCH_EXECUTED_EVENT_SIG],
         )
@@ -59,8 +61,8 @@ pub async fn check_for_events(
 
     let valsets = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block.clone()),
+            starting_block,
+            Some(latest_block),
             vec![gravity_contract_address],
             vec![VALSET_UPDATED_EVENT_SIG],
         )
@@ -69,8 +71,8 @@ pub async fn check_for_events(
 
     let erc20_deployed = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block.clone()),
+            starting_block,
+            Some(latest_block),
             vec![gravity_contract_address],
             vec![ERC20_DEPLOYED_EVENT_SIG],
         )
@@ -79,8 +81,8 @@ pub async fn check_for_events(
 
     let logic_call_executed = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block.clone()),
+            starting_block,
+            Some(latest_block),
             vec![gravity_contract_address],
             vec![LOGIC_CALL_EVENT_SIG],
         )
@@ -166,7 +168,7 @@ pub async fn check_for_events(
             )
         }
 
-        let new_event_nonce: Uint256 = last_event_nonce.into();
+        let new_event_nonce = Uint256::from_u64(last_event_nonce);
         if !deposits.is_empty()
             || !withdraws.is_empty()
             || !erc20_deploys.is_empty()
@@ -249,15 +251,15 @@ pub async fn get_block_delay(web3: &Web3) -> Uint256 {
     match net_version {
         // Mainline Ethereum, Ethereum classic, or the Ropsten, Kotti, Mordor testnets
         // all POW Chains
-        1 | 3 | 6 | 7 => 13u8.into(),
+        1 | 3 | 6 | 7 => u256!(13),
         // Dev, our own Gravity Ethereum testnet, and Hardhat respectively
         // all single signer chains with no chance of any reorgs
-        2018 | 15 | 31337 => 0u8.into(),
+        2018 | 15 | 31337 => u256!(0),
         // Rinkeby and Goerli use Clique (POA) Consensus, finality takes
         // up to num validators blocks. Number is higher than Ethereum based
         // on experience with operational issues
-        4 | 5 => 10u8.into(),
+        4 | 5 => u256!(10),
         // assume the safe option (POW) where we don't know
-        _ => 13u8.into(),
+        _ => u256!(13),
     }
 }

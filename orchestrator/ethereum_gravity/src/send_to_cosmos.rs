@@ -5,14 +5,15 @@ use std::time::Duration;
 use gravity_utils::{
     clarity::{
         abi::{encode_call, Token},
-        Address, PrivateKey as EthPrivateKey, Uint256,
+        u256, Address, PrivateKey as EthPrivateKey, Uint256,
     },
     deep_space::address::Address as CosmosAddress,
     error::GravityError,
+    u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
 };
 
-pub const SEND_TO_COSMOS_GAS_LIMIT: u128 = 100_000;
+pub const SEND_TO_COSMOS_GAS_LIMIT: Uint256 = u256!(100_000);
 
 #[allow(clippy::too_many_arguments)]
 pub async fn send_to_cosmos(
@@ -43,12 +44,12 @@ pub async fn send_to_cosmos(
     }
 
     if !has_gas_limit {
-        options.push(SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT.into()));
+        options.push(SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT));
     }
 
     // add nonce to options
     let nonce = web3.eth_get_transaction_count(sender_address).await?;
-    options.push(SendTxOption::Nonce(nonce.clone()));
+    options.push(SendTxOption::Nonce(nonce));
 
     // rapidly changing gas prices can cause this to fail, a quick retry loop here
     // retries in a way that assists our transaction stress test
@@ -77,7 +78,7 @@ pub async fn send_to_cosmos(
                         .await
                         .expect("Can't await for transaction within timeout");
                     // increment the nonce for the next call
-                    options.push(SendTxOption::Nonce(nonce + 1u8.into()));
+                    options.push(SendTxOption::Nonce(nonce.checked_add(u256!(1)).unwrap()));
                 }
                 break;
             }
@@ -101,20 +102,16 @@ pub async fn send_to_cosmos(
             gravity_contract,
             encode_call(
                 "sendToCosmos(address,string,uint256)",
-                &[
-                    erc20.into(),
-                    encoded_destination_address,
-                    amount.clone().into(),
-                ],
+                &[erc20.into(), encoded_destination_address, amount.into()],
             )?,
-            0u32.into(),
+            u256!(0),
             sender_address,
             &sender_secret,
             options,
         )
         .await?;
 
-    web3.wait_for_transaction(tx_hash.clone(), wait_timeout, None)
+    web3.wait_for_transaction(tx_hash, wait_timeout, None)
         .await?;
 
     Ok(tx_hash)

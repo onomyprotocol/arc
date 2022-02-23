@@ -1,11 +1,10 @@
 use std::convert::TryFrom;
 
 pub use batches::*;
-use clarity::Address as EthAddress;
+use clarity::{Address as EthAddress, Uint256};
 pub use config::*;
 pub use ethereum_events::*;
 pub use logic_call::*;
-use num256::Uint256;
 use serde::{Deserialize, Serialize};
 pub use signatures::*;
 pub use valsets::*;
@@ -20,7 +19,7 @@ mod logic_call;
 mod signatures;
 mod valsets;
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Erc20Token {
     pub amount: Uint256,
     #[serde(rename = "contract")]
@@ -31,7 +30,7 @@ impl TryFrom<gravity_proto::gravity::Erc20Token> for Erc20Token {
     type Error = GravityError;
     fn try_from(input: gravity_proto::gravity::Erc20Token) -> Result<Erc20Token, GravityError> {
         Ok(Erc20Token {
-            amount: input.amount.parse()?,
+            amount: Uint256::from_dec_or_hex_str_restricted(&input.amount)?,
             token_contract_address: input.contract.parse()?,
         })
     }

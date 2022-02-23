@@ -11,8 +11,9 @@ use std::{env, time::Duration};
 use evidence_based_slashing::evidence_based_slashing;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    clarity::{u256, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
     deep_space::{coin::Coin, Contact},
+    u64_array_bigints,
 };
 use happy_path::happy_path_test;
 use happy_path_v2::happy_path_test_v2;
@@ -75,9 +76,9 @@ lazy_static! {
 /// this value reflects the contents of /tests/container-scripts/setup-validator.sh
 /// and is used to compute if a stake change is big enough to trigger a validator set
 /// update since we want to make several such changes intentionally
-pub const STAKE_SUPPLY_PER_VALIDATOR: u128 = 1000000000000000000000;
+pub const STAKE_SUPPLY_PER_VALIDATOR: Uint256 = u256!(1000000000000000000000);
 /// this is the amount each validator bonds at startup
-pub const STARTING_STAKE_PER_VALIDATOR: u128 = STAKE_SUPPLY_PER_VALIDATOR / 2;
+pub const STARTING_STAKE_PER_VALIDATOR: Uint256 = STAKE_SUPPLY_PER_VALIDATOR.shr1();
 
 lazy_static! {
     // this key is the private key for the public key defined in tests/assets/ETHGenesis.json
@@ -97,14 +98,14 @@ lazy_static! {
 pub fn get_fee() -> Coin {
     Coin {
         denom: get_test_token_name(),
-        amount: 1u32.into(),
+        amount: u256!(1),
     }
 }
 
 pub fn get_deposit() -> Coin {
     Coin {
         denom: STAKING_TOKEN.to_string(),
-        amount: 1000000000000000000u128.into(), // 10^18
+        amount: u256!(1000000000000000000), // 10^18
     }
 }
 pub fn get_test_token_name() -> String {
@@ -115,13 +116,8 @@ pub fn get_chain_id() -> String {
     "gravity-test".to_string()
 }
 
-pub fn one_eth() -> Uint256 {
-    1000000000000000000u128.into()
-}
-
-pub fn one_hundred_eth() -> Uint256 {
-    (1000000000000000000u128 * 100).into()
-}
+pub const ONE_ETH: Uint256 = u256!(1000000000000000000);
+pub const ONE_HUNDRED_ETH: Uint256 = u256!(100000000000000000000);
 
 pub fn should_deploy_contracts() -> bool {
     match env::var("DEPLOY_CONTRACTS") {

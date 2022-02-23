@@ -8,15 +8,16 @@ use ethereum_gravity::{send_to_cosmos::send_to_cosmos, utils::get_tx_batch_nonce
 use futures::future::join_all;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::Address as EthAddress,
+    clarity::{u256, Address as EthAddress},
     deep_space::{coin::Coin, Contact},
+    u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
 };
 use rand::seq::SliceRandom;
 use tokio::time::sleep;
 use tonic::transport::Channel;
 
-use crate::{get_fee, one_eth, one_hundred_eth, utils::*, TOTAL_TIMEOUT};
+use crate::{get_fee, utils::*, ONE_ETH, ONE_HUNDRED_ETH, TOTAL_TIMEOUT};
 
 const TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -60,12 +61,12 @@ pub async fn transaction_stress_test(
     let mut eth_destinations = Vec::new();
     eth_destinations.extend(sending_eth_addresses.clone());
     eth_destinations.extend(dest_eth_addresses);
-    send_eth_bulk(one_eth(), &eth_destinations, web30).await;
+    send_eth_bulk(ONE_ETH, &eth_destinations, web30).await;
     info!("Sent {} addresses 1 ETH", NUM_USERS);
 
     // now we need to send all the sending eth addresses erc20's to send
     for token in erc20_addresses.iter() {
-        send_erc20_bulk(one_hundred_eth(), *token, &sending_eth_addresses, web30).await;
+        send_erc20_bulk(ONE_HUNDRED_ETH, *token, &sending_eth_addresses, web30).await;
         info!("Sent {} addresses 100 {}", NUM_USERS, token);
     }
     web30.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
@@ -75,7 +76,7 @@ pub async fn transaction_stress_test(
             let fut = send_to_cosmos(
                 *token,
                 gravity_address,
-                one_hundred_eth(),
+                ONE_HUNDRED_ETH,
                 keys.cosmos_address,
                 keys.eth_key,
                 TIMEOUT,
@@ -114,7 +115,7 @@ pub async fn transaction_stress_test(
                     let mut found = false;
                     for balance in balances.iter() {
                         if balance.denom.contains(&token.to_string())
-                            && balance.amount == one_hundred_eth()
+                            && balance.amount == ONE_HUNDRED_ETH
                         {
                             found = true;
                         }
@@ -148,7 +149,7 @@ pub async fn transaction_stress_test(
         );
     }
 
-    let send_amount = one_hundred_eth() - 500u16.into();
+    let send_amount = ONE_HUNDRED_ETH.checked_sub(u256!(500)).unwrap();
 
     let mut denoms = HashSet::new();
     for token in erc20_addresses.iter() {
@@ -168,10 +169,10 @@ pub async fn transaction_stress_test(
                 }
             }
             let mut send_coin = send_coin.unwrap();
-            send_coin.amount = send_amount.clone();
+            send_coin.amount = send_amount;
             let send_fee = Coin {
                 denom: send_coin.denom.clone(),
-                amount: 1u8.into(),
+                amount: u256!(1),
             };
             let res = send_to_eth(
                 c_key,
@@ -208,7 +209,7 @@ pub async fn transaction_stress_test(
     let denom = denoms.iter().next().unwrap().clone();
     let bridge_fee = Coin {
         denom,
-        amount: 1u8.into(),
+        amount: u256!(1),
     };
     // cancel all outgoing transactions for this user
     for tx in pending.unbatched_transfers {
@@ -275,8 +276,8 @@ pub async fn transaction_stress_test(
                     let bal = get_erc20_balance_safe(*token, web30, e_dest_addr)
                         .await
                         .unwrap();
-                    if bal != send_amount.clone() {
-                        if e_dest_addr == user_who_cancels.eth_address && bal == 0u8.into() {
+                    if bal != send_amount {
+                        if e_dest_addr == user_who_cancels.eth_address && bal.is_zero() {
                             info!("We successfully found the user who canceled their sends!");
                             found_canceled = true;
                         } else {

@@ -13,16 +13,16 @@ use gravity_proto::gravity::{
     query_client::QueryClient as GravityQueryClient, MsgSendToCosmosClaim, MsgValsetUpdatedClaim,
 };
 use gravity_utils::{
-    clarity::{Address as EthAddress, Uint256},
+    clarity::{u256, Address as EthAddress, Uint256},
     deep_space::{
         address::Address as CosmosAddress, coin::Coin, private_key::PrivateKey as CosmosPrivateKey,
         Contact,
     },
     error::GravityError,
     types::SendToCosmosEvent,
+    u64_array_bigints,
     web30::client::Web3,
 };
-use num::CheckedAdd;
 use prost::Message;
 use tokio::time::sleep;
 use tonic::transport::Channel;
@@ -86,7 +86,7 @@ pub async fn happy_path_test(
             user_keys.cosmos_address,
             gravity_address,
             erc20_address,
-            100u64.into(),
+            u256!(100),
             None,
             None,
         )
@@ -105,7 +105,7 @@ pub async fn happy_path_test(
         event_nonce, // Duplicate the current nonce
         contact,
         erc20_address,
-        1u64.into(),
+        u256!(1),
         user_keys.cosmos_address,
         &keys,
     )
@@ -365,7 +365,7 @@ pub async fn test_erc20_deposit_result(
     let tx_id = send_to_cosmos(
         erc20_address,
         gravity_address,
-        amount.clone(),
+        amount,
         dest,
         *MINER_PRIVATE_KEY,
         OPERATION_TIMEOUT,
@@ -399,8 +399,8 @@ pub async fn test_erc20_deposit_result(
                 (Some(start_coin), Some(end_coin)) => {
                     // When a bridge governance vote happens, the orchestrator will replay all incomplete
                     // sends to cosmos on the next send to cosmos transaction, so we need to use expected_change
-                    if let Some(expected) = expected_change.clone() {
-                        if end_coin.amount.clone() - start_coin.amount.clone() == expected
+                    if let Some(expected) = expected_change {
+                        if end_coin.amount.checked_sub(start_coin.amount).unwrap() == expected
                             && start_coin.denom == end_coin.denom
                         {
                             info!(
@@ -410,28 +410,32 @@ pub async fn test_erc20_deposit_result(
                             return;
                         }
                     } else {
-                        let expected_end = start_coin.amount.checked_add(&amount.clone());
-                        if expected_end.is_none() {
-                            info!(
-                                "Expecting overflow from addition of {:?} + {:?}!",
-                                start_coin.amount,
-                                amount.clone()
-                            );
-                        } else if start_coin.amount + amount.clone() == end_coin.amount
-                            && start_coin.denom == end_coin.denom
-                        {
-                            info!(
-                                "Successfully bridged ERC20 {}{} to Cosmos! Balance is now {}{}",
-                                amount, start_coin.denom, end_coin.amount, end_coin.denom
-                            );
-                            return;
+                        match start_coin.amount.checked_add(amount) {
+                            Some(expected_end) => {
+                                if expected_end == end_coin.amount
+                                    && start_coin.denom == end_coin.denom
+                                {
+                                    info!(
+                                        "Successfully bridged ERC20 {}{} to Cosmos! Balance is now {}{}",
+                                        amount, start_coin.denom, end_coin.amount, end_coin.denom
+                                    );
+                                    return;
+                                }
+                            }
+                            None => {
+                                info!(
+                                    "Expecting overflow from addition of {:?} + {:?}!",
+                                    start_coin.amount,
+                                    amount.clone()
+                                );
+                            }
                         }
                     }
                 }
                 (None, Some(end_coin)) => {
                     // When a bridge governance vote happens, the orchestrator will replay all incomplete
                     // sends to cosmos on the next send to cosmos transaction, so we need to use expected_change
-                    if let Some(expected) = expected_change.clone() {
+                    if let Some(expected) = expected_change {
                         if end_coin.amount == expected {
                             info!(
                                 "Successfully bridged ERC20 {}{} to Cosmos! Balance is now {}{}",
@@ -533,9 +537,9 @@ async fn test_batch(
 
     let bridge_denom_fee = Coin {
         denom: token_name.clone(),
-        amount: 1u64.into(),
+        amount: u256!(1),
     };
-    let amount = amount - 5u64.into();
+    let amount = amount.checked_sub(u256!(5)).unwrap();
     info!(
         "Sending {}{} from {} on Cosmos back to Ethereum",
         amount, token_name, dest_cosmos_address
@@ -546,7 +550,7 @@ async fn test_batch(
         dest_eth_address,
         Coin {
             denom: token_name.clone(),
-            amount: amount.clone(),
+            amount,
         },
         bridge_denom_fee.clone(),
         bridge_denom_fee.clone(),
@@ -595,11 +599,16 @@ async fn test_batch(
     {
         Err(_) => panic!("Failed to submit transaction batch set"),
         Ok(current_eth_batch_nonce) => {
-            if web30.eth_get_balance(dest_eth_address).await.unwrap() == 0u8.into() {
+            if web30
+                .eth_get_balance(dest_eth_address)
+                .await
+                .unwrap()
+                .is_zero()
+            {
                 // we have to send this address one eth so that it can perform contract calls
                 send_one_eth(dest_eth_address, web30).await;
             }
-            check_erc20_balance(erc20_contract, amount.clone(), dest_eth_address, web30).await;
+            check_erc20_balance(erc20_contract, amount, dest_eth_address, web30).await;
             info!(
                 "Successfully updated txbatch nonce to {} and sent {}{} tokens to Ethereum!",
                 current_eth_batch_nonce, amount, token_name
@@ -631,7 +640,7 @@ async fn submit_duplicate_erc20_send(
 
     let event = SendToCosmosEvent {
         event_nonce: nonce,
-        block_height: 500u16.into(),
+        block_height: u256!(500),
         erc20: erc20_address,
         sender: ethereum_sender,
         destination: receiver.to_string(),

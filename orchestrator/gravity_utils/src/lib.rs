@@ -12,4 +12,5 @@ pub mod types;
 
 pub use clarity;
 pub use deep_space;
+pub use u64_array_bigints;
 pub use web30;

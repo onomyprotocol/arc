@@ -38,12 +38,12 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
         .await
         .expect("Failed to get balance, check ERC20 contract address");
 
-    if erc20_balance == 0u8.into() {
+    if erc20_balance.is_zero() {
         return Err(GravityError::UnrecoverableError(format!(
             "You have zero {} tokens, please double check your sender and erc20 addresses!",
             erc20_address
         )));
-    } else if amount.clone() > erc20_balance {
+    } else if amount > erc20_balance {
         return Err(GravityError::UnrecoverableError(format!(
             "Insufficient balance {} > {}",
             amount, erc20_balance
@@ -58,7 +58,7 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
     let res = send_to_cosmos(
         erc20_address,
         gravity_address,
-        amount.clone(),
+        amount,
         cosmos_dest,
         ethereum_key,
         TIMEOUT,

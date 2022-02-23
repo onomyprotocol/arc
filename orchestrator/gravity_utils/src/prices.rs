@@ -1,4 +1,4 @@
-use clarity::{address::Address as EthAddress, Uint256};
+use clarity::{address::Address as EthAddress, u256, Uint256};
 use web30::{
     amm::{DAI_CONTRACT_ADDRESS, WETH_CONTRACT_ADDRESS},
     client::Web3,
@@ -14,8 +14,8 @@ pub async fn get_weth_price(
 ) -> Result<Uint256, Web3Error> {
     if token == *WETH_CONTRACT_ADDRESS {
         return Ok(amount);
-    } else if amount == 0u8.into() {
-        return Ok(0u8.into());
+    } else if amount.is_zero() {
+        return Ok(u256!(0));
     }
 
     // TODO: Make sure the market is not too thin
@@ -25,7 +25,7 @@ pub async fn get_weth_price(
             token,
             *WETH_CONTRACT_ADDRESS,
             None,
-            amount.clone(),
+            amount,
             None,
             None,
         )
@@ -42,8 +42,8 @@ pub async fn get_dai_price(
 ) -> Result<Uint256, Web3Error> {
     if token == *DAI_CONTRACT_ADDRESS {
         return Ok(amount);
-    } else if amount == 0u8.into() {
-        return Ok(0u8.into());
+    } else if amount.is_zero() {
+        return Ok(u256!(0));
     }
 
     // TODO: Make sure the market is not too thin
@@ -53,7 +53,7 @@ pub async fn get_dai_price(
             token,
             *DAI_CONTRACT_ADDRESS,
             None,
-            amount.clone(),
+            amount,
             None,
             None,
         )
