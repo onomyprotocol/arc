@@ -62,7 +62,7 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
         amount.clone(),
         cosmos_dest,
         ethereum_key,
-        Some(TIMEOUT),
+        TIMEOUT,
         &web3,
         vec![],
     )

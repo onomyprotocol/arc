@@ -1,7 +1,7 @@
 //! This is a test for the Airdrop proposal governance handler, which allows the community to propose
 //! and automatically execute an Airdrop out of the community pool
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use cosmos_gravity::proposals::{
     submit_airdrop_proposal, AirdropProposalJson, AIRDROP_PROPOSAL_TYPE_URL,
@@ -207,19 +207,20 @@ async fn submit_and_fail_airdrop_proposal(
 /// waits for the governance proposal to execute by waiting for it to leave
 /// the 'voting' status
 pub async fn wait_for_proposals_to_execute(contact: &Contact) {
-    let start = Instant::now();
-    loop {
-        let proposals = contact
-            .get_governance_proposals_in_voting_period()
-            .await
-            .unwrap();
-        if Instant::now() - start > TOTAL_TIMEOUT {
-            panic!("Gov proposal did not execute")
-        } else if proposals.proposals.is_empty() {
-            return;
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
+        loop {
+            let proposals = contact
+                .get_governance_proposals_in_voting_period()
+                .await
+                .unwrap();
+            if proposals.proposals.is_empty() {
+                return;
+            }
+            sleep(Duration::from_secs(5)).await;
         }
-        sleep(Duration::from_secs(5)).await;
-    }
+    })
+    .await
+    .expect("Gov proposal did not execute")
 }
 
 fn generate_accounts_and_amounts(

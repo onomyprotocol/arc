@@ -1,7 +1,4 @@
-use std::{
-    str::FromStr,
-    time::{Duration, Instant},
-};
+use std::{str::FromStr, time::Duration};
 
 use bytes::BytesMut;
 use cosmos_gravity::{
@@ -102,21 +99,25 @@ pub async fn unhalt_bridge_test(
             .unwrap();
     }
 
-    let start = Instant::now();
     let mut initial_nonces_same = false;
     let mut initial_valid_nonce = None;
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        // These are the nonces each validator is aware of before false claims are submitted
-        let initial_nonces = get_nonces(&mut grpc_client, &keys, &prefix).await;
-        initial_nonces_same = initial_nonces[0] == initial_nonces[1]
-            && initial_nonces[0] == initial_nonces[2]
-            && initial_nonces[0] == initial_nonces[3];
-        if initial_nonces_same {
-            initial_valid_nonce = Some(initial_nonces[0]);
-            break;
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
+        loop {
+            // These are the nonces each validator is aware of before false claims are submitted
+            let initial_nonces = get_nonces(&mut grpc_client, &keys, &prefix).await;
+            initial_nonces_same = initial_nonces[0] == initial_nonces[1]
+                && initial_nonces[0] == initial_nonces[2]
+                && initial_nonces[0] == initial_nonces[3];
+            if initial_nonces_same {
+                initial_valid_nonce = Some(initial_nonces[0]);
+                break;
+            }
+            sleep(Duration::from_secs(1)).await;
         }
-        sleep(Duration::from_secs(1)).await;
-    }
+    })
+    .await
+    .expect("Can't await for same nonces within timeout");
+
     // All nonces should be the same right now
     assert!(initial_nonces_same, "The initial nonces differed!");
 

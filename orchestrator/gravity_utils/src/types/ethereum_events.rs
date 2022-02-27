@@ -832,8 +832,6 @@ fn _debug_print_data(input: &[u8]) {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, Instant};
-
     use clarity::utils::hex_str_to_bytes;
     use rand::{
         distributions::{Distribution, Uniform},
@@ -843,8 +841,7 @@ mod tests {
 
     use super::*;
 
-    /// Five minutes fuzzing by default
-    const FUZZ_TIME: Duration = Duration::from_secs(30);
+    const FUZZ_TIMES: u64 = 100_000;
 
     fn get_fuzz_bytes(rng: &mut ThreadRng) -> Vec<u8> {
         let range = Uniform::from(1..200_000);
@@ -926,9 +923,8 @@ mod tests {
 
     #[test]
     fn fuzz_send_to_cosmos_decode() {
-        let start = Instant::now();
         let mut rng = thread_rng();
-        while Instant::now() - start < FUZZ_TIME {
+        for _ in 0..FUZZ_TIMES {
             let event_bytes = get_fuzz_bytes(&mut rng);
 
             let res = SendToCosmosEvent::decode_data_bytes(&event_bytes);
@@ -941,9 +937,8 @@ mod tests {
 
     #[test]
     fn fuzz_valset_updated_event_decode() {
-        let start = Instant::now();
         let mut rng = thread_rng();
-        while Instant::now() - start < FUZZ_TIME {
+        for _ in 0..FUZZ_TIMES {
             let event_bytes = get_fuzz_bytes(&mut rng);
 
             let res = ValsetUpdatedEvent::decode_data_bytes(&event_bytes);
@@ -956,9 +951,8 @@ mod tests {
 
     #[test]
     fn fuzz_erc20_deployed_event_decode() {
-        let start = Instant::now();
         let mut rng = thread_rng();
-        while Instant::now() - start < FUZZ_TIME {
+        for _ in 0..FUZZ_TIMES {
             let event_bytes = get_fuzz_bytes(&mut rng);
 
             let res = Erc20DeployedEvent::decode_data_bytes(&event_bytes);
