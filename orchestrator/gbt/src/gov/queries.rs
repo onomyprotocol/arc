@@ -1,13 +1,13 @@
-use std::process::exit;
-
 use cosmos_gravity::send::TIMEOUT;
 use gravity_proto::gravity::AirdropProposal;
-use gravity_utils::{connection_prep::create_rpc_connections, deep_space::Address};
+use gravity_utils::{
+    connection_prep::create_rpc_connections, deep_space::Address, error::GravityError,
+};
 use prost::{bytes::BytesMut, Message};
 
 use crate::args::AirdropQueryOpts;
 
-pub async fn query_airdrops(opts: AirdropQueryOpts, prefix: String) {
+pub async fn query_airdrops(opts: AirdropQueryOpts, prefix: String) -> Result<(), GravityError> {
     let connections =
         create_rpc_connections(prefix.clone(), Some(opts.cosmos_grpc), None, TIMEOUT).await;
     let contact = connections.contact.unwrap();
@@ -66,11 +66,14 @@ pub async fn query_airdrops(opts: AirdropQueryOpts, prefix: String) {
             }
         }
         Err(e) => {
-            error!("Failed to get proposals, check your cosmos gRPC {:?}", e);
-            exit(1);
+            return Err(GravityError::UnrecoverableError(format!(
+                "Failed to get proposals, check your cosmos gRPC {:?}",
+                e
+            )))
         }
     }
     if !found {
         info!("No Airdrop proposals meeting the criteria where found!")
     }
+    Ok(())
 }
