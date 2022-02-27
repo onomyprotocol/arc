@@ -1,7 +1,7 @@
 //! this test simulates pausing and unpausing the bridge via governance action. This would be used in an emergency
 //! situation to prevent the bridge from being drained of funds
 //!
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use cosmos_gravity::{
     query::get_gravity_params,
@@ -211,19 +211,19 @@ pub async fn pause_bridge_test(
 
     let starting_batch_nonce = current_eth_batch_nonce;
 
-    let start = Instant::now();
-    while starting_batch_nonce == current_eth_batch_nonce {
-        info!(
-            "Batch is not yet submitted {}>, waiting",
-            starting_batch_nonce
-        );
-        current_eth_batch_nonce =
-            get_tx_batch_nonce(gravity_address, erc20_address, *MINER_ADDRESS, web30)
-                .await
-                .expect("Failed to get current eth tx batch nonce");
-        sleep(Duration::from_secs(4)).await;
-        if Instant::now() - start > TOTAL_TIMEOUT {
-            panic!("Failed to submit transaction batch set");
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
+        while starting_batch_nonce == current_eth_batch_nonce {
+            info!(
+                "Batch is not yet submitted {}>, waiting",
+                starting_batch_nonce
+            );
+            current_eth_batch_nonce =
+                get_tx_batch_nonce(gravity_address, erc20_address, *MINER_ADDRESS, web30)
+                    .await
+                    .expect("Failed to get current eth tx batch nonce");
+            sleep(Duration::from_secs(4)).await;
         }
-    }
+    })
+    .await
+    .expect("Failed to submit transaction batch set")
 }

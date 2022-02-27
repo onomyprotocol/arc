@@ -1,7 +1,7 @@
 //! This is the testing module for relay market functionality, testing that
 //! relayers utilize web30 to interact with a testnet to obtain coin swap values
 //! and determine whether relays should happen or not
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use cosmos_gravity::{query::get_oldest_unsigned_transaction_batches, send::send_to_eth};
 use ethereum_gravity::utils::get_tx_batch_nonce;
@@ -100,28 +100,32 @@ async fn setup_batch_test(
     );
     // Acquire 1,000 WETH worth of DAI (probably ~23,000 DAI)
     info!("Starting swap!");
-    let start = Instant::now();
     let mut token_acquired = Err(Web3Error::BadInput("Dummy Error".to_string()));
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        token_acquired = web30
-            .swap_uniswap(
-                *MINER_PRIVATE_KEY,
-                *WETH_CONTRACT_ADDRESS,
-                erc20_contract,
-                None,
-                one_eth() * 1000u16.into(),
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some(TOTAL_TIMEOUT),
-            )
-            .await;
-        if token_acquired.is_ok() {
-            break;
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
+        loop {
+            token_acquired = web30
+                .swap_uniswap(
+                    *MINER_PRIVATE_KEY,
+                    *WETH_CONTRACT_ADDRESS,
+                    erc20_contract,
+                    None,
+                    one_eth() * 1000u16.into(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(TOTAL_TIMEOUT),
+                )
+                .await;
+            if token_acquired.is_ok() {
+                break;
+            }
         }
-    }
+    })
+    .await
+    .expect("Can't swap uniswap within timeout");
+
     info!("Swap result is {:?}", token_acquired);
     assert!(
         !token_acquired.is_err(),

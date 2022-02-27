@@ -1,7 +1,4 @@
-use std::{
-    panic,
-    time::{Duration, Instant},
-};
+use std::{panic, time::Duration};
 
 use cosmos_gravity::{proposals::submit_parameter_change_proposal, query::get_gravity_params};
 use ethereum_gravity::utils::get_event_nonce;
@@ -475,55 +472,53 @@ pub async fn check_cosmos_balances(
     expected_cosmos_coins: &[Coin],
 ) {
     let mut num_found = 0;
-
-    let start = Instant::now();
-
-    while Instant::now() - start < TOTAL_TIMEOUT {
-        let mut good = true;
-        let curr_balances = contact.get_balances(cosmos_account).await.unwrap();
-        // These loops use loop labels, see the documentation on loop labels here for more information
-        // https://doc.rust-lang.org/reference/expressions/loop-expr.html#loop-labels
-        'outer: for bal in curr_balances.iter() {
-            if num_found == expected_cosmos_coins.len() {
-                break 'outer; // done searching entirely
-            }
-            'inner: for j in 0..expected_cosmos_coins.len() {
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
+        loop {
+            let mut good = true;
+            let curr_balances = contact.get_balances(cosmos_account).await.unwrap();
+            // These loops use loop labels, see the documentation on loop labels here for more information
+            // https://doc.rust-lang.org/reference/expressions/loop-expr.html#loop-labels
+            'outer: for bal in curr_balances.iter() {
                 if num_found == expected_cosmos_coins.len() {
                     break 'outer; // done searching entirely
                 }
-                if expected_cosmos_coins[j].denom != bal.denom {
-                    continue;
-                }
-                let check = expected_cosmos_coins[j].amount == bal.amount;
-                good = check;
-                if !check {
-                    warn!(
+                'inner: for j in 0..expected_cosmos_coins.len() {
+                    if num_found == expected_cosmos_coins.len() {
+                        break 'outer; // done searching entirely
+                    }
+                    if expected_cosmos_coins[j].denom != bal.denom {
+                        continue;
+                    }
+                    let check = expected_cosmos_coins[j].amount == bal.amount;
+                    good = check;
+                    if !check {
+                        warn!(
                         "found balance {}! expected {} trying again",
                         bal, expected_cosmos_coins[j].amount
                     );
+                    }
+                    num_found += 1;
+                    break 'inner; // done searching for this particular balance
                 }
-                num_found += 1;
-                break 'inner; // done searching for this particular balance
             }
-        }
 
-        let check = num_found == curr_balances.len();
-        // if it's already false don't set to true
-        good = check || good;
-        if !check {
-            warn!(
+            let check = num_found == curr_balances.len();
+            // if it's already false don't set to true
+            good = check || good;
+            if !check {
+                warn!(
                 "did not find the correct balance for each expected coin! found {} of {}, trying again",
                 num_found,
                 curr_balances.len()
             );
+            }
+            if good {
+                return;
+            } else {
+                sleep(Duration::from_secs(1)).await;
+            }
         }
-        if good {
-            return;
-        } else {
-            sleep(Duration::from_secs(1)).await;
-        }
-    }
-    panic!("Failed to find correct balances in check_cosmos_balances")
+    }).await.expect("Failed to find correct balances in check_cosmos_balances")
 }
 
 /// utility function for bulk checking erc20 balances, used to provide
@@ -533,35 +528,33 @@ pub async fn get_event_nonce_safe(
     web3: &Web3,
     caller_address: EthAddress,
 ) -> Result<u64, Web3Error> {
-    let start = Instant::now();
-    // overly complicated retry logic allows us to handle the possibility that gas prices change between blocks
-    // and cause any individual request to fail.
-    let mut new_balance = Err(Web3Error::BadInput("Intentional Error".to_string()));
-    while new_balance.is_err() && Instant::now() - start < TOTAL_TIMEOUT {
-        new_balance = get_event_nonce(gravity_contract_address, caller_address, web3).await;
-        // only keep trying if our error is gas related
-        if let Err(ref e) = new_balance {
-            if !e.to_string().contains("maxFeePerGas") {
-                break;
+    return tokio::time::timeout(TOTAL_TIMEOUT, async {
+        loop {
+            let new_balance = get_event_nonce(gravity_contract_address, caller_address, web3).await;
+            if let Err(ref e) = new_balance {
+                if e.to_string().contains("maxFeePerGas") {
+                    continue;
+                }
             }
+            return new_balance;
         }
-    }
-    Ok(new_balance.unwrap())
+    })
+    .await
+    .expect("Can't get event nonce withing timeout");
 }
 
 /// waits for the cosmos chain to start producing blocks, used to prevent race conditions
 /// where our tests try to start running before the Cosmos chain is ready
 pub async fn wait_for_cosmos_online(contact: &Contact, timeout: Duration) {
-    let start = Instant::now();
-    while let Err(CosmosGrpcError::NodeNotSynced) | Err(CosmosGrpcError::ChainNotRunning) =
-        contact.wait_for_next_block(timeout).await
-    {
-        sleep(Duration::from_secs(1)).await;
-        if Instant::now() - start > timeout {
-            panic!("Cosmos node has not come online during timeout!")
+    tokio::time::timeout(timeout, async {
+        while let Err(CosmosGrpcError::NodeNotSynced) | Err(CosmosGrpcError::ChainNotRunning) =
+            contact.wait_for_next_block(timeout).await
+        {
+            sleep(Duration::from_secs(1)).await;
         }
-    }
-    contact.wait_for_next_block(timeout).await.unwrap();
+    })
+    .await
+    .expect("Cosmos node has not come online during timeout!");
 }
 
 /// This function returns the valoper address of a validator
