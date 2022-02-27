@@ -100,7 +100,12 @@ pub async fn cosmos_to_eth(
     .await;
     match res {
         Ok(tx_id) => info!("Send to Eth txid {}", tx_id.txhash),
-        Err(e) => info!("Failed to send tokens! {:?}", e),
+        Err(e) => {
+            return Err(GravityError::UnrecoverableError(format!(
+                "Failed to send tokens! {:?}",
+                e
+            )))
+        }
     }
     info!("Your funds are now waiting to be sent to Ethereum in a transaction batch!");
     info!("Depending on how much you and others attached in fees, this might take a while!");
