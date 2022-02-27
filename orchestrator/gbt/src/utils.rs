@@ -20,16 +20,16 @@ pub fn print_relaying_explanation(input: &RelayerConfig, batch_requests: bool) {
     }
     match (input.batch_request_mode, batch_requests) {
         (_, false) => info!(
-            "This relayer will not automatically request batches because the Graviton private key and fees are not provided",
+            "This relayer will not automatically request batches because the private key and fees are not provided",
         ),
         (BatchRequestMode::None, _) => info!(
             "This relayer will not automatically request batches, to enable this modify your configs `batch_request_mode`",
         ),
         (BatchRequestMode::ProfitableOnly, true) => info!(
-            "This relayer will automatically spend Graviton tx fees to request the creation of batches that may be profitable",
+            "This relayer will automatically spend tx fees to request the creation of batches that may be profitable",
         ),
         (BatchRequestMode::EveryBatch, true) => info!(
-            "This relayer will automatically spend Graviton tx fees to request a batch when any tx are available",
+            "This relayer will automatically spend tx fees to request a batch when any tx are available",
         ),
     }
     match &input.batch_relaying_mode {

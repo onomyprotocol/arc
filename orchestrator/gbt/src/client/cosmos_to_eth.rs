@@ -5,7 +5,7 @@ use gravity_proto::gravity::QueryDenomToErc20Request;
 use gravity_utils::{
     connection_prep::{check_for_fee, create_rpc_connections},
     error::GravityError,
-    num_conversion::{print_atom, print_eth},
+    num_conversion::{print_eth, print_nom},
 };
 
 use crate::{args::CosmosToEthOpts, utils::TIMEOUT};
@@ -70,7 +70,7 @@ pub async fn cosmos_to_eth(
         Some(balance) => {
             if balance.amount < amount.amount.clone() + bridge_fee.amount.clone() {
                 if is_cosmos_originated {
-                    error!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_atom(amount.amount), gravity_coin.denom, print_atom(balance.amount));
+                    error!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_nom(amount.amount), gravity_coin.denom, print_nom(balance.amount));
                 } else {
                     error!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_eth(amount.amount), gravity_coin.denom, print_eth(balance.amount));
                 }
