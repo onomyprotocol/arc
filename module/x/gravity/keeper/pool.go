@@ -131,7 +131,8 @@ func (k Keeper) RemoveFromOutgoingPoolAndRefund(ctx sdk.Context, txId uint64, se
 	}
 
 	// Calculate refund
-	totalToRefund := tx.Erc20Token.GravityCoin()
+	_, denom := k.ERC20ToDenomLookup(ctx, tx.Erc20Token.Contract)
+	totalToRefund := sdk.NewCoin(denom, tx.Erc20Token.Amount)
 	totalToRefund.Amount = totalToRefund.Amount.Add(tx.Erc20Fee.Amount)
 	totalToRefundCoins := sdk.NewCoins(totalToRefund)
 
