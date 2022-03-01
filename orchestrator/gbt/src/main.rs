@@ -18,14 +18,11 @@ use gov::{
     queries::query_airdrops,
 };
 use gravity_utils::error::GravityError;
-use keys::{
-    register_orchestrator_address::register_orchestrator_address, set_eth_key, set_orchestrator_key,
-};
+use keys::register_orchestrator_address::register_orchestrator_address;
 
 use crate::{
     args::{ClientSubcommand, KeysSubcommand, SubCommand},
     config::init_config,
-    keys::show_keys,
     orchestrator::orchestrator,
     relayer::relayer,
 };
@@ -90,26 +87,14 @@ async fn run_gbt() -> Result<(), GravityError> {
         },
         SubCommand::Keys(key_opts) => match key_opts.subcmd {
             KeysSubcommand::RegisterOrchestratorAddress(set_orchestrator_address_opts) => {
-                register_orchestrator_address(
-                    set_orchestrator_address_opts,
-                    address_prefix,
-                    home_dir,
-                )
-                .await
-            }
-            KeysSubcommand::Show => show_keys(&home_dir, &address_prefix),
-            KeysSubcommand::SetEthereumKey(set_eth_key_opts) => {
-                set_eth_key(&home_dir, set_eth_key_opts)
-            }
-            KeysSubcommand::SetOrchestratorKey(set_orch_key_opts) => {
-                set_orchestrator_key(&home_dir, set_orch_key_opts)
+                register_orchestrator_address(set_orchestrator_address_opts, address_prefix).await
             }
         },
         SubCommand::Orchestrator(orchestrator_opts) => {
-            orchestrator(orchestrator_opts, address_prefix, &home_dir, config).await
+            orchestrator(orchestrator_opts, address_prefix, config).await
         }
         SubCommand::Relayer(relayer_opts) => {
-            relayer(relayer_opts, address_prefix, &home_dir, &config.relayer).await
+            relayer(relayer_opts, address_prefix, &config.relayer).await
         }
         SubCommand::Init(init_opts) => init_config(init_opts, home_dir),
         SubCommand::Gov(gov_opts) => match gov_opts.subcmd {

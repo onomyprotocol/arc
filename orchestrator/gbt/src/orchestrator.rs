@@ -1,4 +1,4 @@
-use std::{cmp::min, path::Path, time::Duration};
+use std::{cmp::min, time::Duration};
 
 use cosmos_gravity::query::get_gravity_params;
 use gravity_utils::{
@@ -7,7 +7,6 @@ use gravity_utils::{
         check_delegate_addresses, check_for_eth, check_for_fee, create_rpc_connections,
         wait_for_cosmos_node_ready,
     },
-    deep_space::PrivateKey as CosmosPrivateKey,
     error::GravityError,
     types::{BatchRequestMode, GravityBridgeToolsConfig},
 };
@@ -16,16 +15,11 @@ use orchestrator::main_loop::{
     orchestrator_main_loop, ETH_ORACLE_LOOP_SPEED, ETH_SIGNER_LOOP_SPEED,
 };
 
-use crate::{
-    args::OrchestratorOpts,
-    config::{config_exists, load_keys},
-    utils::print_relaying_explanation,
-};
+use crate::{args::OrchestratorOpts, utils::print_relaying_explanation};
 
 pub async fn orchestrator(
     args: OrchestratorOpts,
     address_prefix: String,
-    home_dir: &Path,
     config: GravityBridgeToolsConfig,
 ) -> Result<(), GravityError> {
     let fee = args.fees;
@@ -33,49 +27,6 @@ pub async fn orchestrator(
     let ethereum_rpc = args.ethereum_rpc;
     let ethereum_key = args.ethereum_key;
     let cosmos_key = args.cosmos_phrase;
-
-    let cosmos_key = if let Some(k) = cosmos_key {
-        k
-    } else {
-        let mut k = None;
-        if config_exists(home_dir) {
-            let keys = load_keys(home_dir)?;
-            if let Some(stored_key) = keys.orchestrator_phrase {
-                k = Some(CosmosPrivateKey::from_phrase(&stored_key, "").unwrap())
-            }
-        }
-        if k.is_none() {
-            error!("You must specify an Orchestrator key phrase!");
-            error!("To set an already registered key use 'gbt keys set-orchestrator-key --phrase \"your phrase\"`");
-            error!("To run from the command line, with no key storage use 'gbt orchestrator --cosmos-phrase \"your phrase\"' ");
-            error!("If you have not already generated a key 'gbt keys register-orchestrator-address' will generate one for you");
-            return Err(GravityError::UnrecoverableError(
-                "Cosmos key phrase not specified".into(),
-            ));
-        }
-        k.unwrap()
-    };
-    let ethereum_key = if let Some(k) = ethereum_key {
-        k
-    } else {
-        let mut k = None;
-        if config_exists(home_dir) {
-            let keys = load_keys(home_dir)?;
-            if let Some(stored_key) = keys.ethereum_key {
-                k = Some(stored_key)
-            }
-        }
-        if k.is_none() {
-            error!("You must specify an Ethereum key!");
-            error!("To set an already registered key use 'gbt keys set-ethereum-key -key \"eth private key\"`");
-            error!("To run from the command line, with no key storage use 'gbt orchestrator --ethereum-key your key' ");
-            error!("If you have not already generated a key 'gbt keys register-orchestrator-address' will generate one for you");
-            return Err(GravityError::UnrecoverableError(
-                "Ethereum key not specified".into(),
-            ));
-        }
-        k.unwrap()
-    };
 
     let timeout = min(
         min(ETH_SIGNER_LOOP_SPEED, ETH_ORACLE_LOOP_SPEED),
@@ -97,7 +48,9 @@ pub async fn orchestrator(
     let web3 = connections.web3.clone().unwrap();
 
     let public_eth_key = ethereum_key.to_address();
-    let public_cosmos_key = cosmos_key.to_address(&contact.get_prefix()).unwrap();
+    let public_cosmos_key = cosmos_key
+        .to_address(&contact.get_prefix())
+        .expect("Failed to parse cosmos-phrase");
     info!("Starting Gravity Validator companion binary Relayer + Oracle + Eth Signer");
     info!(
         "Ethereum Address: {} Cosmos Address {}",
@@ -152,7 +105,6 @@ pub async fn orchestrator(
     if config.orchestrator.relayer_enabled {
         // setup and explain relayer settings
         if config.relayer.batch_request_mode != BatchRequestMode::None {
-            let public_cosmos_key = cosmos_key.to_address(&contact.get_prefix()).unwrap();
             check_for_fee(&fee, public_cosmos_key, &contact).await?;
             print_relaying_explanation(&config.relayer, true)
         } else {

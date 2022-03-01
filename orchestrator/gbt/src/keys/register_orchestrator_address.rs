@@ -1,84 +1,30 @@
-use std::path::PathBuf;
-
 use cosmos_gravity::send::set_gravity_delegate_addresses;
 use gravity_utils::{
-    clarity::PrivateKey as EthPrivateKey,
     connection_prep::{check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready},
-    deep_space::{mnemonic::Mnemonic, private_key::PrivateKey as CosmosPrivateKey},
     error::GravityError,
 };
-use rand::{thread_rng, Rng};
 
-use crate::{
-    args::RegisterOrchestratorAddressOpts,
-    config::{config_exists, load_keys, save_keys, KeyStorage},
-    utils::TIMEOUT,
-};
+use crate::{args::RegisterOrchestratorAddressOpts, utils::TIMEOUT};
 
 pub async fn register_orchestrator_address(
     args: RegisterOrchestratorAddressOpts,
     prefix: String,
-    home_dir: PathBuf,
 ) -> Result<(), GravityError> {
     let fee = args.fees;
     let cosmos_grpc = args.cosmos_grpc;
     let validator_key = args.validator_phrase;
-    let cosmos_phrase = args.cosmos_phrase;
-    let mut generated_cosmos = None;
-    let mut generated_eth = false;
-
-    if !args.no_save && !config_exists(&home_dir) {
-        return Err(GravityError::UnrecoverableError(
-            "Please run `gbt init` before running this command!".into(),
-        ));
-    }
+    let ethereum_key = args.ethereum_key;
+    let cosmos_key = args.cosmos_phrase;
 
     let connections = create_rpc_connections(prefix, Some(cosmos_grpc), None, TIMEOUT).await;
     let contact = connections.contact.unwrap();
     wait_for_cosmos_node_ready(&contact).await;
 
-    let validator_addr = validator_key.to_address(&contact.get_prefix()).unwrap();
-    check_for_fee(&fee, validator_addr, &contact).await?;
+    let validator_addr = validator_key
+        .to_address(&contact.get_prefix())
+        .expect("Failed to parse validator-phrase");
 
-    // Set the cosmos key to either the cli value, the value in the config, or a generated
-    // value if the config has not been setup
-    let cosmos_key = if let Some(cosmos_phrase) = cosmos_phrase.clone() {
-        CosmosPrivateKey::from_phrase(&cosmos_phrase, "").expect("Failed to parse cosmos key")
-    } else {
-        let mut key = None;
-        if config_exists(&home_dir) {
-            let keys = load_keys(&home_dir)?;
-            if let Some(phrase) = keys.orchestrator_phrase {
-                key = Some(CosmosPrivateKey::from_phrase(phrase.as_str(), "").unwrap());
-            }
-        }
-        if key.is_none() {
-            let new_phrase = Mnemonic::generate(24).unwrap();
-            key = Some(CosmosPrivateKey::from_phrase(new_phrase.as_str(), "").unwrap());
-            generated_cosmos = Some(new_phrase);
-        }
-        key.unwrap()
-    };
-    // Set the ethereum key to either the cli value, the value in the config, or a generated
-    // value if the config has not been setup
-    let ethereum_key = if let Some(key) = args.ethereum_key {
-        key
-    } else {
-        let mut key = None;
-        if config_exists(&home_dir) {
-            let keys = load_keys(&home_dir)?;
-            if let Some(config_key) = keys.ethereum_key {
-                key = Some(config_key);
-            }
-        }
-        if key.is_none() {
-            generated_eth = true;
-            let mut rng = thread_rng();
-            let e: [u8; 32] = rng.gen();
-            key = Some(EthPrivateKey::from_slice(&e).unwrap())
-        }
-        key.unwrap()
-    };
+    check_for_fee(&fee, validator_addr, &contact).await?;
 
     let ethereum_address = ethereum_key.to_address();
     let cosmos_address = cosmos_key.to_address(&contact.get_prefix()).unwrap();
@@ -101,45 +47,11 @@ pub async fn register_orchestrator_address(
         ));
     }
 
-    if let Some(phrase) = generated_cosmos.clone() {
-        info!(
-            "No Cosmos key provided, your generated key is\n {} -> {}",
-            phrase.as_str(),
-            cosmos_key.to_address(&contact.get_prefix()).unwrap()
-        );
-    }
-    if generated_eth {
-        info!(
-            "No Ethereum key provided, your generated key is\n Private: {} -> Address: {}",
-            ethereum_key,
-            ethereum_key.to_address()
-        );
-    }
-
     let eth_address = ethereum_key.to_address();
     info!(
         "Registered Delegate Ethereum address {} and Cosmos address {}",
         eth_address, cosmos_address
     );
-    if !args.no_save {
-        info!("Keys saved! You can now run `gbt orchestrator --fees <your fee value>`");
-        let phrase = match (generated_cosmos, cosmos_phrase) {
-            (Some(v), None) => v.to_string(),
-            (None, Some(s)) => s,
-            (..) => {
-                // in this case the user has set keys in the config
-                // and then registered them so lets just load the config
-                // value again
-                let keys = load_keys(&home_dir)?;
-                keys.orchestrator_phrase.unwrap()
-            }
-        };
-        let new_keys = KeyStorage {
-            orchestrator_phrase: Some(phrase),
-            ethereum_key: Some(ethereum_key),
-        };
-        save_keys(&home_dir, new_keys);
-    }
 
     Ok(())
 }
