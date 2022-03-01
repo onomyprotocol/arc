@@ -1,11 +1,11 @@
-use std::{convert::TryInto, fs, process::exit};
+use std::{convert::TryInto, fs};
 
 use cosmos_gravity::proposals::{
     submit_airdrop_proposal, submit_ibc_metadata_proposal, submit_pause_bridge_proposal,
     submit_unhalt_bridge_proposal, AirdropProposalJsonUnparsed, IbcMetadataProposalJson,
     PauseBridgeProposalJson, UnhaltBridgeProposalJson,
 };
-use gravity_utils::connection_prep::create_rpc_connections;
+use gravity_utils::{connection_prep::create_rpc_connections, error::GravityError};
 
 use crate::{
     args::{
@@ -15,7 +15,10 @@ use crate::{
     utils::TIMEOUT,
 };
 
-pub async fn submit_ibc_metadata(opts: IbcMetadataProposalOpts, prefix: String) {
+pub async fn submit_ibc_metadata(
+    opts: IbcMetadataProposalOpts,
+    prefix: String,
+) -> Result<(), GravityError> {
     let connections = create_rpc_connections(prefix, Some(opts.cosmos_grpc), None, TIMEOUT).await;
     let contact = connections.contact.unwrap();
 
@@ -36,31 +39,32 @@ pub async fn submit_ibc_metadata(opts: IbcMetadataProposalOpts, prefix: String) 
                     match res {
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
-                            error!("Failed to submit proposal with {:?}", e);
-                            exit(1);
+                            return Err(GravityError::UnrecoverableError(format!(
+                                "Failed to submit proposal with {:?}",
+                                e
+                            )))
                         }
                     }
                 }
                 Err(e) => {
-                    error!(
+                    return Err(GravityError::UnrecoverableError(format!(
                         "Failed to deserialize your proposal.json, check the contents! {:?}",
                         e
-                    );
-                    exit(1);
+                    )))
                 }
             }
         }
         Err(e) => {
-            error!(
+            return Err(GravityError::UnrecoverableError(format!(
                 "Failed to read your proposal.json check the file path! {:?}",
                 e
-            );
-            exit(1);
+            )))
         }
     }
+    Ok(())
 }
 
-pub async fn submit_airdrop(opts: AirdropProposalOpts, prefix: String) {
+pub async fn submit_airdrop(opts: AirdropProposalOpts, prefix: String) -> Result<(), GravityError> {
     let connections = create_rpc_connections(prefix, Some(opts.cosmos_grpc), None, TIMEOUT).await;
     let contact = connections.contact.unwrap();
 
@@ -84,31 +88,35 @@ pub async fn submit_airdrop(opts: AirdropProposalOpts, prefix: String) {
                     match res {
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
-                            error!("Failed to submit proposal with {:?}", e);
-                            exit(1);
+                            return Err(GravityError::UnrecoverableError(format!(
+                                "Failed to submit proposal with {:?}",
+                                e
+                            )))
                         }
                     }
                 }
                 Err(e) => {
-                    error!(
+                    return Err(GravityError::UnrecoverableError(format!(
                         "Failed to deserialize your proposal.json, check the contents! {:?}",
                         e
-                    );
-                    exit(1);
+                    )))
                 }
             }
         }
         Err(e) => {
-            error!(
+            return Err(GravityError::UnrecoverableError(format!(
                 "Failed to read your proposal.json check the file path! {:?}",
                 e
-            );
-            exit(1);
+            )))
         }
     }
+    Ok(())
 }
 
-pub async fn submit_emergency_bridge_halt(opts: EmergencyBridgeHaltProposalOpts, prefix: String) {
+pub async fn submit_emergency_bridge_halt(
+    opts: EmergencyBridgeHaltProposalOpts,
+    prefix: String,
+) -> Result<(), GravityError> {
     let connections = create_rpc_connections(prefix, Some(opts.cosmos_grpc), None, TIMEOUT).await;
     let contact = connections.contact.unwrap();
 
@@ -129,31 +137,35 @@ pub async fn submit_emergency_bridge_halt(opts: EmergencyBridgeHaltProposalOpts,
                     match res {
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
-                            error!("Failed to submit proposal with {:?}", e);
-                            exit(1);
+                            return Err(GravityError::UnrecoverableError(format!(
+                                "Failed to submit proposal with {:?}",
+                                e
+                            )))
                         }
                     }
                 }
                 Err(e) => {
-                    error!(
+                    return Err(GravityError::UnrecoverableError(format!(
                         "Failed to deserialize your proposal.json, check the contents! {:?}",
                         e
-                    );
-                    exit(1);
+                    )))
                 }
             }
         }
         Err(e) => {
-            error!(
+            return Err(GravityError::UnrecoverableError(format!(
                 "Failed to read your proposal.json check the file path! {:?}",
                 e
-            );
-            exit(1);
+            )))
         }
     }
+    Ok(())
 }
 
-pub async fn submit_oracle_unhalt(opts: OracleUnhaltProposalOpts, prefix: String) {
+pub async fn submit_oracle_unhalt(
+    opts: OracleUnhaltProposalOpts,
+    prefix: String,
+) -> Result<(), GravityError> {
     let connections = create_rpc_connections(prefix, Some(opts.cosmos_grpc), None, TIMEOUT).await;
     let contact = connections.contact.unwrap();
 
@@ -175,26 +187,27 @@ pub async fn submit_oracle_unhalt(opts: OracleUnhaltProposalOpts, prefix: String
                     match res {
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
-                            error!("Failed to submit proposal with {:?}", e);
-                            exit(1);
+                            return Err(GravityError::UnrecoverableError(format!(
+                                "Failed to submit proposal with {:?}",
+                                e
+                            )))
                         }
                     }
                 }
                 Err(e) => {
-                    error!(
+                    return Err(GravityError::UnrecoverableError(format!(
                         "Failed to deserialize your proposal.json, check the contents! {:?}",
                         e
-                    );
-                    exit(1);
+                    )))
                 }
             }
         }
         Err(e) => {
-            error!(
+            return Err(GravityError::UnrecoverableError(format!(
                 "Failed to read your proposal.json check the file path! {:?}",
                 e
-            );
-            exit(1);
+            )))
         }
     }
+    Ok(())
 }

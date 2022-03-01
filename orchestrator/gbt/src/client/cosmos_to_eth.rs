@@ -1,5 +1,3 @@
-use std::process::exit;
-
 use cosmos_gravity::{query::get_denom_to_erc20, send::send_to_eth};
 use gravity_proto::gravity::QueryDenomToErc20Request;
 use gravity_utils::{
@@ -33,8 +31,10 @@ pub async fn cosmos_to_eth(
     let is_cosmos_originated = match res {
         Ok(v) => v.cosmos_originated,
         Err(e) => {
-            error!("Could not lookup denom is it valid? {:?}", e);
-            exit(1);
+            return Err(GravityError::UnrecoverableError(format!(
+                "Could not lookup denom is it valid? {:?}",
+                e
+            )));
         }
     };
 
@@ -69,12 +69,15 @@ pub async fn cosmos_to_eth(
     match balance {
         Some(balance) => {
             if balance.amount < amount.amount.clone() + bridge_fee.amount.clone() {
-                if is_cosmos_originated {
-                    error!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_nom(amount.amount), gravity_coin.denom, print_nom(balance.amount));
+                return if is_cosmos_originated {
+                    Err(GravityError::UnrecoverableError(
+                        format!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!",
+                                print_nom(amount.amount), gravity_coin.denom, print_nom(balance.amount))))
                 } else {
-                    error!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!", print_eth(amount.amount), gravity_coin.denom, print_eth(balance.amount));
-                }
-                exit(1);
+                    Err(GravityError::UnrecoverableError(
+                        format!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!",
+                                print_eth(amount.amount), gravity_coin.denom, print_eth(balance.amount))))
+                };
             }
         }
         None => {

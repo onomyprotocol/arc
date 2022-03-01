@@ -115,32 +115,18 @@ async fn run_gbt() -> Result<(), GravityError> {
         SubCommand::Gov(gov_opts) => match gov_opts.subcmd {
             GovSubcommand::Submit(submit_opts) => match submit_opts {
                 GovSubmitSubcommand::IbcMetadata(opts) => {
-                    submit_ibc_metadata(opts, address_prefix).await;
-                    // TODO make method above return error
-                    Ok(())
+                    submit_ibc_metadata(opts, address_prefix).await
                 }
-                GovSubmitSubcommand::Airdrop(opts) => {
-                    submit_airdrop(opts, address_prefix).await;
-                    // TODO make method above return error
-                    Ok(())
-                }
+                GovSubmitSubcommand::Airdrop(opts) => submit_airdrop(opts, address_prefix).await,
                 GovSubmitSubcommand::EmergencyBridgeHalt(opts) => {
-                    submit_emergency_bridge_halt(opts, address_prefix).await;
-                    // TODO make method above return error
-                    Ok(())
+                    submit_emergency_bridge_halt(opts, address_prefix).await
                 }
                 GovSubmitSubcommand::OracleUnhalt(opts) => {
-                    submit_oracle_unhalt(opts, address_prefix).await;
-                    // TODO make method above return error
-                    Ok(())
+                    submit_oracle_unhalt(opts, address_prefix).await
                 }
             },
             GovSubcommand::Query(query_opts) => match query_opts {
-                GovQuerySubcommand::Airdrop(opts) => {
-                    query_airdrops(opts, address_prefix).await;
-                    // TODO make method above return error
-                    Ok(())
-                }
+                GovQuerySubcommand::Airdrop(opts) => query_airdrops(opts, address_prefix).await,
             },
         },
     }
