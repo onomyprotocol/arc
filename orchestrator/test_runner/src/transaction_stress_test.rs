@@ -78,7 +78,7 @@ pub async fn transaction_stress_test(
                 one_hundred_eth(),
                 keys.cosmos_address,
                 keys.eth_key,
-                Some(TIMEOUT),
+                TIMEOUT,
                 web30,
                 vec![SendTxOption::GasPriceMultiplier(5.0)],
             );

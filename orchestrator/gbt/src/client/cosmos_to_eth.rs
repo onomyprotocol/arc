@@ -3,7 +3,7 @@ use gravity_proto::gravity::QueryDenomToErc20Request;
 use gravity_utils::{
     connection_prep::{check_for_fee, create_rpc_connections},
     error::GravityError,
-    num_conversion::{print_atom, print_eth},
+    num_conversion::{print_eth, print_nom},
 };
 
 use crate::{args::CosmosToEthOpts, utils::TIMEOUT};
@@ -72,7 +72,7 @@ pub async fn cosmos_to_eth(
                 return if is_cosmos_originated {
                     Err(GravityError::UnrecoverableError(
                         format!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!",
-                                print_atom(amount.amount), gravity_coin.denom, print_atom(balance.amount))))
+                                print_nom(amount.amount), gravity_coin.denom, print_nom(balance.amount))))
                 } else {
                     Err(GravityError::UnrecoverableError(
                         format!("Your transfer of {} {} tokens is greater than your balance of {} tokens. Remember you need some to pay for fees!",
@@ -103,7 +103,12 @@ pub async fn cosmos_to_eth(
     .await;
     match res {
         Ok(tx_id) => info!("Send to Eth txid {}", tx_id.txhash),
-        Err(e) => info!("Failed to send tokens! {:?}", e),
+        Err(e) => {
+            return Err(GravityError::UnrecoverableError(format!(
+                "Failed to send tokens! {:?}",
+                e
+            )))
+        }
     }
     info!("Your funds are now waiting to be sent to Ethereum in a transaction batch!");
     info!("Depending on how much you and others attached in fees, this might take a while!");

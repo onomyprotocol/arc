@@ -14,10 +14,10 @@ pub fn one_gwei() -> Uint256 {
     ONE_GWEI.into()
 }
 
-const ONE_ATOM: u128 = 1000000;
-const ONE_ATOM_FLOAT: f64 = ONE_ATOM as f64;
-pub fn one_atom() -> Uint256 {
-    ONE_ATOM.into()
+const ONE_NOM: u128 = 1000000000000000000;
+const ONE_NOM_FLOAT: f64 = ONE_NOM as f64;
+pub fn one_nom() -> Uint256 {
+    ONE_NOM.into()
 }
 
 pub fn downcast_uint256(input: Uint256) -> Option<u64> {
@@ -73,9 +73,9 @@ pub fn print_eth(input: Uint256) -> String {
     format!("{:.4}", res)
 }
 
-pub fn print_atom(input: Uint256) -> String {
+pub fn print_nom(input: Uint256) -> String {
     let float: f64 = input.to_string().parse().unwrap();
-    let res = float / ONE_ATOM_FLOAT;
+    let res = float / ONE_NOM_FLOAT;
     format!("{:.4}", res)
 }
 

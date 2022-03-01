@@ -62,14 +62,19 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
         amount.clone(),
         cosmos_dest,
         ethereum_key,
-        Some(TIMEOUT),
+        TIMEOUT,
         &web3,
         vec![],
     )
     .await;
     match res {
         Ok(tx_id) => info!("Send to Cosmos txid: {:#066x}", tx_id),
-        Err(e) => info!("Failed to send tokens! {:?}", e),
+        Err(e) => {
+            return Err(GravityError::UnrecoverableError(format!(
+                "Failed to send tokens! {:?}",
+                e
+            )))
+        }
     }
     info!(
         "Your tokens should show up in the account {} on Gravity Bridge within 5 minutes",

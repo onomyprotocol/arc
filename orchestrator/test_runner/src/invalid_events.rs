@@ -1,9 +1,6 @@
 //! This is a test for invalid string based deposits, the goal is to torture test the implementation
 //! with every possible variant of invalid data and ensure that in all cases the community pool deposit
 //! works correctly.
-
-use std::time::Instant;
-
 use ethereum_gravity::send_to_cosmos::SEND_TO_COSMOS_GAS_LIMIT;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
@@ -242,13 +239,16 @@ pub async fn send_to_cosmos_invalid(
     let mut approved = web3
         .check_erc20_approved(erc20, *MINER_ADDRESS, gravity_contract)
         .await;
-    let start = Instant::now();
-    // keep trying while there's still time
-    while approved.is_err() && Instant::now() - start < TOTAL_TIMEOUT {
-        approved = web3
-            .check_erc20_approved(erc20, *MINER_ADDRESS, gravity_contract)
-            .await;
-    }
+
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
+        while approved.is_err() {
+            approved = web3
+                .check_erc20_approved(erc20, *MINER_ADDRESS, gravity_contract)
+                .await;
+        }
+    })
+    .await
+    .expect("Can't check erc20 approved within timeout");
 
     let approved = approved.unwrap();
     if !approved {

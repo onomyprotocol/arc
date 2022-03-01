@@ -368,7 +368,7 @@ pub async fn test_erc20_deposit_result(
         amount.clone(),
         dest,
         *MINER_PRIVATE_KEY,
-        None,
+        OPERATION_TIMEOUT,
         web30,
         vec![],
     )

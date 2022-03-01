@@ -1,6 +1,6 @@
 //! Helper functions for sending tokens to Cosmos
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use gravity_utils::{
     clarity::{
@@ -21,70 +21,76 @@ pub async fn send_to_cosmos(
     amount: Uint256,
     cosmos_destination: CosmosAddress,
     sender_secret: EthPrivateKey,
-    wait_timeout: Option<Duration>,
+    wait_timeout: Duration,
     web3: &Web3,
     options: Vec<SendTxOption>,
 ) -> Result<Uint256, GravityError> {
     let sender_address = sender_secret.to_address();
-    let mut approve_nonce = None;
 
+    // if the user sets a gas limit we should honor it, if they don't we
+    // should add the default
+    let mut options = options;
+    let mut has_gas_limit = false;
     for option in options.iter() {
         if let SendTxOption::Nonce(_) = option {
             return Err(GravityError::ValidationError(
                 "This call sends more than one tx! Can't specify".into(),
             ));
         }
-    }
-
-    // rapidly changing gas prices can cause this to fail, a quick retry loop here
-    // retries in a way that assists our transaction stress test
-    let mut approved = web3
-        .check_erc20_approved(erc20, sender_address, gravity_contract)
-        .await;
-    if let Some(w) = wait_timeout {
-        let start = Instant::now();
-        // keep trying while there's still time
-        while approved.is_err() && Instant::now() - start < w {
-            approved = web3
-                .check_erc20_approved(erc20, sender_address, gravity_contract)
-                .await;
-        }
-    }
-    let approved = approved.unwrap();
-    if !approved {
-        let mut options = options.clone();
-        let nonce = web3.eth_get_transaction_count(sender_address).await?;
-        options.push(SendTxOption::Nonce(nonce.clone()));
-        approve_nonce = Some(nonce);
-        let txid = web3
-            .approve_erc20_transfers(erc20, &sender_secret, gravity_contract, None, options)
-            .await?;
-        trace!(
-            "We are not approved for ERC20 transfers, approving txid: {:#066x}",
-            txid
-        );
-        if let Some(timeout) = wait_timeout {
-            web3.wait_for_transaction(txid, timeout, None).await?;
-        }
-    }
-
-    // if the user sets a gas limit we should honor it, if they don't we
-    // should add the default
-    let mut has_gas_limit = false;
-    let mut options = options;
-    for option in options.iter() {
         if let SendTxOption::GasLimit(_) = option {
             has_gas_limit = true;
-            break;
         }
     }
+
     if !has_gas_limit {
         options.push(SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT.into()));
     }
-    // if we have run an approval we should increment our nonce by one so that
-    // we can be sure our actual tx can go in immediately behind
-    if let Some(nonce) = approve_nonce {
-        options.push(SendTxOption::Nonce(nonce + 1u8.into()));
+
+    // add nonce to options
+    let nonce = web3.eth_get_transaction_count(sender_address).await?;
+    options.push(SendTxOption::Nonce(nonce.clone()));
+
+    // rapidly changing gas prices can cause this to fail, a quick retry loop here
+    // retries in a way that assists our transaction stress test
+    let check_and_approve_erc20_transfer = async {
+        loop {
+            if let Ok(approved) = web3
+                .check_erc20_approved(erc20, sender_address, gravity_contract)
+                .await
+            {
+                if !approved {
+                    let txid = web3
+                        .approve_erc20_transfers(
+                            erc20,
+                            &sender_secret,
+                            gravity_contract,
+                            None,
+                            options.clone(),
+                        )
+                        .await
+                        .expect("Can't approve erc20 transfers within timeout");
+                    trace!(
+                        "We are not approved for ERC20 transfers, approving txid: {:#066x}",
+                        txid
+                    );
+                    web3.wait_for_transaction(txid, wait_timeout, None)
+                        .await
+                        .expect("Can't await for transaction within timeout");
+                    // increment the nonce for the next call
+                    options.push(SendTxOption::Nonce(nonce + 1u8.into()));
+                }
+                break;
+            }
+        }
+    };
+
+    if tokio::time::timeout(wait_timeout, check_and_approve_erc20_transfer)
+        .await
+        .is_err()
+    {
+        return Err(GravityError::UnrecoverableError(
+            "Can't check and approve erc20 transfer within timeout".into(),
+        ));
     }
 
     info!("sending to on cosmos {}", cosmos_destination);
@@ -108,10 +114,8 @@ pub async fn send_to_cosmos(
         )
         .await?;
 
-    if let Some(timeout) = wait_timeout {
-        web3.wait_for_transaction(tx_hash.clone(), timeout, None)
-            .await?;
-    }
+    web3.wait_for_transaction(tx_hash.clone(), wait_timeout, None)
+        .await?;
 
     Ok(tx_hash)
 }

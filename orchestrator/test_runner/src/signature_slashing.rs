@@ -2,7 +2,7 @@
 //! the default timeline for signature slashing is quite long (10k blocks) so this test reduces that with a governance
 //! proposal and then waits for slashing code to execute before performing a final test to ensure everything is good
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use cosmos_gravity::query::get_gravity_params;
 use gravity_proto::{
@@ -53,23 +53,18 @@ pub async fn signature_slashing_test(
 }
 
 pub async fn wait_for_height(target_height: u64, contact: &Contact) {
-    let mut last_update = Instant::now();
-    let mut last_seen_block = 0;
-    while get_latest_block(contact).await < 20 {
-        let latest = get_latest_block(contact).await;
-        if last_seen_block != latest {
-            last_seen_block = latest;
-            last_update = Instant::now()
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
+        while get_latest_block(contact).await < target_height {
+            sleep(Duration::from_secs(10)).await;
         }
-
-        if Instant::now() - last_update > TOTAL_TIMEOUT {
-            panic!(
-                "Chain has halted while waiting for height {}",
-                target_height
-            )
-        }
-        sleep(Duration::from_secs(10)).await;
-    }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "Chain has halted while waiting for height {}",
+            target_height
+        )
+    });
 }
 
 pub async fn get_latest_block(contact: &Contact) -> u64 {
