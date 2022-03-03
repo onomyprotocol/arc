@@ -67,10 +67,11 @@ struct Signature {
 	bytes32 s;
 }
 
-// Used to prevent duplicate addresses for validators
-// During construction and in updateValset
-struct ValidatorData {
-	bool isFound;
+// Used for checking validator duplicates
+enum ValidatorPosition {
+	UNINITIALIZED,
+	LEFT,
+	RIGHT
 }
 
 contract Gravity is ReentrancyGuard {
@@ -97,8 +98,8 @@ contract Gravity is ReentrancyGuard {
 	bytes32 public immutable state_gravityId;
 
 	// Used for checking validator duplicates
-	// Only gets mutated in `memory`
-	mapping(address => ValidatorData) validatorData;
+	mapping(address => ValidatorPosition) validatorSet;
+	ValidatorPosition currentPosition = ValidatorPosition.UNINITIALIZED;
 
 	// TransactionBatchExecutedEvent and SendToCosmosEvent both include the field _eventNonce.
 	// This is incremented every time one of these events is emitted. It is checked by the
@@ -192,15 +193,27 @@ contract Gravity is ReentrancyGuard {
 
 	// Utility function to check for duplicate validators
 	// The checks are performed in memory and discarded
-	function checkDuplicateValidators(address[] memory validators) private view {
-		for (uint256 i = 0; i < validators.length; i++) {
-			ValidatorData memory currentValidator = validatorData[validators[i]];
-			// Duplicate validator found!
-			if (currentValidator.isFound) {
-				revert MalformedCurrentValidatorSet();
-			}
-			currentValidator.isFound = true;
+	function checkDuplicateValidators(address[] memory _validators) private {
+		ValidatorPosition nextPosition;
+
+		if (
+			currentPosition == ValidatorPosition.UNINITIALIZED ||
+			nextPosition == ValidatorPosition.RIGHT
+		) {
+			nextPosition = ValidatorPosition.LEFT;
+		} else {
+			nextPosition = ValidatorPosition.RIGHT;
 		}
+
+		for (uint256 i = 0; i < _validators.length; i++) {
+			if (validatorSet[_validators[i]] == nextPosition) {
+				revert MalformedNewValidatorSet();
+			} else {
+				validatorSet[_validators[i]] = nextPosition;
+			}
+		}
+
+		currentPosition = nextPosition;
 	}
 
 	// Make a new checkpoint from the supplied validator set
