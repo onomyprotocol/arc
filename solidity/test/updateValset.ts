@@ -195,14 +195,14 @@ async function runTest(opts: {
   return { gravity, checkpoint };
 }
 
-describe.only("updateValset tests", function () {
-  it.only("throws MalformedNewValidatorSet on duplicate validators", async function () {
+describe("updateValset tests", function () {
+  it("throws MalformedNewValidatorSet on duplicate validators", async function () {
     await expect(runTest({ duplicateValidator: true })).to.be.revertedWith(
       "MalformedNewValidatorSet()"
     );
   });
 
-  it.only("throws MalformedNewValidatorSet on duplicate, sorted validators", async function () {
+  it("throws MalformedNewValidatorSet on duplicate, sorted validators", async function () {
     await expect(runTest({ duplicateValidator: true, sortValidators: true })).to.be.revertedWith(
       "MalformedNewValidatorSet()"
     );
@@ -281,6 +281,11 @@ describe.only("updateValset tests", function () {
 
   it("happy path", async function () {
     let { gravity, checkpoint } = await runTest({});
+    expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint);
+  });
+
+  it("happy path with sorted validators", async function () {
+    let { gravity, checkpoint } = await runTest({ sortValidators: true });
     expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint);
   });
 });
