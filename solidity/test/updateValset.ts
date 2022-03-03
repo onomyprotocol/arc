@@ -283,6 +283,11 @@ describe("updateValset tests", function () {
     let { gravity, checkpoint } = await runTest({});
     expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint);
   });
+
+  it("happy path with sorted validators", async function () {
+    let { gravity, checkpoint } = await runTest({ sortValidators: true });
+    expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint);
+  });
 });
 
 // This test produces a hash for the contract which should match what is being used in the Go unit tests. It's here for

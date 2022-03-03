@@ -143,6 +143,10 @@ describe("deployERC20 tests", function () {
     await runTest({})
   });
 
+  it("runs with sorted validators", async function () {
+    await runTest({ sortValidators: true })
+  });
+
 
   // Duplicate validators - must fail
   it("throws MalformedNewValidatorSet on duplicate validators", async function () {
