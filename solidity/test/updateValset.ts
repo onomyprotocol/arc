@@ -2,7 +2,7 @@ import chai from "chai";
 import { ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 
-import { deployContracts } from "../test-utils";
+import { deployContracts, sortValidators } from "../test-utils";
 import {
   getSignerAddresses,
   makeCheckpoint,
@@ -28,6 +28,8 @@ async function runTest(opts: {
   withReward?: boolean;
   notEnoughPowerNewSet?: boolean;
   zeroLengthValset?: boolean;
+  duplicateValidator?: boolean;
+  sortValidators?: boolean;
 }) {
   const signers = await ethers.getSigners();
   const gravityId = ethers.utils.formatBytes32String("foo");
@@ -39,7 +41,6 @@ async function runTest(opts: {
   const {
     gravity,
     testERC20,
-    checkpoint: deployCheckpoint
   } = await deployContracts(gravityId, validators, powers);
 
   let newPowers = examplePowers();
@@ -47,6 +48,19 @@ async function runTest(opts: {
   newPowers[1] += 3;
 
   let newValidators = signers.slice(0, newPowers.length);
+
+  // arbitrarily set a duplicate validator
+  if (opts.duplicateValidator) {
+    let firstValidator = newValidators[0];
+    newValidators[22] = firstValidator;
+  }
+
+  // before deploying sort the validators
+  if (opts.sortValidators) {
+    sortValidators(newValidators)
+  }
+
+
   if (opts.malformedNewValset) {
     // Validators and powers array don't match
     newValidators = signers.slice(0, newPowers.length - 1);
@@ -159,7 +173,6 @@ async function runTest(opts: {
     powers.pop();
   }
 
-
   let valsetUpdateTx = await gravity.updateValset(
     newValset,
     currentValset,
@@ -183,6 +196,18 @@ async function runTest(opts: {
 }
 
 describe("updateValset tests", function () {
+  it("throws MalformedNewValidatorSet on duplicate validators", async function () {
+    await expect(runTest({ duplicateValidator: true })).to.be.revertedWith(
+      "MalformedNewValidatorSet()"
+    );
+  });
+
+  it("throws MalformedNewValidatorSet on duplicate, sorted validators", async function () {
+    await expect(runTest({ duplicateValidator: true, sortValidators: true })).to.be.revertedWith(
+      "MalformedNewValidatorSet()"
+    );
+  });
+
   it("throws on malformed new valset", async function () {
     await expect(runTest({ malformedNewValset: true })).to.be.revertedWith(
       "MalformedNewValidatorSet()"

@@ -67,12 +67,6 @@ struct Signature {
 	bytes32 s;
 }
 
-// Used to prevent duplicate addresses for validators
-// During construction and in updateValset
-struct ValidatorData {
-	bool isFound;
-}
-
 contract Gravity is ReentrancyGuard {
 	using SafeERC20 for IERC20;
 
@@ -95,10 +89,6 @@ contract Gravity is ReentrancyGuard {
 
 	// This is set once at initialization
 	bytes32 public immutable state_gravityId;
-
-	// Used for checking validator duplicates
-	// Only gets mutated in `memory`
-	mapping(address => ValidatorData) validatorData;
 
 	// TransactionBatchExecutedEvent and SendToCosmosEvent both include the field _eventNonce.
 	// This is incremented every time one of these events is emitted. It is checked by the
@@ -192,14 +182,50 @@ contract Gravity is ReentrancyGuard {
 
 	// Utility function to check for duplicate validators
 	// The checks are performed in memory and discarded
-	function checkDuplicateValidators(address[] memory validators) private view {
-		for (uint256 i = 0; i < validators.length; i++) {
-			ValidatorData memory currentValidator = validatorData[validators[i]];
-			// Duplicate validator found!
-			if (currentValidator.isFound) {
-				revert MalformedCurrentValidatorSet();
+	function checkDuplicateValidators(address[] memory _validators) private pure {
+		bool isSorted = true;
+		for (uint256 i = 1; i < _validators.length; i++) {
+			if (_validators[i] < _validators[i - 1]) {
+				isSorted = false;
+				break;
 			}
-			currentValidator.isFound = true;
+			if (_validators[i] == _validators[i - 1]) {
+				revert MalformedNewValidatorSet();
+			}
+		}
+
+		if (isSorted) {
+			return;
+		}
+
+		address[] memory validators = new address[](_validators.length);
+		for (uint256 i = 0; i < validators.length; i++) {
+			validators[i] = _validators[i];
+		}
+
+		insertionSort(validators);
+
+		for (uint256 i = 1; i < validators.length; i++) {
+			// Duplicate validator found!
+			if (validators[i] == validators[i - 1]) {
+				revert MalformedNewValidatorSet();
+			}
+		}
+	}
+
+	function insertionSort(address[] memory data) internal pure {
+		uint256 length = data.length;
+
+		for (uint256 i = 1; i < length; i++) {
+			address current = data[i];
+			uint256 j = i;
+
+			while (j > 0 && data[j - 1] > current) {
+				data[j] = data[j - 1];
+				j--;
+			}
+
+			data[j] = current;
 		}
 	}
 
@@ -295,8 +321,7 @@ contract Gravity is ReentrancyGuard {
 		}
 
 		// Check for duplicate validators
-		address[] memory _new_validators = _newValset.validators;
-		checkDuplicateValidators(_new_validators);
+		checkDuplicateValidators(_newValset.validators);
 
 		// Check that the valset nonce is less than a million nonces forward from the old one
 		// this makes it difficult for an attacker to lock out the contract by getting a single

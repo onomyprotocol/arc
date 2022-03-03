@@ -4,6 +4,7 @@ import { TestERC20WNOM } from "../typechain/TestERC20WNOM";
 import { ethers } from "hardhat";
 import { makeCheckpoint, getSignerAddresses, ZeroAddress } from "./pure";
 import { Signer } from "ethers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 type DeployContractsOptions = {
   corruptSig?: boolean;
@@ -34,10 +35,18 @@ export async function deployContracts(
     gravityId,
     await getSignerAddresses(validators),
     powers,
-      testERC20WNOM.address
+    testERC20WNOM.address
   )) as Gravity;
 
   await gravity.deployed();
 
   return { gravity, testERC20, checkpoint, testERC20WNOM };
+}
+
+// Insertion Sort for sorting validators
+export function sortValidators(validators: SignerWithAddress[]) {
+  // modify `address` to lower case for proper comparison during sorting
+  validators = validators.map(validator =>
+    Object.assign(validator, { address: validator.address.toLowerCase() })
+  ).sort((a, b) => a.address > b.address ? 1 : 0)
 }

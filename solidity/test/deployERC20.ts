@@ -2,7 +2,7 @@ import chai from "chai";
 import { ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 
-import { deployContracts } from "../test-utils";
+import { deployContracts, sortValidators } from "../test-utils";
 import {
   getSignerAddresses,
   signHash,
@@ -11,14 +11,11 @@ import {
   parseEvent,
 } from "../test-utils/pure";
 import { BigNumber } from "ethers";
+
 chai.use(solidity);
 const { expect } = chai;
 
-
-async function runTest(opts: {}) {
-
-
-
+async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: boolean; }) {
   // Prep and deploy Gravity contract
   // ========================
   const signers = await ethers.getSigners();
@@ -26,14 +23,19 @@ async function runTest(opts: {}) {
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
   let validators = signers.slice(0, powers.length);
-  const {
-    gravity,
-    testERC20,
-    checkpoint: deployCheckpoint
-  } = await deployContracts(gravityId, validators, powers);
 
+  // arbitrarily set a duplicate validator
+  if (opts.duplicateValidator) {
+    let firstValidator = validators[0];
+    validators[22] = firstValidator;
+  }
 
+  // before deploying sort the validators
+  if (opts.sortValidators) {
+    sortValidators(validators)
+  }
 
+  const { gravity } = await deployContracts(gravityId, validators, powers);
 
   // Deploy ERC20 contract representing Cosmos asset
   // ===============================================
@@ -48,18 +50,13 @@ async function runTest(opts: {}) {
     _eventNonce: BigNumber.from(2)
   })
 
-
-
-
   // Connect to deployed contract for testing
   // ========================================
   let ERC20contract = new ethers.Contract(eventArgs._tokenContract, [
     "function balanceOf(address account) view returns (uint256 balance)"
   ], gravity.provider);
 
-
   const maxUint256 = BigNumber.from(2).pow(256).sub(1)
-
   // Check that gravity balance is correct
   expect((await ERC20contract.functions.balanceOf(gravity.address)).toString()).to.equal(maxUint256.toString())
 
@@ -79,9 +76,6 @@ async function runTest(opts: {}) {
   const txDestinations = await getSignerAddresses(txDestinationsInt);
   let batchNonce = 1
   let batchTimeout = 10000
-
-
-
 
   // Call method
   // ===========
@@ -143,9 +137,24 @@ async function runTest(opts: {}) {
 }
 
 describe("deployERC20 tests", function () {
-  // There is no way for this function to throw so there are
-  // no throwing tests
+
+  // No duplicate validators all works fine
   it("runs", async function () {
     await runTest({})
+  });
+
+
+  // Duplicate validators - must fail
+  it("throws MalformedNewValidatorSet on duplicate validators", async function () {
+    await expect(runTest({ duplicateValidator: true })).to.be.revertedWith(
+      "MalformedNewValidatorSet()"
+    );
+  });
+
+  // Duplicate validators, already sorted - must fail
+  it("throws MalformedNewValidatorSet on duplicate, sorted validators", async function () {
+    await expect(runTest({ duplicateValidator: true, sortValidators: true })).to.be.revertedWith(
+      "MalformedNewValidatorSet()"
+    );
   });
 });

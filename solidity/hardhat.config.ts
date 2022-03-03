@@ -837,7 +837,7 @@ module.exports = {
     runOnCompile: true
   },
   gasReporter: {
-    enabled: true
+    enabled: true,
   },
   mocha: {
     timeout: 2000000
