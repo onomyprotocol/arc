@@ -44,7 +44,6 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
             erc20_address
         )));
     } else if amount.clone() > erc20_balance {
-        error!("Insufficient balance {} > {}", amount, erc20_balance);
         return Err(GravityError::UnrecoverableError(format!(
             "Insufficient balance {} > {}",
             amount, erc20_balance

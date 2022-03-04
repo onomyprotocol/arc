@@ -49,9 +49,8 @@ pub async fn get_current_valset(
     if let Some(valset) = valset {
         Ok(valset.into())
     } else {
-        error!("Current valset returned None? This should be impossible");
         Err(GravityError::ValidationError(
-            "Must have a current valset!".into(),
+            "Current valset returned None. Must have a current valset!".into(),
         ))
     }
 }

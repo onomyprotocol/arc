@@ -429,14 +429,9 @@ fn check_for_fee_error(
     if let Err(CosmosGrpcError::InsufficientFees { fee_info }) = res {
         match fee_info {
             FeeInfo::InsufficientFees { min_fees } => {
-                error!(
-                    "Your specified fee value {} is too small please use at least {}",
-                    fee,
-                    Coin::display_list(&min_fees)
-                );
-                error!("Correct fee argument immediately! You will be slashed within a few hours if you fail to do so");
                 return Err(GravityError::UnrecoverableError(
-                    "Specified fee value too small".into(),
+                    format!( "Your specified fee value {} is too small please use at least {} \n\
+                    Correct fee argument immediately! You will be slashed within a few hours if you fail to do so",  fee, Coin::display_list(&min_fees)),
                 ));
             }
             FeeInfo::InsufficientGas { .. } => {
