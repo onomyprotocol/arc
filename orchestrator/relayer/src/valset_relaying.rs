@@ -153,6 +153,11 @@ async fn relay_valid_valset(
             ethereum_key,
         )
         .await;
+    } else {
+        info!(
+            "The valset {} won't be relayed by this orchestrator, because relayer is disabled",
+            valset_to_relay.nonce
+        );
     }
 }
 

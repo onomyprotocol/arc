@@ -262,36 +262,23 @@ pub async fn check_delegate_addresses(
             if req_delegate_eth_address != delegate_eth_address
                 && req_delegate_orchestrator_address != delegate_orchestrator_address
             {
-                error!("Your Gravity Delegate addresses are both incorrect!");
-                error!("If you are getting this error you must have made at least two validators and mixed up the keys between them");
-                error!(
-                    "You provided {} Correct Value {}",
-                    delegate_eth_address, req_delegate_eth_address
-                );
-                error!(
-                    "You provided {} Correct Value {}",
-                    delegate_orchestrator_address, req_delegate_orchestrator_address
-                );
-                Err(GravityError::UnrecoverableError(
-                    "Ethereum orchestrator addresses incorrect".into(),
+                Err(GravityError::UnrecoverableError(format!(
+                    "Your Gravity Delegate addresses are both incorrect! \n \
+                    If you are getting this error you must have made at least two validators and mixed up the keys between them \n \
+                    You provided {} Correct Value {} \n \
+                    You provided {} Correct Value {}",
+                    delegate_eth_address, req_delegate_eth_address,
+                    delegate_orchestrator_address, req_delegate_orchestrator_address),
                 ))
             } else if req_delegate_eth_address != delegate_eth_address {
-                error!("Your Delegate Ethereum address is incorrect!");
-                error!(
-                    "You provided {} Correct Value {}",
-                    delegate_eth_address, req_delegate_eth_address
-                );
                 Err(GravityError::UnrecoverableError(
-                    "Delegate Ethereum address is incorrect".into(),
+                    format!("Your Delegate Ethereum address is incorrect! \n \
+                    You provided {} Correct Value {}", delegate_eth_address, req_delegate_eth_address)
                 ))
             } else if req_delegate_orchestrator_address != delegate_orchestrator_address {
-                error!("Your Delegate Orchestrator address is incorrect!");
-                error!(
-                    "You provided {} Correct Value {}",
-                    delegate_orchestrator_address, req_delegate_orchestrator_address
-                );
                 Err(GravityError::UnrecoverableError(
-                    "Delegate Orchestrator address is incorrect".into(),
+                    format!("Your Delegate Orchestrator address is incorrect! \n \
+                    You provided {} Correct Value {}", delegate_orchestrator_address, req_delegate_orchestrator_address),
                 ))
             } else if e.validator_address != o.validator_address {
                 Err(GravityError::UnrecoverableError(
@@ -328,13 +315,9 @@ pub async fn check_for_fee(
     // if we decide to pay no fees it doesn't matter, but we do need some coin balance
     if fee.amount == 0u8.into() {
         if let Err(CosmosGrpcError::NoToken) = contact.get_account_info(address).await {
-            error!("Your Orchestrator address has no tokens of any kind. Even if you are paying zero fees this account needs to be 'initialized' by depositing tokens");
-            error!(
-                "Send the smallest possible unit of any token to {} to resolve this error",
-                address
-            );
             return Err(GravityError::ValidationError(
-                "Your Orchestrator address has no tokens of any kind".into(),
+               format!("Your Orchestrator address has no tokens of any kind. Even if you are paying zero fees this account needs to be 'initialized' by depositing tokens \n\
+               Send the smallest possible unit of any token to {} to resolve this error", address),
             ));
         }
         return Ok(());
@@ -362,13 +345,10 @@ pub async fn check_for_fee(
 pub async fn check_for_eth(address: EthAddress, web3: &Web3) -> Result<(), GravityError> {
     let balance = get_eth_balances_with_retry(address, web3).await;
     if balance == 0u8.into() {
-        error!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs", address);
-        error!("You can disable relaying by editing your config file in $HOME/.gbt/config");
-        error!(
-            "Even if you disable relaying you still need some dust so that the oracle can function"
-        );
         Err(GravityError::ValidationError(
-            "You don't have any Ethereum!".into(),
+           format!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs \n \
+           You can disable relaying by editing your config file in $HOME/.gbt/config \n\
+           Even if you disable relaying you still need some dust so that the oracle can function", address),
         ))
     } else {
         Ok(())

@@ -158,7 +158,6 @@ impl Valset {
                         sig.get_eth_address(),
                         sig.get_signature()
                     );
-                    error!("{}", err);
                     return Err(GravityError::ValidationError(err));
                 }
             } else {
