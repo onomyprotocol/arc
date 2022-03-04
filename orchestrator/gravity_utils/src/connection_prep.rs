@@ -272,11 +272,6 @@ pub async fn check_delegate_addresses(
                     "You provided {} Correct Value {}",
                     delegate_orchestrator_address, req_delegate_orchestrator_address
                 );
-                error!("In order to resolve this issue locate the key phrase and private key you registered for this validator and run the following commands");
-                error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
-                error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
-                error!("If you can not find the private key and phrase for these addresses you will need to create a new validator");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
                     "Ethereum orchestrator addresses incorrect".into(),
                 ))
@@ -286,9 +281,6 @@ pub async fn check_delegate_addresses(
                     "You provided {} Correct Value {}",
                     delegate_eth_address, req_delegate_eth_address
                 );
-                error!("In order to resolve this issue locate the private key you registered for this validator and run the following command");
-                error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
                     "Delegate Ethereum address is incorrect".into(),
                 ))
@@ -298,48 +290,30 @@ pub async fn check_delegate_addresses(
                     "You provided {} Correct Value {}",
                     delegate_orchestrator_address, req_delegate_orchestrator_address
                 );
-                error!("In order to resolve this issue locate the key phrase you registered for this validator and run the following command");
-                error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
                     "Delegate Orchestrator address is incorrect".into(),
                 ))
             } else if e.validator_address != o.validator_address {
-                error!(
-                    "You are using Gravity delegate keys from two different validator addresses!"
-                );
-                error!("If you get this error message I would just blow everything away and start again");
-                error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
                 Err(GravityError::UnrecoverableError(
-                    "Delegate keys from two different validator addresses".into(),
+                    "You are using Gravity delegate keys from two different validator addresses!".into(),
                 ))
             } else {
                 Ok(())
             }
         }
         (Err(e), Ok(_)) => {
-            error!("Your Gravity Orchestrator Ethereum key is incorrect, please double check you private key. If you can't locate the correct private key you will need to create a new validator {:?}", e);
-            error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
             Err(GravityError::UnrecoverableError(format!(
-                "Your delegate Ethereum address is incorrect: {:?}",
-                e
+                "Your Gravity Orchestrator Ethereum key is incorrect, please double check you private key. If you can't locate the correct private key you will need to create a new validator {:?}", e
             )))
         }
         (Ok(_), Err(e)) => {
-            error!("Your Gravity Orchestrator Cosmos key is incorrect, please double check your phrase. If you can't locate the correct phrase you will need to create a new validator {:?}", e);
-            error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
-            Err(GravityError::UnrecoverableError(format!(
-                "Gravity Orchestrator Cosmos key is incorrect: {:?}",
-                e
+           Err(GravityError::UnrecoverableError(format!(
+               "Your Gravity Orchestrator Cosmos key is incorrect, please double check your phrase. If you can't locate the correct phrase you will need to create a new validator {:?}", e
             )))
         }
         (Err(_), Err(_)) => {
-            error!("Gravity Delegate keys are not set! Please Register your Gravity delegate keys");
-            error!("`gbt keys set-orchestrator-key --phrase \"orchestrator key phrase\"`");
-            error!("`gbt keys set-ethereum-key --key \"eth private key\"`");
-            error!("If you are seeing this error please read this documentation carefully https://github.com/onomyprotocol/cosmos-gravity-docs/blob/main/docs/setting-up-a-validator.md#generate-your-delegate-keys");
             Err(GravityError::UnrecoverableError(
-                "Delegate keys are not set".into(),
+                "Gravity Delegate keys are not set! Please Register your Gravity delegate keys".into(),
             ))
         }
     }

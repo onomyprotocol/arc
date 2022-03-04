@@ -46,11 +46,11 @@ pub enum SubCommand {
 pub struct OrchestratorOpts {
     /// Cosmos mnemonic phrase containing the tokens you would like to send
     #[clap(short, long, parse(try_from_str))]
-    pub cosmos_phrase: Option<CosmosPrivateKey>,
+    pub cosmos_phrase: CosmosPrivateKey,
     /// An Ethereum private key containing ETH to pay for fees, this will also hold the relayers earnings
     /// in the near future it will be possible to disable the Orchestrators integrated relayer
     #[clap(short, long, parse(try_from_str))]
-    pub ethereum_key: Option<EthPrivateKey>,
+    pub ethereum_key: EthPrivateKey,
     /// (Optional) The Cosmos gRPC server that will be used
     #[clap(long, default_value = "http://localhost:9090")]
     pub cosmos_grpc: String,
@@ -71,14 +71,11 @@ pub struct OrchestratorOpts {
 #[derive(Parser)]
 pub struct RelayerOpts {
     /// An Ethereum private key containing ETH to pay for fees, this will also hold the relayers earnings
-    /// This overrides the key set in the config, which will be used if no key is provided here
     #[clap(short, long, parse(try_from_str))]
-    pub ethereum_key: Option<EthPrivateKey>,
+    pub ethereum_key: EthPrivateKey,
     /// Cosmos mnemonic phrase containing tokens used to pay fees on Cosmos for requesting batches
-    /// This overrides the key set in the config, which will be used if no key is provided here.
-    /// If no key is provided and no key is set in the config, this relayer will not request batches
     #[clap(long, parse(try_from_str))]
-    pub cosmos_phrase: Option<CosmosPrivateKey>,
+    pub cosmos_phrase: CosmosPrivateKey,
     /// (Optional) The Cosmos Denom and amount to pay Cosmos chain fees. If not set this relayer will not automatically
     /// request batches
     #[clap(short, long, parse(try_from_str))]
@@ -186,9 +183,6 @@ pub struct KeyOpts {
 #[derive(Parser)]
 pub enum KeysSubcommand {
     RegisterOrchestratorAddress(RegisterOrchestratorAddressOpts),
-    SetEthereumKey(SetEthereumKeyOpts),
-    SetOrchestratorKey(SetOrchestratorKeyOpts),
-    Show,
 }
 
 /// Register delegate keys for the Gravity Orchestrator.
@@ -199,36 +193,18 @@ pub struct RegisterOrchestratorAddressOpts {
     /// The Cosmos private key of the validator
     #[clap(short, long, parse(try_from_str))]
     pub validator_phrase: CosmosPrivateKey,
-    /// (Optional) The Ethereum private key to register, will be generated if not provided
+    /// The Ethereum private key to register
     #[clap(short, long, parse(try_from_str))]
-    pub ethereum_key: Option<EthPrivateKey>,
-    /// (Optional) The phrase for the Cosmos key to register, will be generated if not provided.
+    pub ethereum_key: EthPrivateKey,
+    /// The phrase for the Cosmos key to register
     #[clap(short, long, parse(try_from_str))]
-    pub cosmos_phrase: Option<String>,
+    pub cosmos_phrase: CosmosPrivateKey,
     /// (Optional) The Cosmos gRPC server that will be used to submit the transaction
     #[clap(long, default_value = "http://localhost:9090")]
     pub cosmos_grpc: String,
     /// The Cosmos Denom and amount to pay Cosmos chain fees
     #[clap(short, long, parse(try_from_str))]
     pub fees: Coin,
-    /// Do not save keys to disk for later use with `orchestrator start`
-    #[clap(long)]
-    pub no_save: bool,
-}
-
-/// Add an Ethereum private key for use with either the Relayer or the Orchestrator
-#[derive(Parser)]
-pub struct SetEthereumKeyOpts {
-    ///
-    #[clap(short, long, parse(try_from_str))]
-    pub key: EthPrivateKey,
-}
-
-/// Add a Cosmos private key to use as the Orchestrator address
-#[derive(Parser)]
-pub struct SetOrchestratorKeyOpts {
-    #[clap(short, long)]
-    pub phrase: String,
 }
 
 /// Initialize configuration
