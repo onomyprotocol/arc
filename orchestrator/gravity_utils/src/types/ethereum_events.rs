@@ -841,7 +841,7 @@ mod tests {
 
     use super::*;
 
-    const FUZZ_TIMES: u64 = 100_000;
+    const FUZZ_TIMES: u64 = 10_000;
 
     fn get_fuzz_bytes(rng: &mut ThreadRng) -> Vec<u8> {
         let range = Uniform::from(1..200_000);
