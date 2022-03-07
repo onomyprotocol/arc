@@ -181,51 +181,12 @@ contract Gravity is ReentrancyGuard {
 	}
 
 	// Utility function to check for duplicate validators
-	// The checks are performed in memory and discarded
+	// The validators MUST to be sorted by Ascending Order
 	function checkDuplicateValidators(address[] memory _validators) private pure {
-		bool isSorted = true;
 		for (uint256 i = 1; i < _validators.length; i++) {
-			if (_validators[i] < _validators[i - 1]) {
-				isSorted = false;
-				break;
-			}
-			if (_validators[i] == _validators[i - 1]) {
+			if (_validators[i - 1] >= _validators[i]) {
 				revert MalformedNewValidatorSet();
 			}
-		}
-
-		if (isSorted) {
-			return;
-		}
-
-		address[] memory validators = new address[](_validators.length);
-		for (uint256 i = 0; i < validators.length; i++) {
-			validators[i] = _validators[i];
-		}
-
-		insertionSort(validators);
-
-		for (uint256 i = 1; i < validators.length; i++) {
-			// Duplicate validator found!
-			if (validators[i] == validators[i - 1]) {
-				revert MalformedNewValidatorSet();
-			}
-		}
-	}
-
-	function insertionSort(address[] memory data) internal pure {
-		uint256 length = data.length;
-
-		for (uint256 i = 1; i < length; i++) {
-			address current = data[i];
-			uint256 j = i;
-
-			while (j > 0 && data[j - 1] > current) {
-				data[j] = data[j - 1];
-				j--;
-			}
-
-			data[j] = current;
 		}
 	}
 
