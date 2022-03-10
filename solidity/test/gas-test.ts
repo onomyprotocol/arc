@@ -2,17 +2,14 @@ import chai from "chai";
 import { ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 
-import { deployContracts } from "../test-utils";
+import { deployContracts, sortValidators } from "../test-utils";
 import {
     getSignerAddresses,
     signHash,
     examplePowers,
     ZeroAddress
 } from "../test-utils/pure";
-import { BigNumber, BigNumberish } from "ethers";
-
 chai.use(solidity);
-const { expect } = chai;
 
 describe("Gas tests", function () {
     it("makeCheckpoint in isolation", async function () {
@@ -21,7 +18,7 @@ describe("Gas tests", function () {
 
         // This is the power distribution on the Cosmos hub as of 7/14/2020
         let powers = examplePowers();
-        let validators = signers.slice(0, powers.length);
+        let validators = sortValidators(signers.slice(0, powers.length));
 
         const {
             gravity,
@@ -49,7 +46,7 @@ describe("Gas tests", function () {
 
         // This is the power distribution on the Cosmos hub as of 7/14/2020
         let powers = examplePowers();
-        let validators = signers.slice(0, powers.length);
+        let validators = sortValidators(signers.slice(0, powers.length));
 
         const {
             gravity,

@@ -29,14 +29,13 @@ async function runTest(opts: {
   notEnoughPowerNewSet?: boolean;
   zeroLengthValset?: boolean;
   duplicateValidator?: boolean;
-  sortValidators?: boolean;
 }) {
   const signers = await ethers.getSigners();
   const gravityId = ethers.utils.formatBytes32String("foo");
 
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
-  let validators = signers.slice(0, powers.length);
+  let validators = sortValidators(signers.slice(0, powers.length));
 
   const {
     gravity,
@@ -47,19 +46,13 @@ async function runTest(opts: {
   newPowers[0] -= 3;
   newPowers[1] += 3;
 
-  let newValidators = signers.slice(0, newPowers.length);
+  let newValidators = sortValidators(signers.slice(0, newPowers.length));
 
   // arbitrarily set a duplicate validator
   if (opts.duplicateValidator) {
     let firstValidator = newValidators[0];
     newValidators[22] = firstValidator;
   }
-
-  // before deploying sort the validators
-  if (opts.sortValidators) {
-    sortValidators(newValidators)
-  }
-
 
   if (opts.malformedNewValset) {
     // Validators and powers array don't match
@@ -202,12 +195,6 @@ describe("updateValset tests", function () {
     );
   });
 
-  it("throws MalformedNewValidatorSet on duplicate, sorted validators", async function () {
-    await expect(runTest({ duplicateValidator: true, sortValidators: true })).to.be.revertedWith(
-      "MalformedNewValidatorSet()"
-    );
-  });
-
   it("throws on malformed new valset", async function () {
     await expect(runTest({ malformedNewValset: true })).to.be.revertedWith(
       "MalformedNewValidatorSet()"
@@ -281,11 +268,6 @@ describe("updateValset tests", function () {
 
   it("happy path", async function () {
     let { gravity, checkpoint } = await runTest({});
-    expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint);
-  });
-
-  it("happy path with sorted validators", async function () {
-    let { gravity, checkpoint } = await runTest({ sortValidators: true });
     expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint);
   });
 });

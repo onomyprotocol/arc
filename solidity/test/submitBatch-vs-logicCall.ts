@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 import { TestTokenBatchMiddleware } from "../typechain/TestTokenBatchMiddleware";
 
-import { deployContracts } from "../test-utils";
+import { deployContracts, sortValidators } from "../test-utils";
 import {
   getSignerAddresses,
   makeCheckpoint,
@@ -61,7 +61,7 @@ async function prep() {
   const gravityId = ethers.utils.formatBytes32String("foo");
 
   let powers = examplePowers();
-  let validators = signers.slice(0, powers.length);
+  let validators = sortValidators(signers.slice(0, powers.length));
 
 
   const { gravity, testERC20 } = await deployContracts(

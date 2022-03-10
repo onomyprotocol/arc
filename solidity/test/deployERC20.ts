@@ -138,24 +138,26 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
 
 describe("deployERC20 tests", function () {
 
-  // No duplicate validators all works fine
-  it("runs", async function () {
-    await runTest({})
-  });
-
-  it("runs with sorted validators", async function () {
+  // Non-duplicate & sorted validators must work
+  it("runs with non-duplicate, sorted validators", async function () {
     await runTest({ sortValidators: true })
   });
 
+  // Non-duplicate yet unsorted validators must fail
+  it("throws MalformedNewValidatorSet on non-duplicate, unsorted validators", async function () {
+    await expect(runTest({})).to.be.revertedWith(
+      "MalformedNewValidatorSet()"
+    );
+  });
 
-  // Duplicate validators - must fail
-  it("throws MalformedNewValidatorSet on duplicate validators", async function () {
+  // Duplicate yet unsorted validators must fail
+  it("throws MalformedNewValidatorSet on duplicate, unsorted validators", async function () {
     await expect(runTest({ duplicateValidator: true })).to.be.revertedWith(
       "MalformedNewValidatorSet()"
     );
   });
 
-  // Duplicate validators, already sorted - must fail
+  // Duplicate validators and already sorted must fail
   it("throws MalformedNewValidatorSet on duplicate, sorted validators", async function () {
     await expect(runTest({ duplicateValidator: true, sortValidators: true })).to.be.revertedWith(
       "MalformedNewValidatorSet()"

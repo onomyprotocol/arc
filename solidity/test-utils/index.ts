@@ -44,9 +44,20 @@ export async function deployContracts(
 }
 
 // Insertion Sort for sorting validators
-export function sortValidators(validators: SignerWithAddress[]) {
-  // modify `address` to lower case for proper comparison during sorting
-  validators = validators.map(validator =>
-    Object.assign(validator, { address: validator.address.toLowerCase() })
-  ).sort((a, b) => a.address > b.address ? 1 : 0)
+export function sortValidators(validators: SignerWithAddress[]): SignerWithAddress[] {
+  // sort the validators by Ascending order
+  for (let i = 1; i < validators.length; i++) {
+    let currentValidator = validators[i];
+    let j = i;
+
+    while (j > 0 && validators[j - 1].address.toLowerCase() > currentValidator.address.toLowerCase()) {
+      validators[j] = validators[j - 1];
+      j--;
+    }
+
+    validators[j] = currentValidator;
+  }
+
+  return validators
 }
+
