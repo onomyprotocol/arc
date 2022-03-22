@@ -244,7 +244,7 @@ pub async fn get_attestations(
 ) -> Result<Vec<Attestation>, GravityError> {
     let response = client
         .get_attestations(QueryAttestationsRequest {
-            limit: limit.or(Some(1000u64)).unwrap(),
+            limit: limit.unwrap_or(1000u64),
         })
         .await?;
 

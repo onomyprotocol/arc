@@ -9,8 +9,9 @@ use gravity_proto::{
     gravity::{query_client::QueryClient as GravityQueryClient, QueryDenomToErc20Request},
 };
 use gravity_utils::{
-    clarity::{Address as EthAddress, Uint256},
+    clarity::{u256, Address as EthAddress, Uint256},
     deep_space::{coin::Coin, Contact},
+    u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
 };
 use tokio::time::sleep;
@@ -48,14 +49,14 @@ pub async fn happy_path_test_v2(
     let token_to_send_to_eth = footoken_metadata(contact).await.base;
 
     // one foo token
-    let amount_to_bridge: Uint256 = 1_000_000u64.into();
+    let amount_to_bridge = u256!(1_000_000);
     let send_to_user_coin = Coin {
         denom: token_to_send_to_eth.clone(),
-        amount: amount_to_bridge.clone() + 100u8.into(),
+        amount: amount_to_bridge.checked_add(u256!(100)).unwrap(),
     };
     let send_to_eth_coin = Coin {
         denom: token_to_send_to_eth.clone(),
-        amount: amount_to_bridge.clone(),
+        amount: amount_to_bridge,
     };
 
     let user = get_user_key();
@@ -122,9 +123,9 @@ pub async fn happy_path_test_v2(
                             "Successfully bridged {} Cosmos asset {} to Ethereum!",
                             amount_to_bridge, token_to_send_to_eth
                         );
-                        assert!(balance == amount_to_bridge.clone());
+                        assert!(balance == amount_to_bridge);
                         break;
-                    } else if balance != 0u8.into() {
+                    } else if !balance.is_zero() {
                         panic!(
                             "Expected {} {} but got {} instead",
                             amount_to_bridge, token_to_send_to_eth, balance
@@ -238,7 +239,7 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
         .get_erc20_decimals(erc20_contract, *MINER_ADDRESS)
         .await
         .unwrap();
-    assert_eq!(Uint256::from(cosmos_decimals), got_decimals);
+    assert_eq!(Uint256::from_u32(cosmos_decimals), got_decimals);
 
     let got_name = web30
         .get_erc20_name(erc20_contract, *MINER_ADDRESS)
@@ -256,7 +257,7 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
         .get_erc20_supply(erc20_contract, *MINER_ADDRESS)
         .await
         .unwrap();
-    assert_eq!(got_supply, 0u8.into());
+    assert_eq!(got_supply, u256!(0));
 
     erc20_contract
 }

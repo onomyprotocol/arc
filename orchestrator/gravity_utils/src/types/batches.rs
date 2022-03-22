@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use clarity::{abi::Token, Address as EthAddress, Signature as EthSignature};
+use clarity::{abi::Token, u256, Address as EthAddress, Signature as EthSignature};
 use deep_space::Address as CosmosAddress;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -57,8 +57,8 @@ impl TransactionBatch {
         let mut destinations = Vec::new();
         let mut fees = Vec::new();
         for item in self.transactions.iter() {
-            amounts.push(Token::Uint(item.erc20_token.amount.clone()));
-            fees.push(Token::Uint(item.erc20_fee.amount.clone()));
+            amounts.push(Token::Uint(item.erc20_token.amount));
+            fees.push(Token::Uint(item.erc20_fee.amount));
             destinations.push(item.destination)
         }
         assert_eq!(amounts.len(), destinations.len());
@@ -80,15 +80,15 @@ impl TransactionBatch {
         }
 
         let token = self.token_contract;
-        let fee_total = self.total_fee.amount.clone();
-        let mut tx_total: Uint256 = 0u8.into();
+        let fee_total = self.total_fee.amount;
+        let mut tx_total = u256!(0);
         for tx in self.transactions.clone() {
-            tx_total += tx.erc20_token.amount.clone();
+            tx_total = tx_total.checked_add(tx.erc20_token.amount).unwrap();
         }
-        let fee_value_weth = get_weth_price(token, fee_total.clone(), pubkey, web30);
-        let fee_value_dai = get_dai_price(token, fee_total.clone(), pubkey, web30);
-        let tx_value_weth = get_weth_price(token, tx_total.clone(), pubkey, web30);
-        let tx_value_dai = get_dai_price(token, tx_total.clone(), pubkey, web30);
+        let fee_value_weth = get_weth_price(token, fee_total, pubkey, web30);
+        let fee_value_dai = get_dai_price(token, fee_total, pubkey, web30);
+        let tx_value_weth = get_weth_price(token, tx_total, pubkey, web30);
+        let tx_value_dai = get_dai_price(token, tx_total, pubkey, web30);
         let token_symbol = web30.get_erc20_symbol(token, pubkey);
         let current_block = web30.eth_block_number();
         if let (
@@ -119,9 +119,12 @@ impl TransactionBatch {
                 print_eth(fee_value_dai),
                 print_eth(fee_value_weth)
             );
-            if current_block < self.batch_timeout.into() {
-                let batch_timeout: Uint256 = self.batch_timeout.into();
-                info!("Timeout in {} blocks", batch_timeout - current_block)
+            if current_block < Uint256::from_u64(self.batch_timeout) {
+                let batch_timeout = Uint256::from_u64(self.batch_timeout);
+                info!(
+                    "Timeout in {} blocks",
+                    batch_timeout.checked_sub(current_block).unwrap()
+                )
             } else {
                 info!("Batch is timed out and can't be submitted")
             }
@@ -154,7 +157,7 @@ impl Confirm for BatchConfirmResponse {
         self.ethereum_signer
     }
     fn get_signature(&self) -> EthSignature {
-        self.eth_signature.clone()
+        self.eth_signature
     }
 }
 
@@ -170,10 +173,10 @@ impl TryFrom<gravity_proto::gravity::OutgoingTxBatch> for TransactionBatch {
             if let Some(total_fee) = running_total_fee {
                 running_total_fee = Some(Erc20Token {
                     token_contract_address: total_fee.token_contract_address,
-                    amount: total_fee.amount + tx.erc20_fee.amount.clone(),
+                    amount: total_fee.amount.checked_add(tx.erc20_fee.amount).unwrap(),
                 });
             } else {
-                running_total_fee = Some(tx.erc20_fee.clone())
+                running_total_fee = Some(tx.erc20_fee)
             }
             transactions.push(tx);
         }
@@ -239,8 +242,8 @@ impl Into<gravity_proto::gravity::OutgoingTransferTx> for &BatchTransaction {
             id: self.id,
             sender: self.sender.to_string(),
             dest_address: self.destination.to_string(),
-            erc20_token: Some(self.erc20_token.clone().into()),
-            erc20_fee: Some(self.erc20_fee.clone().into()),
+            erc20_token: Some(self.erc20_token.into()),
+            erc20_fee: Some(self.erc20_fee.into()),
         }
     }
 }

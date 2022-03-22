@@ -17,7 +17,7 @@ pub fn encode_valset_confirm(gravity_id: String, valset: &Valset) -> Vec<u8> {
     let reward_token = if let Some(v) = valset.reward_token {
         v
     } else {
-        *ZERO_ADDRESS
+        ZERO_ADDRESS
     };
     encode_tokens(&[
         Token::FixedString(gravity_id),
@@ -25,7 +25,7 @@ pub fn encode_valset_confirm(gravity_id: String, valset: &Valset) -> Vec<u8> {
         valset.nonce.into(),
         eth_addresses.into(),
         powers.into(),
-        valset.reward_amount.clone().into(),
+        valset.reward_amount.into(),
         reward_token.into(),
     ])
 }
@@ -70,11 +70,11 @@ pub fn encode_logic_call_confirm(gravity_id: String, call: LogicCall) -> Vec<u8>
     let mut fee_amounts = Vec::new();
     let mut fee_token_contracts = Vec::new();
     for item in call.transfers.iter() {
-        transfer_amounts.push(Token::Uint(item.amount.clone()));
+        transfer_amounts.push(Token::Uint(item.amount));
         transfer_token_contracts.push(item.token_contract_address);
     }
     for item in call.fees.iter() {
-        fee_amounts.push(Token::Uint(item.amount.clone()));
+        fee_amounts.push(Token::Uint(item.amount));
         fee_token_contracts.push(item.token_contract_address);
     }
 
@@ -102,10 +102,12 @@ pub fn encode_logic_call_confirm_hashed(gravity_id: String, call: LogicCall) -> 
 mod test {
     use gravity_utils::{
         clarity::{
+            u256,
             utils::{bytes_to_hex_str, hex_str_to_bytes},
             PrivateKey as EthPrivateKey,
         },
         types::{BatchTransaction, Erc20Token, LogicCall, TransactionBatch, ValsetMember},
+        u64_array_bigints,
     };
     use rand::Rng;
     use sha3::{Digest, Keccak256};
@@ -123,7 +125,7 @@ mod test {
         // ordering checks
         let valset = Valset {
             nonce: 0,
-            reward_amount: 0u8.into(),
+            reward_amount: u256!(0),
             reward_token: None,
             members: vec![
                 ValsetMember {
@@ -159,7 +161,7 @@ mod test {
         // the same valset, except with an intentionally incorrect hash
         let valset = Valset {
             nonce: 1,
-            reward_amount: 0u8.into(),
+            reward_amount: u256!(0),
             reward_token: None,
             members: vec![
                 ValsetMember {
@@ -206,7 +208,7 @@ mod test {
             .unwrap();
 
         let token = Erc20Token {
-            amount: 1u64.into(),
+            amount: u256!(1),
             token_contract_address: erc20_addr,
         };
 
@@ -219,8 +221,8 @@ mod test {
                     .parse()
                     .unwrap(),
                 sender: sender_addr,
-                erc20_fee: token.clone(),
-                erc20_token: token.clone(),
+                erc20_fee: token,
+                erc20_token: token,
             }],
             total_fee: token,
             token_contract: erc20_addr,
@@ -253,7 +255,7 @@ mod test {
             .unwrap();
 
         let token = Erc20Token {
-            amount: 1u64.into(),
+            amount: u256!(1),
             token_contract_address: erc20_addr,
         };
 
@@ -266,8 +268,8 @@ mod test {
                     .parse()
                     .unwrap(),
                 sender: sender_addr,
-                erc20_fee: token.clone(),
-                erc20_token: token.clone(),
+                erc20_fee: token,
+                erc20_token: token,
             }],
             total_fee: token,
             token_contract: erc20_addr,
@@ -298,7 +300,7 @@ mod test {
             .parse()
             .unwrap();
         let token = vec![Erc20Token {
-            amount: 1u8.into(),
+            amount: u256!(1),
             token_contract_address,
         }];
 
@@ -315,7 +317,7 @@ mod test {
                 "0x696e76616c69646174696f6e4964000000000000000000000000000000000000",
             )
             .unwrap(),
-            invalidation_nonce: 1u8.into(),
+            invalidation_nonce: 1u64,
         };
         let checkpoint = encode_logic_call_confirm("foo".to_string(), logic_call);
         println!("{}", checkpoint.len() / 32);

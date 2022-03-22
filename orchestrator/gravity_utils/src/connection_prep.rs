@@ -313,7 +313,7 @@ pub async fn check_for_fee(
     contact: &Contact,
 ) -> Result<(), GravityError> {
     // if we decide to pay no fees it doesn't matter, but we do need some coin balance
-    if fee.amount == 0u8.into() {
+    if fee.amount.is_zero() {
         if let Err(CosmosGrpcError::NoToken) = contact.get_account_info(address).await {
             return Err(GravityError::ValidationError(
                format!("Your Orchestrator address has no tokens of any kind. Even if you are paying zero fees this account needs to be 'initialized' by depositing tokens \n\
@@ -344,7 +344,7 @@ pub async fn check_for_fee(
 /// Checks the user has some Ethereum in their address to pay for things
 pub async fn check_for_eth(address: EthAddress, web3: &Web3) -> Result<(), GravityError> {
     let balance = get_eth_balances_with_retry(address, web3).await;
-    if balance == 0u8.into() {
+    if balance.is_zero() {
         Err(GravityError::ValidationError(
            format!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs \n \
            You can disable relaying by editing your config file in $HOME/.gbt/config \n\

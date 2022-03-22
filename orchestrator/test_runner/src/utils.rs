@@ -13,12 +13,13 @@ use gravity_proto::{
     gravity::{query_client::QueryClient as GravityQueryClient, MsgSendToCosmosClaim},
 };
 use gravity_utils::{
-    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Transaction, Uint256},
+    clarity::{u256, Address as EthAddress, PrivateKey as EthPrivateKey, Transaction, Uint256},
     deep_space::{
         address::Address as CosmosAddress, coin::Coin, error::CosmosGrpcError,
         private_key::PrivateKey as CosmosPrivateKey, Contact, Fee, Msg,
     },
     types::{BatchRelayingMode, BatchRequestMode, GravityBridgeToolsConfig, ValsetRelayingMode},
+    u64_array_bigints,
     web30::{client::Web3, jsonrpc::error::Web3Error, types::SendTxOption},
 };
 use orchestrator::main_loop::orchestrator_main_loop;
@@ -26,8 +27,8 @@ use rand::Rng;
 use tokio::time::sleep;
 
 use crate::{
-    get_deposit, get_fee, one_eth, ADDRESS_PREFIX, COSMOS_NODE_GRPC, ETH_NODE, MINER_ADDRESS,
-    MINER_PRIVATE_KEY, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
+    get_deposit, get_fee, ADDRESS_PREFIX, COSMOS_NODE_GRPC, ETH_NODE, MINER_ADDRESS,
+    MINER_PRIVATE_KEY, ONE_ETH, ONE_HUNDRED_ETH, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
 };
 
 /// returns the required denom metadata for deployed the Footoken
@@ -73,17 +74,17 @@ pub async fn send_eth_to_orchestrators(keys: &[ValidatorKeys], web30: &Web3) {
     let balance = web30.eth_get_balance(*MINER_ADDRESS).await.unwrap();
     info!(
         "Sending orchestrators 100 eth to pay for fees miner has {} ETH",
-        balance / one_eth()
+        balance.divide(ONE_ETH).unwrap().0
     );
     let mut eth_keys = Vec::new();
     for key in keys {
         eth_keys.push(key.eth_key.to_address());
     }
-    send_eth_bulk(one_eth() * 100u16.into(), &eth_keys, web30).await;
+    send_eth_bulk(ONE_HUNDRED_ETH, &eth_keys, web30).await;
 }
 
 pub async fn send_one_eth(dest: EthAddress, web30: &Web3) {
-    send_eth_bulk(one_eth(), &[dest], web30).await;
+    send_eth_bulk(ONE_ETH, &[dest], web30).await;
 }
 
 pub fn get_coins(denom: &str, balances: &[Coin]) -> Option<Coin> {
@@ -97,7 +98,7 @@ pub fn get_coins(denom: &str, balances: &[Coin]) -> Option<Coin> {
 
 /// This is a hardcoded very high gas value used in transaction stress test to counteract rollercoaster
 /// gas prices due to the way that test fills blocks
-pub const HIGH_GAS_PRICE: u64 = 1_000_000_000u64;
+pub const HIGH_GAS_PRICE: Uint256 = u256!(1_000_000_000);
 
 /// This function efficiently distributes ERC20 tokens to a large number of provided Ethereum addresses
 /// the real problem here is that you can't do more than one send operation at a time from a
@@ -109,7 +110,7 @@ pub async fn send_erc20_bulk(
     destinations: &[EthAddress],
     web3: &Web3,
 ) {
-    check_erc20_balance(erc20, amount.clone(), *MINER_ADDRESS, web3).await;
+    check_erc20_balance(erc20, amount, *MINER_ADDRESS, web3).await;
     let mut nonce = web3
         .eth_get_transaction_count(*MINER_ADDRESS)
         .await
@@ -117,25 +118,25 @@ pub async fn send_erc20_bulk(
     let mut transactions = Vec::new();
     for address in destinations {
         let send = web3.erc20_send(
-            amount.clone(),
+            amount,
             *address,
             erc20,
             *MINER_PRIVATE_KEY,
             Some(OPERATION_TIMEOUT),
             vec![
-                SendTxOption::Nonce(nonce.clone()),
-                SendTxOption::GasLimit(100_000u32.into()),
+                SendTxOption::Nonce(nonce),
+                SendTxOption::GasLimit(u256!(100_000)),
                 SendTxOption::GasPriceMultiplier(5.0),
             ],
         );
         transactions.push(send);
-        nonce += 1u64.into();
+        nonce = nonce.checked_add(u256!(1)).unwrap();
     }
     let txids = join_all(transactions).await;
     wait_for_txids(txids, web3).await;
     let mut balance_checks = Vec::new();
     for address in destinations {
-        let check = check_erc20_balance(erc20, amount.clone(), *address, web3);
+        let check = check_erc20_balance(erc20, amount, *address, web3);
         balance_checks.push(check);
     }
     join_all(balance_checks).await;
@@ -155,16 +156,16 @@ pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &
     for address in destinations {
         let t = Transaction {
             to: *address,
-            nonce: nonce.clone(),
-            gas_price: HIGH_GAS_PRICE.into(),
-            gas_limit: 24000u64.into(),
-            value: amount.clone(),
+            nonce,
+            gas_price: HIGH_GAS_PRICE,
+            gas_limit: u256!(24000),
+            value: amount,
             data: Vec::new(),
             signature: None,
         };
         let t = t.sign(&*MINER_PRIVATE_KEY, Some(net_version));
         transactions.push(t);
-        nonce += 1u64.into();
+        nonce = nonce.checked_add(u256!(1)).unwrap();
     }
     let mut sends = Vec::new();
     for tx in transactions {
@@ -194,7 +195,7 @@ pub async fn check_erc20_balance(
 ) {
     let new_balance = get_erc20_balance_safe(erc20, web3, address).await;
     let new_balance = new_balance.unwrap();
-    assert!(new_balance >= amount.clone());
+    assert!(new_balance >= amount);
 }
 
 /// utility function for bulk checking erc20 balances, used to provide
@@ -260,7 +261,7 @@ pub struct BridgeUserKey {
     pub eth_dest_key: EthPrivateKey,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ValidatorKeys {
     /// The Ethereum key used by this validator to sign Gravity bridge messages
     pub eth_key: EthPrivateKey,
@@ -563,14 +564,14 @@ pub async fn wait_for_cosmos_online(contact: &Contact, timeout: Duration) {
 /// creation of a validator set update.
 pub async fn get_validator_to_delegate_to(contact: &Contact) -> (CosmosAddress, Coin) {
     let validators = contact.get_active_validators().await.unwrap();
-    let mut total_bonded_stake: Uint256 = 0u8.into();
+    let mut total_bonded_stake = u256!(0);
     let mut has_the_least = None;
-    let mut lowest = 0u8.into();
+    let mut lowest = u256!(0);
     for v in validators {
-        let amount: Uint256 = v.tokens.parse().unwrap();
-        total_bonded_stake += amount.clone();
+        let amount = Uint256::from_dec_or_hex_str_restricted(&v.tokens).unwrap();
+        total_bonded_stake = total_bonded_stake.checked_add(amount).unwrap();
 
-        if lowest == 0u8.into() || amount < lowest {
+        if lowest.is_zero() || amount < lowest {
             lowest = amount;
             has_the_least = Some(v.operator_address.parse().unwrap());
         }
@@ -579,7 +580,7 @@ pub async fn get_validator_to_delegate_to(contact: &Contact) -> (CosmosAddress, 
     // since this is five percent of the total bonded stake
     // delegating this to the validator who has the least should
     // do the trick
-    let five_percent = total_bonded_stake / 20u8.into();
+    let five_percent = total_bonded_stake.divide(u256!(20)).unwrap().0;
     let five_percent = Coin {
         denom: STAKING_TOKEN.clone(),
         amount: five_percent,

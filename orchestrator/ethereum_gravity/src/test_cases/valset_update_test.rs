@@ -7,10 +7,12 @@ mod tests {
 
     use gravity_utils::{
         clarity::{
+            u256,
             utils::{bytes_to_hex_str, hex_str_to_bytes},
             PrivateKey,
         },
         types::{Valset, ValsetConfirmResponse, ValsetMember},
+        u64_array_bigints,
     };
 
     use crate::{
@@ -51,7 +53,7 @@ mod tests {
         let valset0 = Valset {
             nonce: 0,
             members: members0,
-            reward_amount: 0u8.into(),
+            reward_amount: u256!(0),
             reward_token: None,
         };
 
@@ -67,7 +69,7 @@ mod tests {
         let valset1 = Valset {
             nonce: 1,
             members: members1,
-            reward_amount: 0u8.into(),
+            reward_amount: u256!(0),
             reward_token: None,
         };
 

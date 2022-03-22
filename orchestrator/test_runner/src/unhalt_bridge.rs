@@ -1,4 +1,4 @@
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use bytes::BytesMut;
 use cosmos_gravity::{
@@ -9,9 +9,9 @@ use gravity_proto::gravity::{
     query_client::QueryClient as GravityQueryClient, MsgSendToCosmosClaim, UnhaltBridgeProposal,
 };
 use gravity_utils::{
-    clarity::{Address as EthAddress, Uint256},
+    clarity::{u256, Address as EthAddress},
     deep_space::{private_key::PrivateKey as CosmosPrivateKey, Contact, Fee},
-    num_conversion::downcast_uint256,
+    u64_array_bigints,
     web30::client::Web3,
 };
 use prost::Message;
@@ -22,9 +22,8 @@ use crate::{
     airdrop_proposal::wait_for_proposals_to_execute,
     get_deposit, get_fee,
     happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result},
-    one_eth,
     utils::*,
-    OPERATION_TIMEOUT, TOTAL_TIMEOUT,
+    ONE_ETH, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
 };
 
 // Halts the bridge by having some validators lie about a SendToCosmos claim, asserts bridge is halted,
@@ -45,7 +44,7 @@ pub async fn unhalt_bridge_test(
     info!("Sending bridge user some tokens");
     send_one_eth(bridge_user.eth_address, web30).await;
     send_erc20_bulk(
-        one_eth() * 10u64.into(),
+        ONE_ETH.checked_mul(u256!(10)).unwrap(),
         erc20_address,
         &[bridge_user.eth_address],
         web30,
@@ -85,7 +84,7 @@ pub async fn unhalt_bridge_test(
         bridge_user.cosmos_address,
         gravity_address,
         erc20_address,
-        10_000_000_000_000_000u64.into(),
+        u256!(10_000_000_000_000_000),
         None,
         None,
     )
@@ -121,8 +120,13 @@ pub async fn unhalt_bridge_test(
     // All nonces should be the same right now
     assert!(initial_nonces_same, "The initial nonces differed!");
 
-    let initial_block_height =
-        downcast_uint256(web30.eth_get_latest_block().await.unwrap().number).unwrap();
+    let initial_block_height = web30
+        .eth_get_latest_block()
+        .await
+        .unwrap()
+        .number
+        .try_resize_to_u64()
+        .unwrap();
     // At this point we can use any nonce since all the validators have the same state
     let initial_valid_nonce = initial_valid_nonce.unwrap();
 
@@ -131,7 +135,7 @@ pub async fn unhalt_bridge_test(
         &lying_validators,
         initial_valid_nonce + 1,
         initial_block_height + 1,
-        one_eth(),
+        ONE_ETH,
         bridge_user.cosmos_address,
         bridge_user.eth_address,
         erc20_address,
@@ -148,7 +152,7 @@ pub async fn unhalt_bridge_test(
 
     info!("Checking that bridge is halted!");
 
-    let halted_bridge_amt = Uint256::from_str("100_000_000_000_000_000").unwrap();
+    let halted_bridge_amt = u256!(100_000_000_000_000_000);
     // Attempt transaction on halted bridge
     let res = test_erc20_deposit_result(
         web30,
@@ -157,7 +161,7 @@ pub async fn unhalt_bridge_test(
         bridge_user.cosmos_address,
         gravity_address,
         erc20_address,
-        halted_bridge_amt.clone(),
+        halted_bridge_amt,
         Some(Duration::from_secs(30)),
         None,
     )
@@ -201,11 +205,11 @@ pub async fn unhalt_bridge_test(
     info!("Observing attestations before bridging asset to cosmos!");
     print_sends_to_cosmos(&grpc_client, true).await;
 
-    let fixed_bridge_amt = Uint256::from_str("50_000_000_000_000_000").unwrap();
+    let fixed_bridge_amt = u256!(50_000_000_000_000_000);
     info!("Attempting to resend now that the bridge should be fixed");
     // After the reset, our earlier halted_bridge_amt tx on the halted bridge will go through while our new
     // fixed_bridge_amt tx goes through, we need to pass in the expected amount so the function knows what to watch for
-    let expected_increase = Some(halted_bridge_amt.clone() + fixed_bridge_amt.clone());
+    let expected_increase = halted_bridge_amt.checked_add(fixed_bridge_amt);
     let res = test_erc20_deposit_result(
         web30,
         contact,
@@ -213,7 +217,7 @@ pub async fn unhalt_bridge_test(
         bridge_user.cosmos_address,
         gravity_address,
         erc20_address,
-        fixed_bridge_amt.clone(),
+        fixed_bridge_amt,
         None,
         expected_increase,
     )
@@ -276,7 +280,7 @@ async fn print_sends_to_cosmos(grpc_client: &GravityQueryClient<Channel>, print_
     let grpc_client = &mut grpc_client.clone();
     let attestations = get_attestations(grpc_client, None).await.unwrap();
     for (i, attestation) in attestations.into_iter().enumerate() {
-        let claim = attestation.clone().claim.unwrap();
+        let claim = attestation.claim.clone().unwrap();
         if print_others && claim.type_url != "/gravity.v1.MsgSendToCosmosClaim" {
             info!("attestation {}: {:?}", i, &attestation);
             continue;

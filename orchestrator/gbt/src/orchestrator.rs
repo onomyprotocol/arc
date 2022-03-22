@@ -87,7 +87,7 @@ pub async fn orchestrator(
         let c = params.bridge_ethereum_address.parse();
         match c {
             Ok(v) => {
-                if v == *ZERO_ADDRESS {
+                if v == ZERO_ADDRESS {
                     return Err(GravityError::UnrecoverableError(
                         "The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into(),
                     ));

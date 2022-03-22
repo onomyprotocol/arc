@@ -6,9 +6,10 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
     clarity::{
         abi::{encode_call, Token},
-        Address as EthAddress, Address,
+        u256, Address as EthAddress, Address,
     },
     deep_space::Contact,
+    u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
@@ -17,12 +18,11 @@ use tonic::transport::Channel;
 use crate::{
     happy_path::test_erc20_deposit_panic,
     happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption,
-    one_eth,
     utils::{
         create_default_test_config, footoken_metadata, get_event_nonce_safe, get_user_key,
         start_orchestrators, ValidatorKeys,
     },
-    MINER_ADDRESS, MINER_PRIVATE_KEY, TOTAL_TIMEOUT,
+    MINER_ADDRESS, MINER_PRIVATE_KEY, ONE_ETH, TOTAL_TIMEOUT,
 };
 
 pub async fn invalid_events(
@@ -48,7 +48,7 @@ pub async fn invalid_events(
         }
     }
     if starting_pool_amount.is_none() {
-        starting_pool_amount = Some(0u8.into())
+        starting_pool_amount = Some(u256!(0))
     }
     let mut starting_pool_amount = starting_pool_amount.unwrap();
 
@@ -72,7 +72,7 @@ pub async fn invalid_events(
             user_keys.cosmos_address,
             gravity_address,
             erc20_address,
-            one_eth(),
+            ONE_ETH,
             None,
             None,
         )
@@ -82,7 +82,7 @@ pub async fn invalid_events(
         let community_pool_contents = contact.query_community_pool().await.unwrap();
         for coin in community_pool_contents {
             if coin.denom == erc20_denom {
-                let expected = starting_pool_amount + one_eth();
+                let expected = starting_pool_amount.checked_add(ONE_ETH).unwrap();
                 if coin.amount != expected {
                     error!(
                         "Expected {} in the community pool found {}.",
@@ -256,7 +256,7 @@ pub async fn send_to_cosmos_invalid(
             .eth_get_transaction_count(*MINER_ADDRESS)
             .await
             .unwrap();
-        let options = vec![SendTxOption::Nonce(nonce.clone())];
+        let options = vec![SendTxOption::Nonce(nonce)];
         approve_nonce = Some(nonce);
         let txid = web3
             .approve_erc20_transfers(erc20, &MINER_PRIVATE_KEY, gravity_contract, None, options)
@@ -271,11 +271,11 @@ pub async fn send_to_cosmos_invalid(
             .unwrap();
     }
 
-    let mut options = vec![SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT.into())];
+    let mut options = vec![SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT)];
     // if we have run an approval we should increment our nonce by one so that
     // we can be sure our actual tx can go in immediately behind
     if let Some(nonce) = approve_nonce {
-        options.push(SendTxOption::Nonce(nonce + 1u8.into()));
+        options.push(SendTxOption::Nonce(nonce.checked_add(u256!(1)).unwrap()));
     }
 
     // unbounded bytes shares the same actual encoding as strings
@@ -286,14 +286,10 @@ pub async fn send_to_cosmos_invalid(
             gravity_contract,
             encode_call(
                 "sendToCosmos(address,string,uint256)",
-                &[
-                    erc20.into(),
-                    encoded_destination_address,
-                    one_eth().clone().into(),
-                ],
+                &[erc20.into(), encoded_destination_address, ONE_ETH.into()],
             )
             .unwrap(),
-            0u32.into(),
+            u256!(0),
             *MINER_ADDRESS,
             &MINER_PRIVATE_KEY,
             vec![SendTxOption::GasLimitMultiplier(3.0)],
@@ -301,7 +297,7 @@ pub async fn send_to_cosmos_invalid(
         .await
         .unwrap();
 
-    web3.wait_for_transaction(tx_hash.clone(), TOTAL_TIMEOUT, None)
+    web3.wait_for_transaction(tx_hash, TOTAL_TIMEOUT, None)
         .await
         .unwrap();
 }
@@ -337,7 +333,7 @@ async fn deploy_invalid_erc20(
                 ],
             )
             .unwrap(),
-            0u32.into(),
+            u256!(0),
             *MINER_ADDRESS,
             &MINER_PRIVATE_KEY,
             vec![SendTxOption::GasPriceMultiplier(2.0)],
@@ -346,7 +342,7 @@ async fn deploy_invalid_erc20(
         .unwrap();
 
     web30
-        .wait_for_transaction(tx_hash.clone(), TOTAL_TIMEOUT, None)
+        .wait_for_transaction(tx_hash, TOTAL_TIMEOUT, None)
         .await
         .unwrap();
 
