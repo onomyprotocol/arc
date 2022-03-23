@@ -1,9 +1,12 @@
 use std::{cmp::min, time::Duration};
 
 use gravity_utils::{
-    clarity::{abi::encode_call, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
+    clarity::{
+        abi::encode_call, u256, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256,
+    },
     error::GravityError,
     types::*,
+    u64_array_bigints,
     web30::{
         client::Web3,
         types::{SendTxOption, TransactionRequest},
@@ -51,7 +54,7 @@ pub async fn send_eth_valset_update(
         .send_transaction(
             gravity_contract_address,
             payload,
-            0u32.into(),
+            u256!(0),
             eth_address,
             &our_eth_key,
             vec![SendTxOption::GasPriceMultiplier(1.10f32)],
@@ -89,17 +92,16 @@ pub async fn estimate_valset_cost(
     let our_eth_address = our_eth_key.to_address();
     let our_balance = web3.eth_get_balance(our_eth_address).await?;
     let our_nonce = web3.eth_get_transaction_count(our_eth_address).await?;
-    let gas_limit = min((u64::MAX - 1).into(), our_balance.clone());
+    let gas_limit = min(Uint256::from_u64(u64::MAX - 1), our_balance);
     let gas_price = web3.eth_gas_price().await?;
-    let zero: Uint256 = 0u8.into();
     let val = web3
         .eth_estimate_gas(TransactionRequest {
             from: Some(our_eth_address),
             to: gravity_contract_address,
-            nonce: Some(our_nonce.clone().into()),
-            gas_price: Some(gas_price.clone().into()),
+            nonce: Some(our_nonce.into()),
+            gas_price: Some(gas_price.into()),
             gas: Some(gas_limit.into()),
-            value: Some(zero.into()),
+            value: Some(u256!(0).into()),
             data: Some(
                 encode_valset_update_payload(new_valset, old_valset, confirms, gravity_id)?.into(),
             ),

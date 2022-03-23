@@ -3,11 +3,13 @@ use std::{cmp::min, time::Duration};
 use gravity_utils::{
     clarity::{
         abi::{encode_call, Token},
+        u256,
         utils::bytes_to_hex_str,
         Address as EthAddress, PrivateKey as EthPrivateKey, Uint256,
     },
     error::GravityError,
     types::*,
+    u64_array_bigints,
     web30::{client::Web3, types::TransactionRequest},
 };
 
@@ -52,7 +54,7 @@ pub async fn send_eth_logic_call(
             before_nonce
         );
         return Ok(());
-    } else if current_block_height > call.timeout.into() {
+    } else if current_block_height > Uint256::from_u64(call.timeout) {
         info!(
             "This LogicCall is timed out. timeout block: {} current block: {}, exiting early",
             current_block_height, call.timeout
@@ -66,7 +68,7 @@ pub async fn send_eth_logic_call(
         .send_transaction(
             gravity_contract_address,
             payload,
-            0u32.into(),
+            u256!(0),
             eth_address,
             &our_eth_key,
             vec![],
@@ -74,7 +76,7 @@ pub async fn send_eth_logic_call(
         .await?;
     info!("Sent batch update with txid {:#066x}", tx);
 
-    web3.wait_for_transaction(tx.clone(), timeout, None).await?;
+    web3.wait_for_transaction(tx, timeout, None).await?;
 
     let last_nonce = get_logic_call_nonce(
         gravity_contract_address,
@@ -110,17 +112,16 @@ pub async fn estimate_logic_call_cost(
     let our_eth_address = our_eth_key.to_address();
     let our_balance = web3.eth_get_balance(our_eth_address).await?;
     let our_nonce = web3.eth_get_transaction_count(our_eth_address).await?;
-    let gas_limit = min((u64::MAX - 1).into(), our_balance.clone());
+    let gas_limit = min(Uint256::from_u64(u64::MAX - 1), our_balance);
     let gas_price = web3.eth_gas_price().await?;
-    let zero: Uint256 = 0u8.into();
     let val = web3
         .eth_estimate_gas(TransactionRequest {
             from: Some(our_eth_address),
             to: gravity_contract_address,
-            nonce: Some(our_nonce.clone().into()),
-            gas_price: Some(gas_price.clone().into()),
+            nonce: Some(our_nonce.into()),
+            gas_price: Some(gas_price.into()),
             gas: Some(gas_limit.into()),
-            value: Some(zero.into()),
+            value: Some(u256!(0).into()),
             data: Some(
                 encode_logic_call_payload(current_valset, &call, confirms, gravity_id)?.into(),
             ),
@@ -150,11 +151,11 @@ fn encode_logic_call_payload(
     let mut fee_amounts = Vec::new();
     let mut fee_token_contracts = Vec::new();
     for item in call.transfers.iter() {
-        transfer_amounts.push(Token::Uint(item.amount.clone()));
+        transfer_amounts.push(Token::Uint(item.amount));
         transfer_token_contracts.push(item.token_contract_address);
     }
     for item in call.fees.iter() {
-        fee_amounts.push(Token::Uint(item.amount.clone()));
+        fee_amounts.push(Token::Uint(item.amount));
         fee_token_contracts.push(item.token_contract_address);
     }
 
@@ -235,12 +236,12 @@ mod tests {
         let invalidation_id =
             hex_str_to_bytes("0x696e76616c69646174696f6e4964000000000000000000000000000000000000")
                 .unwrap();
-        let invalidation_nonce = 1u8.into();
+        let invalidation_nonce = 1u64;
         let ethereum_signer = "0xc783df8a850f42e7F7e57013759C285caa701eB6"
             .parse()
             .unwrap();
         let token = vec![Erc20Token {
-            amount: 1u8.into(),
+            amount: u256!(1),
             token_contract_address,
         }];
 
@@ -260,7 +261,7 @@ mod tests {
         // a validator set
         let valset = Valset {
             reward_token: None,
-            reward_amount: 0u8.into(),
+            reward_amount: u256!(0),
             nonce: 0,
             members: vec![ValsetMember {
                 eth_address: ethereum_signer,
@@ -272,19 +273,9 @@ mod tests {
             invalidation_nonce,
             ethereum_signer,
             eth_signature: Signature {
-                v: 27u8.into(),
-                r: Uint256::from_bytes_be(
-                    &hex_str_to_bytes(
-                        "0x324da548f6070e8c8d78b205f139138e263d4bad21751e437a7ef31bc53928a8",
-                    )
-                    .unwrap(),
-                ),
-                s: Uint256::from_bytes_be(
-                    &hex_str_to_bytes(
-                        "0x03a5f8acc4b6662f839c0f60f5dbfb276957241b7b38feb360d3d7a0b32d63e2",
-                    )
-                    .unwrap(),
-                ),
+                v: u256!(27),
+                r: u256!(0x324da548f6070e8c8d78b205f139138e263d4bad21751e437a7ef31bc53928a8),
+                s: u256!(0x03a5f8acc4b6662f839c0f60f5dbfb276957241b7b38feb360d3d7a0b32d63e2),
             },
             // this value is totally random as it's not included in any way in the eth encoding.
             orchestrator: "gravity1vlms2r8f6x7yxjh3ynyzc7ckarqd8a96uxq5xf"

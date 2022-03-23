@@ -138,7 +138,7 @@ async fn should_relay_batch(
         return true;
     }
 
-    let batch_reward_amount = batch.total_fee.amount.clone();
+    let batch_reward_amount = batch.total_fee.amount;
     let batch_reward_token = batch.total_fee.token_contract_address;
     let price = get_weth_price(batch_reward_token, batch_reward_amount, pubkey, web3).await;
 
@@ -186,17 +186,17 @@ async fn should_relay_batch(
 fn get_whitelist_amount(erc20: EthAddress, whitelist: &[WhitelistToken]) -> Option<Uint256> {
     for i in whitelist {
         if i.token == erc20 {
-            return Some(i.amount.clone());
+            return Some(i.amount);
         }
     }
     None
 }
 
 /// bakes the margin into the cost to provide an easy value to compare against
-pub fn get_cost_with_margin(cost: Uint256, margin: f32) -> Uint256 {
-    let cost_as_float: f32 = cost.to_string().parse().unwrap();
+pub fn get_cost_with_margin(cost: Uint256, margin: f64) -> Uint256 {
+    let cost_as_float: f64 = cost.to_string().parse().unwrap();
     let cost_with_margin = cost_as_float * margin;
-    (cost_with_margin as u128).into()
+    Uint256::from_u128(cost_with_margin as u128)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -265,7 +265,7 @@ async fn submit_batches(
                 let oldest_signed_batch = batch.batch;
                 let oldest_signatures = batch.sigs;
 
-                let timeout_height: Uint256 = oldest_signed_batch.batch_timeout.into();
+                let timeout_height = Uint256::from_u64(oldest_signed_batch.batch_timeout);
                 if timeout_height < *ethereum_block_height {
                     warn!(
                         "Batch {}/{} has timed out and can not be submitted",
@@ -294,8 +294,8 @@ async fn submit_batches(
 
                 info!(
                     "We have detected a batch to relay. This batch is estimated to cost {} Gas @ {} gwei / {:.4} ETH to submit",
-                    cost.gas.clone(),
-                    print_gwei(cost.gas_price.clone()),
+                    cost.gas,
+                    print_gwei(cost.gas_price),
                     print_eth(cost.get_total())
                 );
                 oldest_signed_batch

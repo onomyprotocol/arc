@@ -4,7 +4,7 @@
 use cosmos_gravity::{query::get_last_event_nonce_for_validator, send::send_ethereum_claims};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{utils::bytes_to_hex_str, Address as EthAddress, Uint256},
+    clarity::{u256, utils::bytes_to_hex_str, Address as EthAddress, Uint256},
     deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey, Contact},
     error::GravityError,
     get_with_retry::{get_block_number_with_retry, get_net_version_with_retry},
@@ -12,6 +12,7 @@ use gravity_utils::{
         event_signatures::*, Erc20DeployedEvent, LogicCallExecutedEvent, SendToCosmosEvent,
         TransactionBatchExecutedEvent, ValsetUpdatedEvent,
     },
+    u64_array_bigints,
     web30::{client::Web3, jsonrpc::error::Web3Error},
 };
 use metrics_exporter::metrics_errors_counter;
@@ -21,6 +22,7 @@ const BLOCK_DELAY: u8 = 35;
 const LOCAL_GETH_CHAIN_ID: u64 = 15;
 const LOCAL_HARDHAT_CHAIN_ID: u64 = 31337;
 
+#[derive(Clone, Copy)]
 pub struct CheckedNonces {
     pub block_number: Uint256,
     pub event_nonce: Uint256,
@@ -38,12 +40,12 @@ pub async fn check_for_events(
 ) -> Result<CheckedNonces, GravityError> {
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
     let latest_block = get_block_number_with_retry(web3).await;
-    let latest_block_with_delay = latest_block - get_block_delay(web3).await;
+    let latest_block_with_delay = latest_block.checked_sub(get_block_delay(web3).await).unwrap();
 
     let deposits = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block_with_delay.clone()),
+            starting_block,
+            Some(latest_block_with_delay),
             vec![gravity_contract_address],
             vec![SENT_TO_COSMOS_EVENT_SIG],
         )
@@ -52,8 +54,8 @@ pub async fn check_for_events(
 
     let batches = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block_with_delay.clone()),
+            starting_block,
+            Some(latest_block_with_delay),
             vec![gravity_contract_address],
             vec![TRANSACTION_BATCH_EXECUTED_EVENT_SIG],
         )
@@ -62,8 +64,8 @@ pub async fn check_for_events(
 
     let valsets = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block_with_delay.clone()),
+            starting_block,
+            Some(latest_block_with_delay),
             vec![gravity_contract_address],
             vec![VALSET_UPDATED_EVENT_SIG],
         )
@@ -72,8 +74,8 @@ pub async fn check_for_events(
 
     let erc20_deployed = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block_with_delay.clone()),
+            starting_block,
+            Some(latest_block_with_delay),
             vec![gravity_contract_address],
             vec![ERC20_DEPLOYED_EVENT_SIG],
         )
@@ -82,8 +84,8 @@ pub async fn check_for_events(
 
     let logic_call_executed = web3
         .check_for_events(
-            starting_block.clone(),
-            Some(latest_block_with_delay.clone()),
+            starting_block,
+            Some(latest_block_with_delay),
             vec![gravity_contract_address],
             vec![LOGIC_CALL_EVENT_SIG],
         )
@@ -169,7 +171,7 @@ pub async fn check_for_events(
             )
         }
 
-        let new_event_nonce: Uint256 = last_event_nonce.into();
+        let new_event_nonce = Uint256::from_u64(last_event_nonce);
         if !deposits.is_empty()
             || !withdraws.is_empty()
             || !erc20_deploys.is_empty()
@@ -241,7 +243,7 @@ async fn get_block_delay(web3: &Web3) -> Uint256 {
 
     match net_version {
         // For the chains we use for the integration tests we don't require the block delay.
-        LOCAL_GETH_CHAIN_ID | LOCAL_HARDHAT_CHAIN_ID => 0u8.into(),
+        LOCAL_GETH_CHAIN_ID | LOCAL_HARDHAT_CHAIN_ID => u256!(0),
         _ => BLOCK_DELAY.into(),
     }
 }

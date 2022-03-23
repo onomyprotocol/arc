@@ -7,9 +7,10 @@ use std::time::Duration;
 use gravity_utils::{
     clarity::{
         abi::{encode_call, Token},
-        Address, PrivateKey, Uint256,
+        u256, Address, PrivateKey, Uint256,
     },
     error::GravityError,
+    u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
 };
 
@@ -41,7 +42,7 @@ pub async fn deploy_erc20(
                     decimals.into(),
                 ],
             )?,
-            0u32.into(),
+            u256!(0),
             sender_address,
             &sender_secret,
             options,
@@ -49,8 +50,7 @@ pub async fn deploy_erc20(
         .await?;
 
     if let Some(timeout) = wait_timeout {
-        web3.wait_for_transaction(tx_hash.clone(), timeout, None)
-            .await?;
+        web3.wait_for_transaction(tx_hash, timeout, None).await?;
     }
 
     Ok(tx_hash)

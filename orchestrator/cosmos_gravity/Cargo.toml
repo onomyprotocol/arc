@@ -10,7 +10,6 @@ gravity_proto = { path = "../gravity_proto/" }
 gravity_utils = { path = "../gravity_utils" }
 
 log = "0.4"
-num256 = "0.3"
 prost-types = "0.9"
 serde = { version = "1", features = ["derive"] }
 sha3 = "0.10"

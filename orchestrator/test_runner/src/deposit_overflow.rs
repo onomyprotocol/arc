@@ -6,12 +6,11 @@ use gravity_proto::gravity::{
     query_client::QueryClient as GravityQueryClient, QueryErc20ToDenomRequest,
 };
 use gravity_utils::{
-    clarity::{Address as EthAddress, Uint256},
+    clarity::{u256, Address as EthAddress, Uint256},
     deep_space::{private_key::PrivateKey as CosmosPrivateKey, Coin, Contact, Fee},
-    num_conversion::downcast_uint256,
+    u64_array_bigints,
     web30::client::Web3,
 };
-use num::Bounded;
 use tonic::transport::Channel;
 
 use crate::{
@@ -61,7 +60,7 @@ pub async fn deposit_overflow_test(
         .denom;
     let mut grpc_client = grpc_client.clone();
     let max_amount = Uint256::max_value(); // 2^256 - 1 (max amount possible to send)
-    let normal_amount = Uint256::from(30_000_000u64); // an amount we would expect to easily transfer
+    let normal_amount = u256!(30_000_000); // an amount we would expect to easily transfer
     let fee = Fee {
         amount: vec![get_fee()],
         gas_limit: 500_000_000u64,
@@ -71,13 +70,18 @@ pub async fn deposit_overflow_test(
 
     ///////////////////// EXECUTION /////////////////////
     let initial_nonce = get_nonces(&mut grpc_client, &keys, &contact.get_prefix()).await[0];
-    let initial_block_height =
-        downcast_uint256(web30.eth_get_latest_block().await.unwrap().number).unwrap();
+    let initial_block_height = web30
+        .eth_get_latest_block()
+        .await
+        .unwrap()
+        .number
+        .try_resize_to_u64()
+        .unwrap();
     info!("Initial transfer complete, nonce is {}", initial_nonce);
 
     // NOTE: the dest user's balance should be 1 * normal_amount of check_module_erc20 token
     let mut expected_cosmos_coins = vec![Coin {
-        amount: normal_amount.clone(),
+        amount: normal_amount,
         denom: check_module_denom.clone(),
     }];
     check_cosmos_balances(contact, dest, &expected_cosmos_coins).await;
@@ -89,7 +93,7 @@ pub async fn deposit_overflow_test(
         &orchestrator_keys,
         initial_nonce + 1,
         initial_block_height + 1,
-        max_amount.clone(),
+        max_amount,
         dest,
         *MINER_ADDRESS,
         overflowing_erc20,
@@ -102,7 +106,7 @@ pub async fn deposit_overflow_test(
     // NOTE: the dest user's balance should be 1 * normal_amount of check_module_erc20 token and
     // Uint256 max of false_claims_erc20 token
     expected_cosmos_coins.push(Coin {
-        amount: max_amount.clone(),
+        amount: max_amount,
         denom: overflowing_denom.clone(),
     });
     check_cosmos_balances(contact, dest, &expected_cosmos_coins).await;
@@ -115,7 +119,7 @@ pub async fn deposit_overflow_test(
         &orchestrator_keys,
         initial_nonce + 2,
         initial_block_height + 2,
-        normal_amount.clone(),
+        normal_amount,
         dest,
         *MINER_ADDRESS,
         check_module_erc20,
@@ -128,7 +132,7 @@ pub async fn deposit_overflow_test(
     // Uint256 max of false_claims_erc20 token
     expected_cosmos_coins = vec![
         Coin {
-            amount: normal_amount.clone() + normal_amount.clone(),
+            amount: normal_amount.shl1().unwrap(),
             denom: check_module_denom.clone(),
         },
         Coin {
@@ -143,7 +147,7 @@ pub async fn deposit_overflow_test(
         &orchestrator_keys,
         initial_nonce + 3,
         initial_block_height + 3,
-        normal_amount.clone(),
+        normal_amount,
         dest,
         *MINER_ADDRESS,
         overflowing_erc20,
@@ -161,7 +165,7 @@ pub async fn deposit_overflow_test(
         &orchestrator_keys,
         initial_nonce + 4,
         initial_block_height + 4,
-        normal_amount.clone(),
+        normal_amount,
         dest2,
         *MINER_ADDRESS,
         overflowing_erc20,

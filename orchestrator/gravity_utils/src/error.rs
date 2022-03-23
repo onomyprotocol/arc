@@ -5,8 +5,8 @@ use std::fmt::Debug;
 
 use clarity::Error as ClarityError;
 use deep_space::error::{AddressError as CosmosAddressError, CosmosGrpcError};
-use num_bigint::ParseBigIntError;
 use tonic::Status;
+use u64_array_bigints::FromStrRadixErr;
 use web30::jsonrpc::error::Web3Error;
 
 #[derive(thiserror::Error, Debug)]
@@ -54,8 +54,8 @@ impl From<CosmosAddressError> for GravityError {
         GravityError::ValidationError(error.to_string())
     }
 }
-impl From<ParseBigIntError> for GravityError {
-    fn from(error: ParseBigIntError) -> Self {
+impl From<FromStrRadixErr> for GravityError {
+    fn from(error: FromStrRadixErr) -> Self {
         GravityError::ValidationError(error.to_string())
     }
 }

@@ -1,8 +1,9 @@
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{Address, Uint256},
+    clarity::{u256, Address, Uint256},
     error::GravityError,
     types::{event_signatures::*, Valset, ValsetUpdatedEvent},
+    u64_array_bigints,
     web30::client::Web3,
 };
 use tonic::transport::Channel;
@@ -17,24 +18,22 @@ pub async fn find_latest_valset(
     gravity_contract_address: Address,
     web3: &Web3,
 ) -> Result<Valset, GravityError> {
-    const BLOCKS_TO_SEARCH: u128 = 5_000u128;
+    const BLOCKS_TO_SEARCH: Uint256 = u256!(5_000);
     let latest_block = web3.eth_block_number().await?;
-    let mut current_block: Uint256 = latest_block.clone();
+    let mut current_block: Uint256 = latest_block;
 
-    while current_block.clone() > 0u8.into() {
+    while !current_block.is_zero() {
         trace!(
             "About to submit a Valset or Batch looking back into the history to find the last Valset Update, on block {}",
             current_block
         );
-        let end_search = if current_block.clone() < BLOCKS_TO_SEARCH.into() {
-            0u8.into()
-        } else {
-            current_block.clone() - BLOCKS_TO_SEARCH.into()
-        };
+        let end_search = current_block
+            .checked_sub(BLOCKS_TO_SEARCH)
+            .unwrap_or_else(|| u256!(0));
         let mut all_valset_events = web3
             .check_for_events(
-                end_search.clone(),
-                Some(current_block.clone()),
+                end_search,
+                Some(current_block),
                 vec![gravity_contract_address],
                 vec![VALSET_UPDATED_EVENT_SIG],
             )

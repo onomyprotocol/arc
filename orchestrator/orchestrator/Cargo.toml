@@ -19,7 +19,6 @@ relayer = { path = "../relayer/" }
 futures = "0.3"
 lazy_static = "1"
 log = "0.4"
-num256 = "0.3"
 # this is a dirty trick, we depent transitively on OpenSSL it's never
 # called directly in this crate, but if we specify this dep we can enable
 # this feature for all the crates in our dependency tree which depend on

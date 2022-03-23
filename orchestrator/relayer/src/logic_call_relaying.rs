@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    time::Duration,
+};
 
 use cosmos_gravity::query::{get_latest_logic_calls, get_logic_call_signatures};
 use ethereum_gravity::{
@@ -28,40 +31,49 @@ async fn should_relay_logic_call(
     // Fill a hashmap with reward totals by token type
     let mut rewards: HashMap<EthAddress, Uint256> = HashMap::new();
     for fee in &logic_call.fees {
-        let zero: Uint256 = 0u8.into();
         let reward_token = fee.token_contract_address;
-        let reward_amount = fee.amount.clone();
-        *rewards.entry(reward_token).or_insert(zero) += reward_amount;
+        let reward_amount = fee.amount;
+        match rewards.entry(reward_token) {
+            Entry::Occupied(mut o) => {
+                *o.get_mut() = o.get().checked_add(reward_amount).unwrap();
+            }
+            Entry::Vacant(v) => {
+                v.insert(reward_amount);
+            }
+        }
     }
     // Check the values in the map to see if we have enough to relay
     let mut total_weth_reward: Uint256 = Uint256::default();
     for (token, total) in rewards.iter() {
         if *token == *WETH_CONTRACT_ADDRESS {
             // WETH directly counts as ETH
-            total_weth_reward += (*total).clone();
+            total_weth_reward = total_weth_reward.checked_add(*total).unwrap();
         } else {
             // Get the token's value in ETH as of the current moment
-            let weth_equiv = web3
+            match web3
                 .get_uniswap_price(
                     our_address,
                     *token,
                     *WETH_CONTRACT_ADDRESS,
                     None,
-                    (*total).clone(),
+                    *total,
                     None,
                     None,
                 )
-                .await;
-            if weth_equiv.is_err() {
-                // Can't get the price so we ignore it
-                info!(
-                    "Unable to obtain price for token {} due to error {:?}",
-                    token,
-                    weth_equiv.err()
-                );
-                continue;
+                .await
+            {
+                Ok(weth_equiv) => {
+                    total_weth_reward = total_weth_reward.checked_add(weth_equiv).unwrap();
+                }
+                Err(e) => {
+                    // Can't get the price so we ignore it
+                    info!(
+                        "Unable to obtain price for token {} due to error {:?}",
+                        token, e
+                    );
+                    continue;
+                }
             }
-            total_weth_reward += weth_equiv.unwrap();
         }
         if total_weth_reward > cost {
             return true; // Exit early if we have enough
@@ -166,7 +178,7 @@ pub async fn relay_logic_calls(
                 latest_cosmos_call_nonce,
                 latest_ethereum_call,
                 cost.gas.clone(),
-                print_gwei(cost.gas_price.clone()),
+                print_gwei(cost.gas_price),
                 print_eth(cost.get_total())
             );
 

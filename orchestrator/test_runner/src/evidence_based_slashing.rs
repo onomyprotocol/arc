@@ -8,9 +8,10 @@ use ethereum_gravity::{
 };
 use gravity_proto::cosmos_sdk_proto::cosmos::staking::v1beta1::QueryValidatorsRequest;
 use gravity_utils::{
-    clarity::{utils::bytes_to_hex_str, Address as EthAddress},
+    clarity::{u256, utils::bytes_to_hex_str, Address as EthAddress},
     deep_space::{Coin, Contact, PrivateKey},
     types::{Valset, ValsetMember},
+    u64_array_bigints,
     web30::client::Web3,
 };
 
@@ -48,7 +49,7 @@ pub async fn evidence_based_slashing(
             power: 1337,
             eth_address: eth_addr,
         }],
-        reward_amount: 0u8.into(),
+        reward_amount: u256!(0),
         reward_token: None,
     };
     let gravity_id = get_gravity_id(gravity_address, eth_addr, web30)
@@ -127,7 +128,7 @@ async fn delegate_to_validator(keys: &[ValidatorKeys], to: PrivateKey, contact: 
     let delegate_address = get_operator_address(to);
     let amount = Coin {
         denom: STAKING_TOKEN.to_string(),
-        amount: (STARTING_STAKE_PER_VALIDATOR / 4).into(),
+        amount: STARTING_STAKE_PER_VALIDATOR.wrapping_shr(2),
     };
     let res = contact
         .delegate_to_validator(
