@@ -312,6 +312,13 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) (types.Valset, error) {
 	if err != nil {
 		return types.Valset{}, (sdkerrors.Wrap(err, types.ErrInvalidValset.Error()))
 	}
+
+	// this part is important for gravity contract
+	// since we expect the valset to be sorted by Eth Address in ASC order
+	sort.Slice(valset.Members, func(i, j int) bool {
+		return valset.Members[i].EthereumAddress < valset.Members[j].EthereumAddress
+	})
+
 	return *valset, nil
 }
 
