@@ -32,10 +32,7 @@ use relayer::main_loop::relayer_main_loop;
 use tokio::time::sleep;
 use tonic::transport::Channel;
 
-use crate::{
-    ethereum_event_watcher::{check_for_events, get_block_delay},
-    oracle_resync::get_last_checked_block,
-};
+use crate::{ethereum_event_watcher::check_for_events, oracle_resync::get_last_checked_block};
 
 /// The execution speed governing all loops in this file
 /// which is to say all loops started by Orchestrator main
@@ -118,7 +115,6 @@ pub async fn eth_oracle_main_loop(
     let our_cosmos_address = cosmos_key.to_address(&contact.get_prefix()).unwrap();
     let long_timeout_web30 = Web3::new(&web3.get_url(), Duration::from_secs(120));
 
-    let block_delay = get_block_delay(&web3).await;
     let mut last_checked_block: Uint256 = get_last_checked_block(
         grpc_client.clone(),
         our_cosmos_address,
@@ -193,7 +189,6 @@ pub async fn eth_oracle_main_loop(
                     cosmos_key,
                     fee.clone(),
                     last_checked_block,
-                    block_delay,
                 )
                 .await
                 {
