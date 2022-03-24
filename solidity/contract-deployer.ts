@@ -20,7 +20,7 @@ const args = commandLineArgs([
   // test mode, if enabled this script deploys three ERC20 contracts for testing
   { name: "test-mode", type: String },
   // the wnom ERC20 address which will be used for burning in the send to cosmos Gravity contracts function
-  {name: "wnom-address", type: String},
+  { name: "wnom-address", type: String },
 ]);
 
 // 4. Now, the deployer script hits a full node api, gets the Eth signatures of the valset from the latest block, and deploys the Ethereum contract.
@@ -202,6 +202,14 @@ async function deploy() {
     console.log("If less than 66% of the current voting power has unset Ethereum Addresses we refuse to deploy")
     console.log(latestValset)
     exit(1)
+  }
+
+  for (let i = 1; i < eth_addresses.length; i++) {
+    if (eth_addresses[i - 1].toLowerCase() >= eth_addresses[i].toLowerCase()) {
+      console.log("Validators are not properly sorted!")
+      console.log(`${eth_addresses[i - 1]} at index ${i - 1} is >= than ${eth_addresses[i]} at index ${i}`)
+      exit(1)
+    }
   }
 
   let wnomAddressArg = args["wnom-address"]
