@@ -4,7 +4,7 @@ import { solidity } from "ethereum-waffle";
 import { TestLogicContract } from "../typechain/TestLogicContract";
 import { SimpleLogicBatchMiddleware } from "../typechain/SimpleLogicBatchMiddleware";
 
-import { deployContracts } from "../test-utils";
+import { deployContracts, sortValidators } from "../test-utils";
 import {
   getSignerAddresses,
   signHash,
@@ -39,7 +39,8 @@ async function runTest(opts: {
   const gravityId = ethers.utils.formatBytes32String("foo");
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
-  let validators = signers.slice(0, powers.length);
+  let validators = sortValidators(signers.slice(0, powers.length));
+
   const {
     gravity,
     testERC20,

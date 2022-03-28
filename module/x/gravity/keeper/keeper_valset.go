@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -312,6 +313,13 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) (types.Valset, error) {
 	if err != nil {
 		return types.Valset{}, (sdkerrors.Wrap(err, types.ErrInvalidValset.Error()))
 	}
+
+	// this part is important for gravity contract
+	// since we expect the valset to be sorted by Eth Address in ASC order
+	sort.Slice(valset.Members, func(i, j int) bool {
+		return strings.ToLower(valset.Members[i].EthereumAddress) < strings.ToLower(valset.Members[j].EthereumAddress)
+	})
+
 	return *valset, nil
 }
 

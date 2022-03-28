@@ -2,7 +2,7 @@ import chai from "chai";
 import { ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 
-import { deployContracts } from "../test-utils";
+import { deployContracts, sortValidators } from "../test-utils";
 import {
   getSignerAddresses,
   makeCheckpoint,
@@ -24,11 +24,11 @@ async function runNormalTest(opts: {}) {
   const gravityId = ethers.utils.formatBytes32String("foo");
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
-  let validators = signers.slice(0, powers.length);
+  let validators = sortValidators(signers.slice(0, powers.length));
+
   const {
     gravity,
     testERC20,
-    checkpoint: deployCheckpoint
   } = await deployContracts(gravityId, validators, powers);
 
 
@@ -40,18 +40,18 @@ async function runNormalTest(opts: {}) {
     ethers.utils.formatBytes32String("myCosmosAddress"),
     1000
   )).to.emit(gravity, 'SendToCosmosEvent').withArgs(
-      testERC20.address,
-      await signers[0].getAddress(),
-      ethers.utils.formatBytes32String("myCosmosAddress"),
-      1000, 
-      2
-    );
+    testERC20.address,
+    await signers[0].getAddress(),
+    ethers.utils.formatBytes32String("myCosmosAddress"),
+    1000,
+    2
+  );
 
   expect((await testERC20.functions.balanceOf(gravity.address))[0]).to.equal(1000);
   expect((await gravity.functions.state_lastEventNonce())[0]).to.equal(2);
 
 
-    
+
   // Do it again
   // =====================================
   await testERC20.functions.approve(gravity.address, 1000);
@@ -60,12 +60,12 @@ async function runNormalTest(opts: {}) {
     ethers.utils.formatBytes32String("myCosmosAddress"),
     1000
   )).to.emit(gravity, 'SendToCosmosEvent').withArgs(
-      testERC20.address,
-      await signers[0].getAddress(),
-      ethers.utils.formatBytes32String("myCosmosAddress"),
-      1000, 
-      3
-    );
+    testERC20.address,
+    await signers[0].getAddress(),
+    ethers.utils.formatBytes32String("myCosmosAddress"),
+    1000,
+    3
+  );
 
   expect((await testERC20.functions.balanceOf(gravity.address))[0]).to.equal(2000);
   expect((await gravity.functions.state_lastEventNonce())[0]).to.equal(3);
@@ -79,11 +79,9 @@ async function runSendAndBurnWnomTest(opts: {}) {
   const gravityId = ethers.utils.formatBytes32String("foo");
   // This is the power distribution on the Cosmos hub as of 7/14/2020
   let powers = examplePowers();
-  let validators = signers.slice(0, powers.length);
+  let validators = sortValidators(signers.slice(0, powers.length));
   const {
     gravity,
-    testERC20,
-    checkpoint: deployCheckpoint,
     testERC20WNOM,
   } = await deployContracts(gravityId, validators, powers);
 
@@ -91,15 +89,15 @@ async function runSendAndBurnWnomTest(opts: {}) {
   // =====================================
   await testERC20WNOM.functions.approve(gravity.address, 1000);
   await expect(gravity.functions.sendToCosmos(
-      testERC20WNOM.address,
-      ethers.utils.formatBytes32String("myCosmosAddress"),
-      1000
+    testERC20WNOM.address,
+    ethers.utils.formatBytes32String("myCosmosAddress"),
+    1000
   )).to.emit(gravity, 'SendToCosmosEvent').withArgs(
-      testERC20WNOM.address,
-      await signers[0].getAddress(),
-      ethers.utils.formatBytes32String("myCosmosAddress"),
-      1000,
-      2
+    testERC20WNOM.address,
+    await signers[0].getAddress(),
+    ethers.utils.formatBytes32String("myCosmosAddress"),
+    1000,
+    2
   );
 
   expect((await testERC20WNOM.functions.balanceOf(gravity.address))[0]).to.equal(0);
@@ -109,15 +107,15 @@ async function runSendAndBurnWnomTest(opts: {}) {
   // =====================================
   await testERC20WNOM.functions.approve(gravity.address, 1000);
   await expect(gravity.functions.sendToCosmos(
-      testERC20WNOM.address,
-      ethers.utils.formatBytes32String("myCosmosAddress"),
-      1000
+    testERC20WNOM.address,
+    ethers.utils.formatBytes32String("myCosmosAddress"),
+    1000
   )).to.emit(gravity, 'SendToCosmosEvent').withArgs(
-      testERC20WNOM.address,
-      await signers[0].getAddress(),
-      ethers.utils.formatBytes32String("myCosmosAddress"),
-      1000,
-      3
+    testERC20WNOM.address,
+    await signers[0].getAddress(),
+    ethers.utils.formatBytes32String("myCosmosAddress"),
+    1000,
+    3
   );
 
   expect((await testERC20WNOM.functions.balanceOf(gravity.address))[0]).to.equal(0);

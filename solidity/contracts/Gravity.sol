@@ -24,7 +24,7 @@ error BatchTimedOut();
 error LogicCallTimedOut();
 
 interface IERC20Burnable {
-    function burn(uint256 amount) external;
+	function burn(uint256 amount) external;
 }
 
 // This is being used purely to avoid stack too deep errors
@@ -75,8 +75,8 @@ contract Gravity is ReentrancyGuard {
 	uint256 constant constant_powerThreshold = 2863311530;
 
 	// Address for wNOM
-    address public wNomAddress;
-    IERC20Burnable private wNomBurner;
+	address public wNomAddress;
+	IERC20Burnable private wNomBurner;
 
 	// These are updated often
 	bytes32 public state_lastValsetCheckpoint;
@@ -180,6 +180,16 @@ contract Gravity is ReentrancyGuard {
 		}
 	}
 
+	// Utility function to check for duplicate validators
+	// The validators MUST to be sorted by Ascending Order
+	function checkDuplicateValidators(address[] memory _validators) private pure {
+		for (uint256 i = 1; i < _validators.length; i++) {
+			if (_validators[i - 1] >= _validators[i]) {
+				revert MalformedNewValidatorSet();
+			}
+		}
+	}
+
 	// Make a new checkpoint from the supplied validator set
 	// A checkpoint is a hash of all relevant information about the valset. This is stored by the contract,
 	// instead of storing the information directly. This saves on storage and gas.
@@ -270,6 +280,9 @@ contract Gravity is ReentrancyGuard {
 				currentNonce: _currentValset.valsetNonce
 			});
 		}
+
+		// Check for duplicate validators
+		checkDuplicateValidators(_newValset.validators);
 
 		// Check that the valset nonce is less than a million nonces forward from the old one
 		// this makes it difficult for an attacker to lock out the contract by getting a single
@@ -584,7 +597,7 @@ contract Gravity is ReentrancyGuard {
 		state_lastEventNonce = state_lastEventNonce + 1;
 
 		// If Token is wNOM then Burn it
-		if(_tokenContract == wNomAddress) {
+		if (_tokenContract == wNomAddress) {
 			wNomBurner.burn(_amount);
 		}
 
@@ -640,6 +653,9 @@ contract Gravity is ReentrancyGuard {
 		if (_validators.length != _powers.length || _validators.length == 0) {
 			revert MalformedCurrentValidatorSet();
 		}
+
+		// Check for duplicate validators
+		checkDuplicateValidators(_validators);
 
 		// Check cumulative power to ensure the contract has sufficient power to actually
 		// pass a vote

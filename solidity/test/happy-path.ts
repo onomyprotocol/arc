@@ -2,7 +2,7 @@ import chai from "chai";
 import { ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 
-import { deployContracts } from "../test-utils";
+import { deployContracts, sortValidators } from "../test-utils";
 import {
   getSignerAddresses,
   makeCheckpoint,
@@ -23,11 +23,12 @@ describe("Gravity happy path valset update + batch submit", function () {
 
     const signers = await ethers.getSigners();
     const gravityId = ethers.utils.formatBytes32String("foo");
+    let validators = sortValidators(signers.slice(0, examplePowers().length))
 
     const valset0 = {
       // This is the power distribution on the Cosmos hub as of 7/14/2020
       powers: examplePowers(),
-      validators: signers.slice(0, examplePowers().length),
+      validators,
       valsetNonce: 0,
       rewardAmount: 0,
       rewardToken: ZeroAddress
@@ -52,7 +53,7 @@ describe("Gravity happy path valset update + batch submit", function () {
       let powers = examplePowers();
       powers[0] -= 3;
       powers[1] += 3;
-      let validators = signers.slice(0, powers.length);
+      let validators = sortValidators(signers.slice(0, powers.length));
 
       return {
         powers: powers,

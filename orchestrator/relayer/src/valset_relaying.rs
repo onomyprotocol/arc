@@ -60,10 +60,9 @@ pub async fn relay_valsets(
     .await
     {
         Ok(v) => v,
-        Err(GravityError::RecoverableError(_)) => return,
         Err(e) => {
             error!(
-                "We where unable to find a valid validator set update to submit! {:?}",
+                "We were unable to find a valid validator set update to submit! {:?}",
                 e
             );
             return;
