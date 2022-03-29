@@ -20,6 +20,7 @@ use happy_path_v2::happy_path_test_v2;
 use lazy_static::lazy_static;
 use orch_keys::orch_keys;
 use relay_market::relay_market_test;
+use remote_stress_test::remote_stress_test;
 use transaction_stress_test::transaction_stress_test;
 use unhalt_bridge::unhalt_bridge_test;
 use valset_stress::validator_set_stress_test;
@@ -45,6 +46,7 @@ mod invalid_events;
 mod orch_keys;
 mod pause_bridge;
 mod relay_market;
+mod remote_stress_test;
 mod signature_slashing;
 mod slashing_delegation;
 mod transaction_stress_test;
@@ -84,9 +86,9 @@ lazy_static! {
     // this key is the private key for the public key defined in tests/assets/ETHGenesis.json
     // where the full node / miner sends its rewards. Therefore it's always going
     // to have a lot of ETH to pay for things like contract deployments
-    static ref MINER_PRIVATE_KEY: EthPrivateKey =
-        "0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7"
-            .parse()
+    static ref MINER_PRIVATE_KEY: EthPrivateKey = env::var("MINER_PRIVATE_KEY").unwrap_or_else(|_|
+        "0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7".to_owned()
+            ).parse()
             .unwrap();
     static ref MINER_ADDRESS: EthAddress = MINER_PRIVATE_KEY.to_address();
 }
@@ -207,6 +209,23 @@ pub async fn main() {
             )
             .unwrap();
             transaction_stress_test(
+                &web30,
+                &contact,
+                grpc_client,
+                keys,
+                gravity_address,
+                erc20_addresses,
+            )
+            .await;
+            return;
+        } else if test_type == "REMOTE_STRESS" {
+            let contact = Contact::new(
+                COSMOS_NODE_GRPC.as_str(),
+                TOTAL_TIMEOUT,
+                ADDRESS_PREFIX.as_str(),
+            )
+            .unwrap();
+            remote_stress_test(
                 &web30,
                 &contact,
                 grpc_client,

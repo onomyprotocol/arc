@@ -10,4 +10,4 @@ fi
 set -u
 
 # Run test entry point script
-docker exec gravity_test_instance --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} /bin/sh -c "pushd /gravity/ && tests/container-scripts/integration-tests.sh 1 $TEST_TYPE $OPTIONAL_KEY"
+docker exec gravity_test_instance --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} /bin/sh -c "pushd /gravity/ && tests/container-scripts/integration-tests.sh $TEST_TYPE"

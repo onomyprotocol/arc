@@ -19,6 +19,8 @@ const args = commandLineArgs([
   { name: "contract", type: String },
   // test mode, if enabled this script deploys three ERC20 contracts for testing
   { name: "test-mode", type: String },
+  // remote mode, if enabled this script does not deploy the Gravity contract
+  { name: "remote-mode", type: String },
   // the wnom ERC20 address which will be used for burning in the send to cosmos Gravity contracts function
   { name: "wnom-address", type: String },
 ]);
@@ -171,67 +173,73 @@ async function deploy() {
   const gravityIdString = await getGravityId();
   const gravityId = ethers.utils.formatBytes32String(gravityIdString);
 
-  console.log("Starting Gravity contract deploy");
-  const { abi, bytecode } = getContractArtifacts(args["contract"]);
-  const factory = new ethers.ContractFactory(abi, bytecode, wallet);
+  // Some remote test scenarios want the ERC20 contracts but not the
+  // gravity contract which will already have been deployed
+  if (args["remote-mode"] == "True" || args["remote-mode"] == "true") {
+    console.log("Not deploying Gravity contract");
+  } else {
+    console.log("Starting Gravity contract deploy");
+    const { abi, bytecode } = getContractArtifacts(args["contract"]);
+    const factory = new ethers.ContractFactory(abi, bytecode, wallet);
 
-  console.log("About to get latest Gravity valset");
-  const latestValset = await getLatestValset();
+    console.log("About to get latest Gravity valset");
+    const latestValset = await getLatestValset();
 
-  let eth_addresses = [];
-  let powers = [];
-  let powers_sum = 0;
-  // this MUST be sorted uniformly across all components of Gravity in this
-  // case we perform the sorting in module/x/gravity/keeper/types.go to the
-  // output of the endpoint should always be sorted correctly. If you're
-  // having strange problems with updating the validator set you should go
-  // look there.
-  for (let i = 0; i < latestValset.members.length; i++) {
-    if (latestValset.members[i].ethereum_address == null) {
-      continue;
+    let eth_addresses = [];
+    let powers = [];
+    let powers_sum = 0;
+    // this MUST be sorted uniformly across all components of Gravity in this
+    // case we perform the sorting in module/x/gravity/keeper/types.go to the
+    // output of the endpoint should always be sorted correctly. If you're
+    // having strange problems with updating the validator set you should go
+    // look there.
+    for (let i = 0; i < latestValset.members.length; i++) {
+      if (latestValset.members[i].ethereum_address == null) {
+        continue;
+      }
+      eth_addresses.push(latestValset.members[i].ethereum_address);
+      powers.push(latestValset.members[i].power);
+      powers_sum += latestValset.members[i].power;
     }
-    eth_addresses.push(latestValset.members[i].ethereum_address);
-    powers.push(latestValset.members[i].power);
-    powers_sum += latestValset.members[i].power;
-  }
 
-  // 66% of uint32_max
-  let vote_power = 2834678415;
-  if (powers_sum < vote_power) {
-    console.log("Refusing to deploy! Incorrect power! Please inspect the validator set below")
-    console.log("If less than 66% of the current voting power has unset Ethereum Addresses we refuse to deploy")
-    console.log(latestValset)
-    exit(1)
-  }
-
-  for (let i = 1; i < eth_addresses.length; i++) {
-    if (eth_addresses[i - 1].toLowerCase() >= eth_addresses[i].toLowerCase()) {
-      console.log("Validators are not properly sorted!")
-      console.log(`${eth_addresses[i - 1]} at index ${i - 1} is >= than ${eth_addresses[i]} at index ${i}`)
+    // 66% of uint32_max
+    let vote_power = 2834678415;
+    if (powers_sum < vote_power) {
+      console.log("Refusing to deploy! Incorrect power! Please inspect the validator set below")
+      console.log("If less than 66% of the current voting power has unset Ethereum Addresses we refuse to deploy")
+      console.log(latestValset)
       exit(1)
     }
+
+    for (let i = 1; i < eth_addresses.length; i++) {
+      if (eth_addresses[i - 1].toLowerCase() >= eth_addresses[i].toLowerCase()) {
+        console.log("Validators are not properly sorted!")
+        console.log(`${eth_addresses[i - 1]} at index ${i - 1} is >= than ${eth_addresses[i]} at index ${i}`)
+        exit(1)
+      }
+    }
+
+    let wnomAddressArg = args["wnom-address"]
+    if (wnomAddressArg == null) {
+      wnomAddressArg = "0x0000000000000000000000000000000000000000"
+    }
+
+    let wnomAddress = ethers.utils.getAddress(wnomAddressArg)
+
+    const gravity = (await factory.deploy(
+      // todo generate this randomly at deployment time that way we can avoid
+      // anything but intentional conflicts
+      gravityId,
+      eth_addresses,
+      powers,
+      wnomAddress,
+      overrides
+    )) as Gravity;
+
+    await gravity.deployed();
+    console.log("Gravity deployed at Address - ", gravity.address);
+    await submitGravityAddress(gravity.address);
   }
-
-  let wnomAddressArg = args["wnom-address"]
-  if (wnomAddressArg == null) {
-    wnomAddressArg = "0x0000000000000000000000000000000000000000"
-  }
-
-  let wnomAddress = ethers.utils.getAddress(wnomAddressArg)
-
-  const gravity = (await factory.deploy(
-    // todo generate this randomly at deployment time that way we can avoid
-    // anything but intentional conflicts
-    gravityId,
-    eth_addresses,
-    powers,
-    wnomAddress,
-    overrides
-  )) as Gravity;
-
-  await gravity.deployed();
-  console.log("Gravity deployed at Address - ", gravity.address);
-  await submitGravityAddress(gravity.address);
 }
 
 function getContractArtifacts(path: string): { bytecode: string; abi: string } {
