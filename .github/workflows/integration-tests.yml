@@ -51,6 +51,14 @@ jobs:
         continue-on-error: true
       - name: Run all up batch stress test
         run: tests/all-up-test.sh BATCH_STRESS
+  remote-stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+      - name: Run all up remote stress test
+        run: tests/all-up-test.sh REMOTE_STRESS_FOR_CI
   v2-happy-path:
     runs-on: ubuntu-latest
     steps:

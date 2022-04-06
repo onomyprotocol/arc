@@ -1,4 +1,5 @@
 use std::{
+    env,
     fs::File,
     io::{BufRead, BufReader, Read, Write},
     path::Path,
@@ -96,6 +97,14 @@ pub async fn deploy_contracts(contact: &Contact) {
     // yet produced the next block after submitting each eth address
     contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
 
+    let remote_mode = if let Ok(s) = env::var("GRAVITY_ADDRESS") {
+        info!("GRAVITY_ADDRESS set, using gravity contract address {}", s);
+        // leads to the gravity contract not being deployed
+        "true"
+    } else {
+        "false"
+    };
+
     // these are the possible paths where we could find the contract deployer
     // and the gravity contract itself, feel free to expand this if it makes your
     // deployments more straightforward.
@@ -119,6 +128,7 @@ pub async fn deploy_contracts(contact: &Contact) {
                 &format!("--eth-privkey={:#x}", *MINER_PRIVATE_KEY),
                 &format!("--contract={}", paths[1]),
                 "--test-mode=true",
+                &format!("--remote-mode={}", remote_mode),
             ])
             .output()
             .expect("Failed to deploy contracts!")
@@ -132,6 +142,7 @@ pub async fn deploy_contracts(contact: &Contact) {
                 &format!("--eth-privkey={:#x}", *MINER_PRIVATE_KEY),
                 &format!("--contract={}", C[1]),
                 "--test-mode=true",
+                &format!("--remote-mode={}", remote_mode),
             ])
             .current_dir(C[2])
             .output()
@@ -156,7 +167,7 @@ pub struct BootstrapContractAddresses {
 }
 
 /// Parses the ERC20 and Gravity contract addresses from the file created
-/// in deploy_contracts()
+/// in deploy_contracts() (except if GRAVITY_ADDRESS is set in which case that Gravity address is used)
 pub fn parse_contract_addresses() -> BootstrapContractAddresses {
     let mut file =
         File::open("/contracts").expect("Failed to find contracts! did they not deploy?");
@@ -177,7 +188,9 @@ pub fn parse_contract_addresses() -> BootstrapContractAddresses {
             uniswap_liquidity = Some(address_string.trim().parse().unwrap());
         }
     }
-    let gravity_address: EthAddress = maybe_gravity_address.unwrap();
+    let gravity_address: EthAddress = env::var("GRAVITY_ADDRESS")
+        .map(|s| s.trim().parse().unwrap())
+        .unwrap_or_else(|_| maybe_gravity_address.unwrap());
     BootstrapContractAddresses {
         gravity_contract: gravity_address,
         erc20_addresses,

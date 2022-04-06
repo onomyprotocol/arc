@@ -8,6 +8,15 @@ process from building the container to executing scripts in it.
 
 NOTE: in the default case, `git archive ... HEAD` is used so that only committed changes will be used.
 
+Running `all-up-test.sh` by itself or `all-up-test-internal.sh` in a running container has the
+feature that `COSMOS_NODE_GRPC` and `COSMOS_NODE_ABCI` or `ETH_NODE` can be set, in which case the
+default node setup scripts are skipped and the test runner will try to use preexisting nodes.
+If `GRAVITY_ADDRESS` is set only ERC20 contracts are deployed.
+
+`all-up-test.sh NO_SCRIPTS` can be run if you want to start the test container without any scripts
+running inside it initially.
+
+
 ## USE_LOCAL_ARTIFACTS
 
 For CI or other rigorous testing, the scripts should be run without setting `USE_LOCAL_ARTIFACTS`,
