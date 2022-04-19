@@ -60,6 +60,9 @@ pub async fn relay_valsets(
     .await
     {
         Ok(v) => v,
+        // If we get the RecoverableError we don't need to log it, since it is a kind of flag to indicate that it was expected.
+        // And here we expect the ValsetUpToDate error which means that we don't need to update up to date valset.
+        Err(GravityError::RecoverableError(_)) => return,
         Err(e) => {
             error!(
                 "We were unable to find a valid validator set update to submit! {:?}",

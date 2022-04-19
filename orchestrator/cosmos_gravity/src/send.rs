@@ -293,9 +293,9 @@ pub async fn send_ethereum_claims(
 
     let msgs: Vec<Msg> = ordered_msgs.into_iter().map(|(_, v)| v).collect();
 
-    Ok(contact
+    contact
         .send_message(&msgs, None, &[fee], Some(TIMEOUT), private_key)
-        .await?)
+        .await
 }
 
 /// Sends tokens from Cosmos to Ethereum. These tokens will not be sent immediately instead
