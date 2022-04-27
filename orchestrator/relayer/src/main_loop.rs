@@ -34,7 +34,7 @@ pub async fn relayer_main_loop(
     relayer_config: &RelayerConfig,
 ) -> Result<(), GravityError> {
     let mut grpc_client = grpc_client;
-
+    let loop_speed = Duration::from_secs(relayer_config.relayer_loop_speed);
     loop {
         let (async_result, _) = tokio::join!(
             async {
@@ -99,7 +99,9 @@ pub async fn relayer_main_loop(
 
                 Ok(())
             },
-            sleep(TIMEOUT)
+            // the sleep will be called in the parallel with the relay,
+            // the "join!" will await for the longest operation time
+            sleep(loop_speed),
         );
 
         if let Err(e) = async_result {
