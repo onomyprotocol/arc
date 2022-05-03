@@ -19,8 +19,7 @@ use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
 
 const BLOCK_DELAY: Uint256 = u256!(35);
-const LOCAL_GETH_CHAIN_ID: u64 = 15;
-const LOCAL_HARDHAT_CHAIN_ID: u64 = 31337;
+const LOCAL_OPERA_CHAIN: u64 = 4003;
 
 #[derive(Clone, Copy)]
 pub struct CheckedNonces {
@@ -249,10 +248,9 @@ pub async fn check_for_events(
 /// We use block delay of 35, giving preference to security over speed.
 async fn get_block_delay(web3: &Web3) -> Uint256 {
     let net_version = get_net_version_with_retry(web3).await;
-
     match net_version {
         // For the chains we use for the integration tests we don't require the block delay.
-        LOCAL_GETH_CHAIN_ID | LOCAL_HARDHAT_CHAIN_ID => u256!(0),
+        LOCAL_OPERA_CHAIN => u256!(0),
         _ => BLOCK_DELAY,
     }
 }

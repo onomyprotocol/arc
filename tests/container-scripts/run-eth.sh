@@ -33,22 +33,35 @@ elif [[ ! -z "$HARDHAT" ]]; then
 # the right number of cpu cores and Geth goes crazy consuming all the processing power, on the other hand
 # hardhat doesn't work for some tests that depend on transactions waiting for blocks, so Geth is the default
 else
-    # init the genesis block
-    geth --identity "GravityTestnet" \
-    --nodiscover \
-    --networkid 15 init /gravity/tests/assets/ETHGenesis.json
+    # To make a custom genesis file for `go-opera`, comment out the normal `opera`
+    # command below and edit `test_runner/src/main.rs` by changing `MINER_PRIVATE_KEY`
+    # to use 0x163F5F0F9A621D72FEDD85FFCA3D08D131AB4E812181E0D30FFD1C885D20AAC7
+    # and uncommenting the special `send_eth_bulk` that sends tokens to the address we
+    # want to use. Uncomment the other `opera` command below which will use Fantom's
+    # default genesis. Then, run `USE_LOCAL_ARTIFACTS=1 bash tests/all-up-test.sh NO_SCRIPTS`
+    # and get a command prompt to the running container. In the container run
+    # `bash /gravity/tests/container-scripts/all-up-test-internal.sh 4` and wait for the panic
+    # "sent eth to default address" (or for some reason the test runner can hang, look at
+    # `opera.log` to see if the transaction has happened and then kill the test runner).
+    # Then in the container `pkill opera` and run
+    # `opera --datadir /opera_datadir/ export genesis /gravity/tests/assets/test_genesis.g --export.evm.mode=ext-mpt`
+    # which will convert the state of the testchain up to that point into a new genesis that we
+    # use for normal runs. Commit the `test_genesis.g` and undo the other changes.
+    opera --fakenet 1/1 \
+        --nodiscover \
+        --http \
+        --http.addr="localhost" \
+        --http.port="8545" \
+        --http.api="eth,debug,net,admin,web3,personal,txpool,ftm,dag" \
+        --datadir="/opera_datadir" &> /opera.log &
 
-    # etherbase is where rewards get sent
-    # private key for this address is 0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7
-    geth --identity "GravityTestnet" --nodiscover \
-    --networkid 15 \
-    --mine \
-    --http \
-    --http.addr="0.0.0.0" \
-    --http.vhosts="*" \
-    --http.corsdomain="*" \
-    --miner.threads=1 \
-    --nousb \
-    --verbosity=5 \
-    --miner.etherbase=0xBf660843528035a5A4921534E156a27e64B231fE &> /geth.log &
+    # The fakenet chain id is 4003, which is different from the production id of 250
+    #opera --genesis="/gravity/tests/assets/test_genesis.g" \
+    #    --genesis.allowExperimental=true \
+    #    --nodiscover \
+    #    --http \
+    #    --http.addr="localhost" \
+    #    --http.port="8545" \
+    #    --http.api="eth,debug,net,admin,web3,personal,txpool,ftm,dag" \
+    #    --datadir="/opera_datadir" &> /opera.log &
 fi

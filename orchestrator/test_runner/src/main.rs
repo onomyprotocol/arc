@@ -148,6 +148,19 @@ pub async fn main() {
     let web30 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
     let keys = get_keys();
 
+    // For making `go-opera` genesis files, see `tests/container-scripts/run-eth.sh`.
+    /*
+    use std::str::FromStr;
+    web30.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
+    send_eth_bulk(
+        u256!(900000000000000000000000000),
+        &[EthAddress::from_str("0xBf660843528035a5A4921534E156a27e64B231fE").unwrap()],
+        &web30,
+    )
+    .await;
+    panic!("sent eth to default address");
+    */
+
     // if we detect this env var we are only deploying contracts, do that then exit.
     if should_deploy_contracts() {
         info!("test-runner in contract deploying mode, deploying contracts, then exiting");
