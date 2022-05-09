@@ -198,11 +198,12 @@ var (
 
 	// TestingStakeParams is a set of staking params for testing
 	TestingStakeParams = stakingtypes.Params{
-		UnbondingTime:     100,
-		MaxValidators:     10,
-		MaxEntries:        10,
-		HistoricalEntries: 10000,
-		BondDenom:         "stake",
+		UnbondingTime:           100,
+		MaxValidators:           10,
+		MaxEntries:              10,
+		HistoricalEntries:       10000,
+		BondDenom:               "stake",
+		MinGlobalSelfDelegation: sdk.ZeroInt(),
 	}
 
 	// TestingGravityParams is a set of gravity params for testing
@@ -472,7 +473,8 @@ func CreateTestEnv(t *testing.T) TestInput {
 		DefaultSendEnabled: true,
 	})
 
-	stakingKeeper := stakingkeeper.NewKeeper(marshaler, keyStaking, accountKeeper, bankKeeper, getSubspace(paramsKeeper, stakingtypes.ModuleName))
+	// distribution keeper can be nil here since it won't be used for the tests
+	stakingKeeper := stakingkeeper.NewKeeper(marshaler, keyStaking, accountKeeper, bankKeeper, nil, getSubspace(paramsKeeper, stakingtypes.ModuleName))
 	stakingKeeper.SetParams(ctx, TestingStakeParams)
 
 	distKeeper := distrkeeper.NewKeeper(marshaler, keyDistro, getSubspace(paramsKeeper, distrtypes.ModuleName), accountKeeper, bankKeeper, stakingKeeper, authtypes.FeeCollectorName, nil)
