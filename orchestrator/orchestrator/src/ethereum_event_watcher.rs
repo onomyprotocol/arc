@@ -42,7 +42,14 @@ pub async fn check_for_events(
     let latest_block = get_block_number_with_retry(web3).await;
     let latest_block_with_delay = latest_block
         .checked_sub(get_block_delay(web3).await)
-        .unwrap();
+        .ok_or_else(|| {
+            GravityError::UnrecoverableError(
+                // This should only happen if the bridge is started immediately after the chain
+                // genesis which will not happen in production. In tests this is an indicator that
+                // `get_block_delay` is not setting the delay to zero for the testnet id.
+                "Latest block number is less than the block delay".to_owned(),
+            )
+        })?;
 
     let deposits = web3
         .check_for_events(
