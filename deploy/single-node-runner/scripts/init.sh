@@ -38,8 +38,8 @@ NORMAL_DENOM="samoleans"
 # This key is the private key for the public key defined in ETHGenesis.json
 # where the full node / miner sends its rewards. Therefore it's always going
 # to have a lot of ETH to pay for things like contract deployments
-ETH_MINER_PRIVATE_KEY="0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7"
-ETH_MINER_PUBLIC_KEY="0xBf660843528035a5A4921534E156a27e64B231fE"
+ETH_MINER_PRIVATE_KEY="0x163F5F0F9A621D72FEDD85FFCA3D08D131AB4E812181E0D30FFD1C885D20AAC7"
+ETH_MINER_PUBLIC_KEY="0x239fA7623354eC26520dE878B52f13Fe84b06971"
 # The host of ethereum node
 ETH_HOST="0.0.0.0"
 # Eth node rpc port
