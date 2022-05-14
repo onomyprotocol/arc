@@ -72,7 +72,7 @@ lazy_static! {
     static ref COSMOS_NODE_ABCI: String =
         env::var("COSMOS_NODE_ABCI").unwrap_or_else(|_| "http://localhost:26657".to_owned());
     static ref ETH_NODE: String =
-        env::var("ETH_NODE").unwrap_or_else(|_| "http://localhost:8545".to_owned());
+        env::var("ETH_NODE").unwrap_or_else(|_| "http://localhost:8545/ext/bc/C/rpc".to_owned());
 }
 
 /// this value reflects the contents of /tests/container-scripts/setup-validator.sh
@@ -160,6 +160,62 @@ pub async fn main() {
     let gravity_address = contracts.gravity_contract;
     // addresses of deployed ERC20 token contracts to be used for testing
     let erc20_addresses = contracts.erc20_addresses;
+
+    info!("Starting block stimulator workaround");
+    tokio::spawn(async move {
+        use std::str::FromStr;
+        // we need a duplicate `send_eth_bulk` that uses a different
+        // private key and does not wait on transactions, otherwise we
+        // conflict with the main runner's nonces and calculations
+
+        async fn send_eth_bulk2(
+            amount: Uint256,
+            destinations: &[EthAddress],
+            web3: &gravity_utils::web30::client::Web3,
+        ) {
+            let private_key: EthPrivateKey =
+                "0x8075991ce870b93a8870eca0c0f91913d12f47948ca0fd25b49c6fa7cdbeee8b"
+                    .to_owned()
+                    .parse()
+                    .unwrap();
+            let pub_key: EthAddress = private_key.to_address();
+            let net_version = web3.net_version().await.unwrap();
+            let mut nonce = web3.eth_get_transaction_count(pub_key).await.unwrap();
+            let mut transactions = Vec::new();
+            let gas_price: Uint256 = web3.eth_gas_price().await.unwrap();
+            for address in destinations {
+                let t = gravity_utils::clarity::Transaction {
+                    to: *address,
+                    nonce,
+                    gas_price: gas_price.checked_mul(u256!(2)).unwrap(),
+                    gas_limit: u256!(24000),
+                    value: amount,
+                    data: Vec::new(),
+                    signature: None,
+                };
+                let t = t.sign(&private_key, Some(net_version));
+                transactions.push(t);
+                nonce = nonce.checked_add(u256!(1)).unwrap();
+            }
+            for tx in transactions {
+                web3.eth_send_raw_transaction(tx.to_bytes().unwrap())
+                    .await
+                    .unwrap();
+            }
+        }
+
+        // repeatedly send single atoms to unrelated address
+        let web3 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
+        loop {
+            send_eth_bulk2(
+                u256!(1),
+                &[EthAddress::from_str("0x798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc").unwrap()],
+                &web3,
+            )
+            .await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    });
 
     if !keys.is_empty() {
         // before we start the orchestrators send them some funds so they can pay

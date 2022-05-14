@@ -6,8 +6,10 @@ ENV PATH=$PATH:/go/bin
 RUN dnf install -y git make gcc gcc-c++ which iproute iputils procps-ng vim-minimal tmux net-tools htop tar jq npm openssl-devel perl rust cargo golang
 # only required for deployment script
 RUN npm install -g ts-node && npm install -g typescript
-ADD https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.10.10-bb74230f.tar.gz /geth/
-RUN cd /geth && tar -xvf * && mv /geth/**/geth /usr/bin/geth
+
+COPY --from=avaplatform/avalanchego:v1.7.16 /avalanchego/ /avalanchego/
+RUN mv /avalanchego/build/avalanchego /usr/bin/avalanchego
+
 # the actual source code for this repo, this **only** includes checked in files!
 # this is a bit of a pain but it does speed things up a lot
 ADD gravity.tar /
