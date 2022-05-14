@@ -2239,7 +2239,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 [[package]]
 name = "web30"
 version = "0.18.3"
-source = "git+https://github.com/onomyprotocol/web30.git?rev=645c0509246fedff01aed1aa4c26eb804f3fec1a#645c0509246fedff01aed1aa4c26eb804f3fec1a"
+source = "git+https://github.com/AaronKutch/web30.git?rev=8407c6da5f4fcee6e49c20460732cd00d50de846#8407c6da5f4fcee6e49c20460732cd00d50de846"
 dependencies = [
  "clarity",
  "hyper",
