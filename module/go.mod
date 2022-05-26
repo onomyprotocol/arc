@@ -27,7 +27,7 @@ require (
 )
 
 replace (
-	github.com/cosmos/cosmos-sdk => github.com/onomyprotocol/onomy-sdk v0.44.6-0.20220509081037-e09065c62b6b
+	github.com/cosmos/cosmos-sdk => github.com/onomyprotocol/onomy-sdk v0.44.6-0.20220526083940-424017863a62
 	github.com/gogo/grpc => google.golang.org/grpc v1.33.2
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
