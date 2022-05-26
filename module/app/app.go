@@ -392,7 +392,6 @@ func NewGravityApp(
 		keys[stakingtypes.StoreKey],
 		accountKeeper,
 		bankKeeper,
-		nil,
 		app.GetSubspace(stakingtypes.ModuleName),
 	)
 	app.stakingKeeper = &stakingKeeper
