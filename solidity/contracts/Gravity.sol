@@ -74,9 +74,9 @@ contract Gravity is ReentrancyGuard {
 	// update or batch execution, set to 2/3 of 2^32
 	uint256 constant constant_powerThreshold = 2863311530;
 
-	// Address for wNOM
-	address public wNomAddress;
-	IERC20Burnable private wNomBurner;
+	// Address for bNOM
+	address public bNomAddress;
+	IERC20Burnable private bNomBurner;
 
 	// These are updated often
 	bytes32 public state_lastValsetCheckpoint;
@@ -596,9 +596,9 @@ contract Gravity is ReentrancyGuard {
 
 		state_lastEventNonce = state_lastEventNonce + 1;
 
-		// If Token is wNOM then Burn it
-		if (_tokenContract == wNomAddress) {
-			wNomBurner.burn(_amount);
+		// If Token is bNOM then Burn it
+		if (_tokenContract == bNomAddress) {
+			bNomBurner.burn(_amount);
 		}
 
 		// emit to Cosmos the actual amount our balance has changed, rather than the user
@@ -641,11 +641,11 @@ contract Gravity is ReentrancyGuard {
 		// arguments would never be used in this case
 		address[] memory _validators,
 		uint256[] memory _powers,
-		address _wNomAddress
+		address _bNomAddress
 	) {
 		// Initialize NOM burner
-		wNomAddress = _wNomAddress;
-		wNomBurner = IERC20Burnable(_wNomAddress);
+		bNomAddress = _bNomAddress;
+		bNomBurner = IERC20Burnable(_bNomAddress);
 
 		// CHECKS
 

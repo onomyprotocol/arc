@@ -1,6 +1,6 @@
 import { Gravity } from "../typechain/Gravity";
 import { TestERC20A } from "../typechain/TestERC20A";
-import { TestERC20WNOM } from "../typechain/TestERC20WNOM";
+import { TestERC20BNOM } from "../typechain/TestERC20BNOM";
 import { ethers } from "hardhat";
 import { makeCheckpoint, getSignerAddresses, ZeroAddress } from "./pure";
 import { Signer } from "ethers";
@@ -22,8 +22,8 @@ export async function deployContracts(
   const TestERC20 = await ethers.getContractFactory("TestERC20A");
   const testERC20 = (await TestERC20.deploy()) as TestERC20A;
 
-  const testERC20WNOMFactory = await ethers.getContractFactory("TestERC20WNOM");
-  const testERC20WNOM = (await testERC20WNOMFactory.deploy()) as TestERC20WNOM;
+  const testERC20BNOMFactory = await ethers.getContractFactory("TestERC20BNOM");
+  const testERC20BNOM = (await testERC20BNOMFactory.deploy()) as TestERC20BNOM;
 
   const Gravity = await ethers.getContractFactory("Gravity");
 
@@ -35,12 +35,12 @@ export async function deployContracts(
     gravityId,
     await getSignerAddresses(validators),
     powers,
-    testERC20WNOM.address
+    testERC20BNOM.address
   )) as Gravity;
 
   await gravity.deployed();
 
-  return { gravity, testERC20, checkpoint, testERC20WNOM };
+  return { gravity, testERC20, checkpoint, testERC20BNOM };
 }
 
 // Insertion Sort for sorting validators

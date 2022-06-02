@@ -4,8 +4,8 @@ pragma solidity 0.8.10;
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 // One of three testing coins
-contract TestERC20WNOM is ERC20Burnable {
-    constructor() ERC20("Wnom", "WNOM") {
+contract TestERC20BNOM is ERC20Burnable {
+    constructor() ERC20("Bnom", "BNOM") {
         _mint(0xc783df8a850f42e7F7e57013759C285caa701eB6, 10000);
         _mint(0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4, 10000);
         _mint(0xE5904695748fe4A84b40b3fc79De2277660BD1D3, 10000);

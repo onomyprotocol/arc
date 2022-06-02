@@ -21,8 +21,8 @@ const args = commandLineArgs([
   { name: "test-mode", type: String },
   // remote mode, if enabled this script does not deploy the Gravity contract
   { name: "remote-mode", type: String },
-  // the wnom ERC20 address which will be used for burning in the send to cosmos Gravity contracts function
-  { name: "wnom-address", type: String },
+  // the bnom ERC20 address which will be used for burning in the send to cosmos Gravity contracts function
+  { name: "bnom-address", type: String },
 ]);
 
 // 4. Now, the deployer script hits a full node api, gets the Eth signatures of the valset from the latest block, and deploys the Ethereum contract.
@@ -219,12 +219,12 @@ async function deploy() {
       }
     }
 
-    let wnomAddressArg = args["wnom-address"]
-    if (wnomAddressArg == null) {
-      wnomAddressArg = "0x0000000000000000000000000000000000000000"
+    let bnomAddressArg = args["bnom-address"]
+    if (bnomAddressArg == null) {
+      bnomAddressArg = "0x0000000000000000000000000000000000000000"
     }
 
-    let wnomAddress = ethers.utils.getAddress(wnomAddressArg)
+    let bnomAddress = ethers.utils.getAddress(bnomAddressArg)
 
     const gravity = (await factory.deploy(
       // todo generate this randomly at deployment time that way we can avoid
@@ -232,7 +232,7 @@ async function deploy() {
       gravityId,
       eth_addresses,
       powers,
-      wnomAddress,
+      bnomAddress,
       overrides
     )) as Gravity;
 
