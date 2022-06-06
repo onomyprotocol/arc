@@ -76,7 +76,7 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
         }
     }
     info!(
-        "Your tokens should show up in the account {} on Gravity Bridge within 5 minutes",
+        "Your tokens should show up in the account {} on Gravity Bridge within 10 minutes",
         cosmos_dest
     );
     Ok(())
