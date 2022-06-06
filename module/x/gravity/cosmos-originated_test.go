@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
 	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // Have the validators put in a erc20<>denom relation with ERC20DeployedEvent
@@ -20,13 +20,15 @@ import (
 
 func TestCosmosOriginated(t *testing.T) {
 	tv := initializeTestingVars(t)
-	addDenomToERC20Relation(tv)
+	addDenomToERC20Relation(tv, 1)
 	// we only create a relation here, we don't perform
 	// the other tests with the IBC representation as the
 	// results should be the same
-	addIbcDenomToERC20Relation(tv)
+	addIbcDenomToERC20Relation(tv, 2)
 	lockCoinsInModule(tv)
-	acceptDepositEvent(tv)
+	acceptDepositEvent(tv, 3)
+	// we can set the same attestation one more time if needed
+	addDenomToERC20Relation(tv, 4)
 }
 
 type testingVars struct {
@@ -52,7 +54,7 @@ func initializeTestingVars(t *testing.T) *testingVars {
 	return &tv
 }
 
-func addDenomToERC20Relation(tv *testingVars) {
+func addDenomToERC20Relation(tv *testingVars, myNonce uint64) {
 	tv.input.BankKeeper.SetDenomMetaData(tv.ctx, banktypes.Metadata{
 		Description: "The native staking token of the Cosmos Gravity Bridge",
 		Name:        "Graviton",
@@ -65,10 +67,6 @@ func addDenomToERC20Relation(tv *testingVars) {
 		Base:    "ugraviton",
 		Display: "graviton",
 	})
-
-	var (
-		myNonce = uint64(1)
-	)
 
 	// have all five validators observe this event
 	for _, v := range keeper.OrchAddrs {
@@ -150,10 +148,9 @@ func lockCoinsInModule(tv *testingVars) {
 	)
 }
 
-func acceptDepositEvent(tv *testingVars) {
+func acceptDepositEvent(tv *testingVars, myNonce uint64) {
 	var (
 		myCosmosAddr, err = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
-		myNonce           = uint64(3)
 		anyETHAddr        = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
 	)
 	require.NoError(tv.t, err)
@@ -199,7 +196,7 @@ func acceptDepositEvent(tv *testingVars) {
 	)
 }
 
-func addIbcDenomToERC20Relation(tv *testingVars) {
+func addIbcDenomToERC20Relation(tv *testingVars, myNonce uint64) {
 
 	tokenContract := "0xE486cC1a00aA806C3e40224EDAd5FdCA93dDdA62"
 	ibcDenom := "ibc/46B44899322F3CD854D2D46DEEF881958467CDD4B3B10086DA49296BBED94BED/grav"
@@ -221,10 +218,6 @@ func addIbcDenomToERC20Relation(tv *testingVars) {
 		},
 	}
 	tv.input.BankKeeper.SetDenomMetaData(tv.ctx, metadata)
-
-	var (
-		myNonce = uint64(2)
-	)
 
 	// have all five validators observe this event
 	for _, v := range keeper.OrchAddrs {

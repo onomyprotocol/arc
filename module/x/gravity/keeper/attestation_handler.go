@@ -27,9 +27,15 @@ type AttestationHandler struct {
 
 // Check for nil members
 func (a AttestationHandler) ValidateMembers() {
-	if a.keeper     == nil { panic("Nil keeper!") }
-	if a.bankKeeper == nil { panic("Nil bankKeeper!") }
-	if a.distKeeper == nil { panic("Nil distKeeper!") }
+	if a.keeper == nil {
+		panic("Nil keeper!")
+	}
+	if a.bankKeeper == nil {
+		panic("Nil bankKeeper!")
+	}
+	if a.distKeeper == nil {
+		panic("Nil distKeeper!")
+	}
 }
 
 // SendToCommunityPool handles sending incorrect deposits to the community pool, since the deposits
@@ -201,7 +207,8 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation, claim
 		}
 		// Check if it already exists
 		existingERC20, exists := a.keeper.GetCosmosOriginatedERC20(ctx, claim.CosmosDenom)
-		if exists {
+
+		if exists && existingERC20 != nil && tokenAddress != nil && existingERC20.GetAddress() != tokenAddress.GetAddress() {
 			return sdkerrors.Wrap(
 				types.ErrInvalid,
 				fmt.Sprintf("ERC20 %s already exists for denom %s", existingERC20, claim.CosmosDenom))
