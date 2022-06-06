@@ -105,7 +105,7 @@ pub async fn deploy_erc20_representation(
                 }
             };
 
-            match tokio::time::timeout(Duration::from_secs(100), keep_querying_for_erc20).await {
+            match tokio::time::timeout(Duration::from_secs(1800), keep_querying_for_erc20).await {
                 Ok(_) => Ok(()),
                 Err(_) => Err(GravityError::UnrecoverableError(
                     "Your ERC20 contract was not adopted, double check the metadata and try again"
