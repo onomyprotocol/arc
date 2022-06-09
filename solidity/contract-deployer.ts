@@ -1,28 +1,28 @@
-import { Gravity } from "./typechain/Gravity";
-import { TestERC20A } from "./typechain/TestERC20A";
-import { TestERC20B } from "./typechain/TestERC20B";
-import { TestERC20C } from "./typechain/TestERC20C";
-import { ethers } from "ethers";
+import {Gravity} from "./typechain/Gravity";
+import {TestERC20A} from "./typechain/TestERC20A";
+import {TestERC20B} from "./typechain/TestERC20B";
+import {TestERC20C} from "./typechain/TestERC20C";
+import {ethers} from "ethers";
 import fs from "fs";
 import commandLineArgs from "command-line-args";
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
-import { exit } from "process";
+import axios from "axios";
+import {exit} from "process";
 
 const args = commandLineArgs([
   // the ethernum node used to deploy the contract
-  { name: "eth-node", type: String },
+  {name: "eth-node", type: String},
   // the cosmos node that will be used to grab the validator set via RPC (TODO),
-  { name: "cosmos-node", type: String },
+  {name: "cosmos-node", type: String},
   // the Ethereum private key that will contain the gas required to pay for the contact deployment
-  { name: "eth-privkey", type: String },
+  {name: "eth-privkey", type: String},
   // the gravity contract .json file
-  { name: "contract", type: String },
+  {name: "contract", type: String},
   // test mode, if enabled this script deploys three ERC20 contracts for testing
-  { name: "test-mode", type: String },
+  {name: "test-mode", type: String},
   // remote mode, if enabled this script does not deploy the Gravity contract
-  { name: "remote-mode", type: String },
+  {name: "remote-mode", type: String},
   // the bnom ERC20 address which will be used for burning in the send to cosmos Gravity contracts function
-  { name: "bnom-address", type: String },
+  {name: "bnom-address", type: String},
 ]);
 
 // 4. Now, the deployer script hits a full node api, gets the Eth signatures of the valset from the latest block, and deploys the Ethereum contract.
@@ -151,82 +151,85 @@ async function deploy() {
     }
 
 
-    const { abi, bytecode } = getContractArtifacts(erc20_a_path);
+    const {abi, bytecode} = getContractArtifacts(erc20_a_path);
     const erc20Factory = new ethers.ContractFactory(abi, bytecode, wallet);
     const testERC20 = (await erc20Factory.deploy(overrides)) as TestERC20A;
     await testERC20.deployed();
     const erc20TestAddress = testERC20.address;
     console.log("ERC20 deployed at Address - ", erc20TestAddress);
-    const { abi: abi1, bytecode: bytecode1 } = getContractArtifacts(erc20_b_path);
+    const {abi: abi1, bytecode: bytecode1} = getContractArtifacts(erc20_b_path);
     const erc20Factory1 = new ethers.ContractFactory(abi1, bytecode1, wallet);
     const testERC201 = (await erc20Factory1.deploy(overrides)) as TestERC20B;
     await testERC201.deployed();
     const erc20TestAddress1 = testERC201.address;
     console.log("ERC20 deployed at Address - ", erc20TestAddress1);
-    const { abi: abi2, bytecode: bytecode2 } = getContractArtifacts(erc20_c_path);
+    const {abi: abi2, bytecode: bytecode2} = getContractArtifacts(erc20_c_path);
     const erc20Factory2 = new ethers.ContractFactory(abi2, bytecode2, wallet);
     const testERC202 = (await erc20Factory2.deploy(overrides)) as TestERC20C;
     await testERC202.deployed();
     const erc20TestAddress2 = testERC202.address;
     console.log("ERC20 deployed at Address - ", erc20TestAddress2);
   }
-  const gravityIdString = await getGravityId();
-  const gravityId = ethers.utils.formatBytes32String(gravityIdString);
 
   // Some remote test scenarios want the ERC20 contracts but not the
   // gravity contract which will already have been deployed
   if (args["remote-mode"] == "True" || args["remote-mode"] == "true") {
-    console.log("Not deploying Gravity contract");
-  } else {
-    console.log("Starting Gravity contract deploy");
-    const { abi, bytecode } = getContractArtifacts(args["contract"]);
-    const factory = new ethers.ContractFactory(abi, bytecode, wallet);
+    console.log("The param \"remote-mode\" is true: not deploying Gravity contract");
+    return
+  }
 
-    console.log("About to get latest Gravity valset");
-    const latestValset = await getLatestValset();
+  const gravityIdString = await getGravityId();
+  const gravityId = ethers.utils.formatBytes32String(gravityIdString);
 
-    let eth_addresses = [];
-    let powers = [];
-    let powers_sum = 0;
-    // this MUST be sorted uniformly across all components of Gravity in this
-    // case we perform the sorting in module/x/gravity/keeper/types.go to the
-    // output of the endpoint should always be sorted correctly. If you're
-    // having strange problems with updating the validator set you should go
-    // look there.
-    for (let i = 0; i < latestValset.members.length; i++) {
-      if (latestValset.members[i].ethereum_address == null) {
-        continue;
-      }
-      eth_addresses.push(latestValset.members[i].ethereum_address);
-      powers.push(latestValset.members[i].power);
-      powers_sum += latestValset.members[i].power;
+  console.log("Starting Gravity contract deploy");
+  const {abi, bytecode} = getContractArtifacts(args["contract"]);
+  const factory = new ethers.ContractFactory(abi, bytecode, wallet);
+
+  console.log("About to get latest Gravity valset");
+  const latestValset = await getLatestValset();
+
+  let eth_addresses = [];
+  let powers = [];
+  let powers_sum = 0;
+  // this MUST be sorted uniformly across all components of Gravity in this
+  // case we perform the sorting in module/x/gravity/keeper/types.go to the
+  // output of the endpoint should always be sorted correctly. If you're
+  // having strange problems with updating the validator set you should go
+  // look there.
+  for (let i = 0; i < latestValset.members.length; i++) {
+    if (latestValset.members[i].ethereum_address == null) {
+      continue;
     }
+    eth_addresses.push(latestValset.members[i].ethereum_address);
+    powers.push(latestValset.members[i].power);
+    powers_sum += latestValset.members[i].power;
+  }
 
-    // 66% of uint32_max
-    let vote_power = 2834678415;
-    if (powers_sum < vote_power) {
-      console.log("Refusing to deploy! Incorrect power! Please inspect the validator set below")
-      console.log("If less than 66% of the current voting power has unset Ethereum Addresses we refuse to deploy")
-      console.log(latestValset)
+  // 66% of uint32_max
+  let vote_power = 2834678415;
+  if (powers_sum < vote_power) {
+    console.log("Refusing to deploy! Incorrect power! Please inspect the validator set below")
+    console.log("If less than 66% of the current voting power has unset Ethereum Addresses we refuse to deploy")
+    console.log(latestValset)
+    exit(1)
+  }
+
+  for (let i = 1; i < eth_addresses.length; i++) {
+    if (eth_addresses[i - 1].toLowerCase() >= eth_addresses[i].toLowerCase()) {
+      console.log("Validators are not properly sorted!")
+      console.log(`${eth_addresses[i - 1]} at index ${i - 1} is >= than ${eth_addresses[i]} at index ${i}`)
       exit(1)
     }
+  }
 
-    for (let i = 1; i < eth_addresses.length; i++) {
-      if (eth_addresses[i - 1].toLowerCase() >= eth_addresses[i].toLowerCase()) {
-        console.log("Validators are not properly sorted!")
-        console.log(`${eth_addresses[i - 1]} at index ${i - 1} is >= than ${eth_addresses[i]} at index ${i}`)
-        exit(1)
-      }
-    }
+  let bnomAddressArg = args["bnom-address"]
+  if (bnomAddressArg == null) {
+    bnomAddressArg = "0x0000000000000000000000000000000000000000"
+  }
 
-    let bnomAddressArg = args["bnom-address"]
-    if (bnomAddressArg == null) {
-      bnomAddressArg = "0x0000000000000000000000000000000000000000"
-    }
+  let bnomAddress = ethers.utils.getAddress(bnomAddressArg)
 
-    let bnomAddress = ethers.utils.getAddress(bnomAddressArg)
-
-    const gravity = (await factory.deploy(
+  const gravity = (await factory.deploy(
       // todo generate this randomly at deployment time that way we can avoid
       // anything but intentional conflicts
       gravityId,
@@ -234,18 +237,19 @@ async function deploy() {
       powers,
       bnomAddress,
       overrides
-    )) as Gravity;
+  )) as Gravity;
 
-    await gravity.deployed();
-    console.log("Gravity deployed at Address - ", gravity.address);
-    await submitGravityAddress(gravity.address);
-  }
+  await gravity.deployed();
+  console.log("Gravity deployed at Address - ", gravity.address);
+  await submitGravityAddress(gravity.address);
+
 }
 
 function getContractArtifacts(path: string): { bytecode: string; abi: string } {
-  var { bytecode, abi } = JSON.parse(fs.readFileSync(path, "utf8").toString());
-  return { bytecode, abi };
+  var {bytecode, abi} = JSON.parse(fs.readFileSync(path, "utf8").toString());
+  return {bytecode, abi};
 }
+
 const decode = (str: string): string => Buffer.from(str, 'base64').toString('binary');
 
 async function getLatestValset(): Promise<Valset> {
@@ -280,7 +284,7 @@ async function getLatestValset(): Promise<Valset> {
       timeDiff = timeDiff / 1000
 
       response = await axios.get(request_string,
-        params);
+          params);
       valsets = await response.data;
 
       if (timeDiff > 600) {
@@ -296,6 +300,7 @@ async function getLatestValset(): Promise<Valset> {
   let valset: ValsetTypeWrapper = JSON.parse(decode(valsets.result.response.value))
   return valset.value;
 }
+
 async function getGravityId(): Promise<string> {
   let block_height_request_string = args["cosmos-node"] + '/status';
   let block_height_response = await axios.get(block_height_request_string);
@@ -315,7 +320,7 @@ async function getGravityId(): Promise<string> {
   };
 
   let response = await axios.get(request_string,
-    params);
+      params);
   let gravityIDABCIResponse: ABCIWrapper = await response.data;
 
   // if in test mode retry the request as needed in some cases
@@ -329,7 +334,7 @@ async function getGravityId(): Promise<string> {
       timeDiff = timeDiff / 1000
 
       response = await axios.get(request_string,
-        params);
+          params);
       gravityIDABCIResponse = await response.data;
 
       if (timeDiff > 600) {
@@ -345,7 +350,8 @@ async function getGravityId(): Promise<string> {
 
 }
 
-async function submitGravityAddress(address: string) { }
+async function submitGravityAddress(address: string) {
+}
 
 async function main() {
   await deploy();

@@ -60,6 +60,10 @@ pub async fn send_to_cosmos(
                 .await
             {
                 if !approved {
+                    info!(
+                        "Approving MAX {} from {} for gravity contract",
+                        erc20, sender_address
+                    );
                     let txid = web3
                         .approve_erc20_transfers(
                             erc20,
@@ -70,13 +74,18 @@ pub async fn send_to_cosmos(
                         )
                         .await
                         .expect("Can't approve erc20 transfers within timeout");
-                    trace!(
+                    debug!(
                         "We are not approved for ERC20 transfers, approving txid: {:#066x}",
                         txid
                     );
                     web3.wait_for_transaction(txid, wait_timeout, None)
                         .await
-                        .expect("Can't await for transaction within timeout");
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Can't await for transaction within timeout, txid: {:#066x}",
+                                txid
+                            )
+                        });
                     // increment the nonce for the next call
                     options.push(SendTxOption::Nonce(nonce.checked_add(u256!(1)).unwrap()));
                 }
@@ -94,7 +103,10 @@ pub async fn send_to_cosmos(
         ));
     }
 
-    info!("sending to on cosmos {}", cosmos_destination);
+    info!(
+        "Sending {}{} from {} to cosmos {}",
+        amount, erc20, sender_address, cosmos_destination
+    );
     let encoded_destination_address = Token::String(cosmos_destination.to_string());
 
     let tx_hash = web3
@@ -112,7 +124,13 @@ pub async fn send_to_cosmos(
         .await?;
 
     web3.wait_for_transaction(tx_hash, wait_timeout, None)
-        .await?;
+        .await
+        .unwrap_or_else(|_| {
+            panic!(
+                "Can't await for transaction within timeout, txid: {:#066x}",
+                tx_hash
+            )
+        });
 
     Ok(tx_hash)
 }

@@ -18,6 +18,10 @@ use crate::{utils::ValidatorKeys, COSMOS_NODE_ABCI, ETH_NODE, MINER_PRIVATE_KEY,
 /// the orchestrator on startup
 pub fn parse_ethereum_keys() -> Vec<EthPrivateKey> {
     let filename = "/validator-eth-keys";
+    if !Path::new(filename).is_file() {
+        info!("Key file {}, not found", filename);
+        return Vec::new();
+    };
     let file = File::open(filename).expect("Failed to find eth keys");
     let reader = BufReader::new(file);
     let mut ret = Vec::new();
@@ -35,7 +39,12 @@ pub fn parse_ethereum_keys() -> Vec<EthPrivateKey> {
 
 /// Parses the output of the cosmoscli keys add command to import the private key
 fn parse_phrases(filename: &str) -> Vec<CosmosPrivateKey> {
-    let file = File::open(filename).expect("Failed to find phrases");
+    if !Path::new(filename).is_file() {
+        info!("Key file {}, not found", filename);
+        return Vec::new();
+    };
+
+    let file = File::open(filename).unwrap();
     let reader = BufReader::new(file);
     let mut ret = Vec::new();
 
@@ -169,28 +178,40 @@ pub struct BootstrapContractAddresses {
 /// Parses the ERC20 and Gravity contract addresses from the file created
 /// in deploy_contracts() (except if GRAVITY_ADDRESS is set in which case that Gravity address is used)
 pub fn parse_contract_addresses() -> BootstrapContractAddresses {
-    let mut file =
-        File::open("/contracts").expect("Failed to find contracts! did they not deploy?");
-    let mut output = String::new();
-    file.read_to_string(&mut output).unwrap();
     let mut maybe_gravity_address = None;
     let mut erc20_addresses = Vec::new();
     let mut uniswap_liquidity = None;
-    for line in output.lines() {
-        if line.contains("Gravity deployed at Address -") {
-            let address_string = line.split('-').last().unwrap();
-            maybe_gravity_address = Some(address_string.trim().parse().unwrap());
-        } else if line.contains("ERC20 deployed at Address -") {
-            let address_string = line.split('-').last().unwrap();
-            erc20_addresses.push(address_string.trim().parse().unwrap());
-        } else if line.contains("Uniswap Liquidity test deployed at Address - ") {
-            let address_string = line.split('-').last().unwrap();
-            uniswap_liquidity = Some(address_string.trim().parse().unwrap());
+
+    if Path::new("/contracts").is_file() {
+        info!("Reading contract addresses from files");
+        let mut file =
+            File::open("/contracts").expect("Failed to find contracts! did they not deploy?");
+        let mut output = String::new();
+        file.read_to_string(&mut output).unwrap();
+        for line in output.lines() {
+            if line.contains("Gravity deployed at Address -") {
+                let address_string = line.split('-').last().unwrap();
+                maybe_gravity_address = Some(address_string.trim().parse().unwrap());
+            } else if line.contains("ERC20 deployed at Address -") {
+                let address_string = line.split('-').last().unwrap();
+                erc20_addresses.push(address_string.trim().parse().unwrap());
+            } else if line.contains("Uniswap Liquidity test deployed at Address - ") {
+                let address_string = line.split('-').last().unwrap();
+                uniswap_liquidity = Some(address_string.trim().parse().unwrap());
+            }
         }
     }
+
     let gravity_address: EthAddress = env::var("GRAVITY_ADDRESS")
         .map(|s| s.trim().parse().unwrap())
         .unwrap_or_else(|_| maybe_gravity_address.unwrap());
+
+    // if ERC20_ADDRESSES convert to EthAddress and update the variable
+    if let Ok(s) = env::var("ERC20_ADDRESSES") {
+        // replace the var from the env is present
+        erc20_addresses = s.split(',').map(|s| s.trim().parse().unwrap()).collect();
+    }
+
     BootstrapContractAddresses {
         gravity_contract: gravity_address,
         erc20_addresses,
