@@ -1,14 +1,10 @@
 import chai from "chai";
-import { ethers } from "hardhat";
-import { solidity } from "ethereum-waffle";
+import {ethers} from "hardhat";
+import {solidity} from "ethereum-waffle";
 
-import { deployContracts, sortValidators } from "../test-utils";
-import {
-    getSignerAddresses,
-    signHash,
-    examplePowers,
-    ZeroAddress
-} from "../test-utils/pure";
+import {deployContracts, sortValidators} from "../test-utils";
+import {examplePowers, getSignerAddresses, signHash, ZeroAddress} from "../test-utils/pure";
+
 chai.use(solidity);
 
 describe("Gas tests", function () {
@@ -61,7 +57,11 @@ describe("Gas tests", function () {
 
 
         let v = {
-            validators: await getSignerAddresses(validators), powers: powers, valsetNonce: 0, rewardAmount: 0, rewardToken: ZeroAddress
+            validators: await getSignerAddresses(validators),
+            powers: powers,
+            valsetNonce: 0,
+            rewardAmount: 0,
+            rewardToken: ZeroAddress
         };
         await gravity.testCheckValidatorSignatures(
             v,

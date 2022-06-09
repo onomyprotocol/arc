@@ -59,7 +59,7 @@ mod valset_stress;
 /// the timeout for individual requests
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(120);
 /// the timeout for the total system
-const TOTAL_TIMEOUT: Duration = Duration::from_secs(600);
+const TOTAL_TIMEOUT: Duration = Duration::from_secs(3600);
 
 // Retrieve values from runtime ENV vars
 lazy_static! {
@@ -161,21 +161,23 @@ pub async fn main() {
     // addresses of deployed ERC20 token contracts to be used for testing
     let erc20_addresses = contracts.erc20_addresses;
 
-    // before we start the orchestrators send them some funds so they can pay
-    // for things
-    send_eth_to_orchestrators(&keys, &web30).await;
+    if !keys.is_empty() {
+        // before we start the orchestrators send them some funds so they can pay
+        // for things
+        send_eth_to_orchestrators(&keys, &web30).await;
 
-    assert!(contact
-        .get_balance(
-            keys[0]
-                .validator_key
-                .to_address(&contact.get_prefix())
-                .unwrap(),
-            get_test_token_name(),
-        )
-        .await
-        .unwrap()
-        .is_some());
+        assert!(contact
+            .get_balance(
+                keys[0]
+                    .validator_key
+                    .to_address(&contact.get_prefix())
+                    .unwrap(),
+                get_test_token_name(),
+            )
+            .await
+            .unwrap()
+            .is_some());
+    }
 
     // This segment contains optional tests, by default we run a happy path test
     // this tests all major functionality of Gravity once or twice.
@@ -225,15 +227,7 @@ pub async fn main() {
                 ADDRESS_PREFIX.as_str(),
             )
             .unwrap();
-            remote_stress_test(
-                &web30,
-                &contact,
-                grpc_client,
-                keys,
-                gravity_address,
-                erc20_addresses,
-            )
-            .await;
+            remote_stress_test(&web30, &contact, keys, gravity_address, erc20_addresses).await;
             return;
         } else if test_type == "VALSET_STRESS" {
             info!("Starting Valset update stress test");

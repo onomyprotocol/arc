@@ -41,6 +41,8 @@ module.exports = {
         auto: false,
         interval: [3000, 6000]
       },
+      gas: 20000000,
+      gasPrice: 1000000000,
       timeout: 2000000,
       accounts: [
         {

@@ -96,10 +96,6 @@ pub fn get_coins(denom: &str, balances: &[Coin]) -> Option<Coin> {
     None
 }
 
-/// This is a hardcoded very high gas value used in transaction stress test to counteract rollercoaster
-/// gas prices due to the way that test fills blocks
-pub const HIGH_GAS_PRICE: Uint256 = u256!(1_000_000_000);
-
 /// This function efficiently distributes ERC20 tokens to a large number of provided Ethereum addresses
 /// the real problem here is that you can't do more than one send operation at a time from a
 /// single address without your sequence getting out of whack. By manually setting the nonce
@@ -153,11 +149,12 @@ pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &
         .await
         .unwrap();
     let mut transactions = Vec::new();
+    let gas_price: Uint256 = web3.eth_gas_price().await.unwrap();
     for address in destinations {
         let t = Transaction {
             to: *address,
             nonce,
-            gas_price: HIGH_GAS_PRICE,
+            gas_price: gas_price.checked_mul(u256!(2)).unwrap(),
             gas_limit: u256!(24000),
             value: amount,
             data: Vec::new(),

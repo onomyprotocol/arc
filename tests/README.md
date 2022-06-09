@@ -32,3 +32,6 @@ data on the Rust and Go sides.
 One more thing which can reduce build time is to comment out the line below "build npm artifacts"
 in `build-container.sh` (because `npm` is slow at rebuilding when no changes have been made), but
 only do this after the first build after changes to `solidity/`
+
+## [Run remote stress on running chain](./REMOTE_STRESS.md)
+
