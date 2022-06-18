@@ -33,22 +33,13 @@ elif [[ ! -z "$HARDHAT" ]]; then
 # the right number of cpu cores and Geth goes crazy consuming all the processing power, on the other hand
 # hardhat doesn't work for some tests that depend on transactions waiting for blocks, so Geth is the default
 else
-    # init the genesis block
-    geth --identity "GravityTestnet" \
-    --nodiscover \
-    --networkid 15 init /gravity/tests/assets/ETHGenesis.json
+    moonbeam --dev --rpc-port 8545 &> /moonbeam.log &
+    echo "waiting for moonbeam to come online"
+    until $(curl --output /dev/null --fail --silent --header "content-type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":93,"jsonrpc":"2.0"}' http://localhost:8545); do
+        printf '.'
+        sleep 1
+    done
 
-    # etherbase is where rewards get sent
-    # private key for this address is 0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7
-    geth --identity "GravityTestnet" --nodiscover \
-    --networkid 15 \
-    --mine \
-    --http \
-    --http.addr="0.0.0.0" \
-    --http.vhosts="*" \
-    --http.corsdomain="*" \
-    --miner.threads=1 \
-    --nousb \
-    --verbosity=5 \
-    --miner.etherbase=0xBf660843528035a5A4921534E156a27e64B231fE &> /geth.log &
+    # transfer funds from Alith account to account used by bridge
+    curl -s --header "content-type: application/json" --data "{\"id\":10,\"jsonrpc\":\"2.0\",\"method\":\"eth_sendRawTransaction\",\"params\":[\"0xf870808506fc23ac00825dc094bf660843528035a5a4921534e156a27e64b231fe8ae8ef1e96ae389780000080820a25a03c8d2c425d0b408b4b9084de247f9051854598dc4a3ab0803ee0aa4fe20a8c1aa06e12623f17b9c830c696a538cad8af562ec750e4fd9bdc94302b29fe871495cf\"]}" http://localhost:8545
 fi
