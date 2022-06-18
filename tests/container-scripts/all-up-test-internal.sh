@@ -29,17 +29,16 @@ if [[ "$BOOL" -eq "1" ]]; then
    exit 1
 fi
 
+if [[ -z "${ETH_NODE}" ]]; then
+    echo "Setting up ethereum side"
+    bash /gravity/tests/container-scripts/run-eth.sh $TEST_TYPE $ALCHEMY_ID
+fi
 if [[ -z "${COSMOS_NODE_GRPC}" ]] ; then
     echo "Setting up cosmos side"
     bash /gravity/tests/container-scripts/setup-validators.sh $NODES
     bash /gravity/tests/container-scripts/run-gravity.sh $NODES
     # let the cosmos chain settle before starting eth as it
     # consumes a lot of processing power
-    sleep 10
-fi
-if [[ -z "${ETH_NODE}" ]]; then
-    echo "Setting up ethereum side"
-    bash /gravity/tests/container-scripts/run-eth.sh $TEST_TYPE $ALCHEMY_ID
     sleep 10
 fi
 # running the test runner only to deploy the ethereum contracts

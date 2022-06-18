@@ -19,7 +19,7 @@ use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
 
 const BLOCK_DELAY: Uint256 = u256!(35);
-const LOCAL_GETH_CHAIN_ID: u64 = 15;
+const LOCAL_GETH_CHAIN_ID: u64 = 1281;
 const LOCAL_HARDHAT_CHAIN_ID: u64 = 31337;
 
 #[derive(Clone, Copy)]
