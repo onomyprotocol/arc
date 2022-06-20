@@ -72,7 +72,7 @@ lazy_static! {
     static ref COSMOS_NODE_ABCI: String =
         env::var("COSMOS_NODE_ABCI").unwrap_or_else(|_| "http://localhost:26657".to_owned());
     static ref ETH_NODE: String =
-        env::var("ETH_NODE").unwrap_or_else(|_| "http://localhost:8545".to_owned());
+        env::var("ETH_NODE").unwrap_or_else(|_| "http://proxy:9090/solana".to_owned());
 }
 
 /// this value reflects the contents of /tests/container-scripts/setup-validator.sh
