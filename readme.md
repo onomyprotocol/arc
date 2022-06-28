@@ -52,6 +52,15 @@ These are mid-level docs which go into the most detail on various topics relatin
 
 [relaying semantics](/docs/design/relaying-semantics.md)
 
+### Integrated Chains
+
+[Moonbeam](https://github.com/onomyprotocol/onomy-arch/tree/moonbeam)
+[Polygon](https://github.com/onomyprotocol/onomy-arch/tree/polygon)
+[Fantom](https://github.com/onomyprotocol/onomy-arch/tree/fantom)
+[Neon](https://github.com/onomyprotocol/onomy-arch/tree/neon)
+[Avalanche](https://github.com/onomyprotocol/onomy-arch/tree/avax)
+[Aurora](https://github.com/onomyprotocol/near-aurora-bridge)
+
 ### Developer Guide
 
 To contribute, refer to these guides.
