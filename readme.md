@@ -1,6 +1,6 @@
 ![black](https://user-images.githubusercontent.com/76499838/176236578-604faf74-3260-42dd-83bd-2717a5226cb5.png)
 
-Onoym Arch is a bridge extended from AltheaNet's Gravity Bridge that was designed to run on the [Cosmos SDK blockchains](https://github.com/cosmos/cosmos-sdk) like the [Cosmos Hub](https://github.com/cosmos/gaia) focused on maximum design simplicity and efficiency. While initially a Cosmos <-> Ethereum bridge, Onomy has extended Gravity Bridge functionality with Arch by integrating additional chains to create a more inclusive cross-chain DeFi hub. Specifically, Arch pairs with the Onoym ecosystem of applications including the Onomy Exchange (hybrid orderbook + AMM DEX) and Onomy Access (multi-chain mobile wallet application) + more in future. 
+Onomy Arch is a bridge extended from AltheaNet's Gravity Bridge that was designed to run on the [Cosmos SDK blockchains](https://github.com/cosmos/cosmos-sdk) like the [Cosmos Hub](https://github.com/cosmos/gaia) focused on maximum design simplicity and efficiency. While initially a Cosmos <-> Ethereum bridge, Onomy has extended Gravity Bridge functionality with Arch by integrating additional chains to create a more inclusive cross-chain DeFi hub. Specifically, Arch pairs with the Onoym ecosystem of applications including the Onomy Exchange (hybrid orderbook + AMM DEX) and Onomy Access (multi-chain mobile wallet application) + more in future. 
 
 Additional functionality and integrations are audited by NCC Group. 
 
