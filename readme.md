@@ -14,43 +14,23 @@ Arch enables users to transfer tokens from an integrated chain to Onomy and back
 
 This documentation lives with the code it references and helps to understand the functions and data structures involved. This is useful if you are reviewing or working on the code.
 
-[Solidity Ethereum contract documentation](https://github.com/onomyprotocol/onomy-arch/blob/main/solidity/contracts/contract-explanation.md)
+* [Solidity Ethereum contract documentation](https://github.com/onomyprotocol/onomy-arch/blob/main/solidity/contracts/contract-explanation.md)
 
-[Go Cosmos module documentation](https://github.com/onomyprotocol/onomy-arch/tree/main/module/x/gravity/spec)
+* [Go Cosmos module documentation](https://github.com/onomyprotocol/onomy-arch/tree/main/module/x/gravity/spec)
 
 ### Specs
 
 These specs cover specific areas of the bridge that a lot of thought went into. They explore the tradeoffs involved and decisions made.
 
-[slashing-spec](/spec/slashing-spec.md)
+* [Slashing](/spec/slashing-spec.md)
 
-[batch-creation-spec](/spec/batch-creation-spec.md)
+* [Batch creation](/spec/batch-creation-spec.md)
 
-[valset-creation-spec](/spec/valset-creation-spec.md)
+* [Valset creation](/spec/valset-creation-spec.md)
 
 ### Design docs
 
-These are mid-level docs which go into the most detail on various topics relating to the bridge.
-
-[design overview](/docs/design/overview.md)
-
-[Bootstrapping the bridge](/docs/design/bootstrapping.md)
-
-[Minting and locking tokens in Gravity](/docs/design/mint-lock.md)
-
-[Oracle design](/docs/design/oracle.md)
-
-[Ethereum signing](/docs/design/ethereum-signing.md)
-
-[Messages](/docs/design/messages.md)
-
-[Parameters](/docs/design/parameters.md)
-
-[Incentives](/docs/design/incentives.md)
-
-[arbitrary logic](/docs/design/arbitrary-logic.md)
-
-[relaying semantics](/docs/design/relaying-semantics.md)
+These are mid-level docs on the [design overview page](/docs/design/overview.md) which go into the most detail on various topics relating to the bridge.
 
 ### Integrated EVM Chains
 
@@ -60,13 +40,13 @@ These are mid-level docs which go into the most detail on various topics relatin
 
 To contribute, refer to these guides.
 
-[Development environment setup](/docs/developer/environment-setup.md)
+* [Environment setup](/docs/developer/environment-setup.md)
 
-[Code structure](/docs/developer/code-structure.md)
+* [Code structure](/docs/developer/code-structure.md)
 
-[Adding integration tests](/docs/developer/modifying-integration-tests.md)
+* [Integration tests](/docs/developer/modifying-integration-tests.md)
 
-[Security hotspots](/docs/developer/hotspots.md)
+* [Security hotspots](/docs/developer/hotspots.md)
 
 ## Status
 
