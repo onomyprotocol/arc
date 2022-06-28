@@ -54,7 +54,7 @@ These are mid-level docs which go into the most detail on various topics relatin
 
 ### Integrated EVM Chains
 
-[Moonbeam](https://github.com/onomyprotocol/onomy-arch/tree/moonbeam) | [Polygon](https://github.com/onomyprotocol/onomy-arch/tree/polygon) | [Fantom](https://github.com/onomyprotocol/onomy-arch/tree/fantom) | [Neon](https://github.com/onomyprotocol/onomy-arch/tree/neon) |  [Avalanche](https://github.com/onomyprotocol/onomy-arch/tree/avax) | [Aurora](https://github.com/onomyprotocol/near-aurora-bridge)
+[Ethereum](https://github.com/onomyprotocol/onomy-arch/tree/main/) | [Avalanche](https://github.com/onomyprotocol/onomy-arch/tree/avax) | [Aurora](https://github.com/onomyprotocol/near-aurora-bridge) | [Polygon](https://github.com/onomyprotocol/onomy-arch/tree/polygon) | [Fantom](https://github.com/onomyprotocol/onomy-arch/tree/fantom) | [Neon](https://github.com/onomyprotocol/onomy-arch/tree/neon) | [Moonbeam](https://github.com/onomyprotocol/onomy-arch/tree/moonbeam) 
 
 ### Developer Guide
 
@@ -70,7 +70,7 @@ To contribute, refer to these guides.
 
 ## Status
 
-Arch is running on Onomy Testnet with integrations of Ethereum, Aurora/NEAR, Avalanche, Polygon and more. Audits have been completed by NCC Group. Additional chains to be integrated. 
+Arch is running on Onomy Testnet with the Ethereum bridge integrated. Audits have been completed by NCC Group. Additional bridges are ready to be integrated or are under development. 
 
 It is your responsibility to understand the financial, legal, and other risks of using this software. There is no guarantee of functionality or safety. You use the Arch bridge entirely at your own risk.
 
@@ -81,7 +81,7 @@ It is your responsibility to understand the financial, legal, and other risks of
 
 ## Key design Components
 
-- A highly efficient way of mirroring Onomy validator voting onto Ethereum. The Arch solidity contract has validator set updates costing ~500,000 gas ($2 @ 20gwei). This was tested through Gravity with a snapshot of the Cosmos Hub validator set with 125 validators. Verifying the votes of the validator set is the most expensive on chain operation Gravity has to perform. Our highly optimized Solidity code provides enormous cost savings. Existing bridges incur more than double the gas costs for signature sets as small as 8 signers.
+- A highly efficient way of mirroring Onomy validator voting onto Ethereum. The Arch solidity contract has validator set updates costing ~500,000 gas ($2 @ 20gwei). This was tested through Althea Net's Gravity Bridge with a snapshot of the Cosmos Hub validator set  containing 125 validators. Verifying the votes of the validator set is the most expensive on chain operation Gravity has to perform. Our highly optimized Solidity code provides enormous cost savings. Existing bridges incur more than double the gas costs for signature sets as small as 8 signers.
 - Transactions from Onomy to other chains are batched, batches have a base cost of ~500,000 gas ($2 @ 20gwei). Batches may contain arbitrary numbers of transactions within the limits of sends per block, allowing for costs to be heavily amortized on high volume bridges.
 
 ## Operational parameters ensuring security
