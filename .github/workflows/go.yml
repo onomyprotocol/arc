@@ -4,7 +4,12 @@ on:
   push:
     branches:
       - main
+      - native-reward # temp
   pull_request:
+    branches:
+      - main
+      - native-reward # temp
+
 
 jobs:
   build:

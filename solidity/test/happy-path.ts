@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, makeCheckpoint, signHash, ZeroAddress,} from "../test-utils/pure";
+import {examplePowers, getSignerAddresses, makeCheckpoint, signHash, EmptyDenom,} from "../test-utils/pure";
 import {MintedForDeployer} from "./deployERC20";
 
 chai.use(solidity);
@@ -26,7 +26,7 @@ describe("Gravity happy path valset update + batch submit", function () {
             validators,
             valsetNonce: 0,
             rewardAmount: 0,
-            rewardToken: ZeroAddress
+            rewardDenom: EmptyDenom
         }
 
 
@@ -52,7 +52,7 @@ describe("Gravity happy path valset update + batch submit", function () {
                 validators: validators,
                 valsetNonce: 1,
                 rewardAmount: 0,
-                rewardToken: ZeroAddress
+                rewardDenom: EmptyDenom
             }
         })()
 
@@ -62,14 +62,14 @@ describe("Gravity happy path valset update + batch submit", function () {
             validators: await getSignerAddresses(valset0.validators),
             valsetNonce: valset0.valsetNonce,
             rewardAmount: valset0.rewardAmount,
-            rewardToken: valset0.rewardToken
+            rewardDenom: valset0.rewardDenom
         }
         const valset1_str = {
             powers: valset1.powers,
             validators: await getSignerAddresses(valset1.validators),
             valsetNonce: valset1.valsetNonce,
             rewardAmount: valset1.rewardAmount,
-            rewardToken: valset1.rewardToken
+            rewardDenom: valset1.rewardDenom
         }
 
         const checkpoint1 = makeCheckpoint(
@@ -77,7 +77,7 @@ describe("Gravity happy path valset update + batch submit", function () {
             valset1_str.powers,
             valset1_str.valsetNonce,
             valset1_str.rewardAmount,
-            valset1_str.rewardToken,
+            valset1_str.rewardDenom,
             gravityId
         );
 
@@ -87,6 +87,7 @@ describe("Gravity happy path valset update + batch submit", function () {
             valset1_str,
             valset0_str,
             sigs1,
+            ""
         );
 
         expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint1);

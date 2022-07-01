@@ -147,14 +147,13 @@ func TestAllValsetConfirmsBynonce(t *testing.T) {
 	}
 }
 
-// TODO: Check failure modes
 //nolint: exhaustivestruct
 func TestLastValsetRequests(t *testing.T) {
 	val1 := types.Valset{
 		Nonce:        6,
 		Height:       1235167,
 		RewardAmount: sdk.ZeroInt(),
-		RewardToken:  "0x0000000000000000000000000000000000000000",
+		RewardDenom:  "",
 		Members: []types.BridgeValidator{
 			{
 				Power:           858993459,
@@ -183,7 +182,7 @@ func TestLastValsetRequests(t *testing.T) {
 		Nonce:        5,
 		Height:       1235067,
 		RewardAmount: sdk.ZeroInt(),
-		RewardToken:  "0x0000000000000000000000000000000000000000",
+		RewardDenom:  "",
 		Members: []types.BridgeValidator{
 			{
 				Power:           858993459,
@@ -212,7 +211,7 @@ func TestLastValsetRequests(t *testing.T) {
 		Nonce:        4,
 		Height:       1234967,
 		RewardAmount: sdk.ZeroInt(),
-		RewardToken:  "0x0000000000000000000000000000000000000000",
+		RewardDenom:  "",
 		Members: []types.BridgeValidator{
 			{
 				Power:           1073741824,
@@ -237,7 +236,7 @@ func TestLastValsetRequests(t *testing.T) {
 		Nonce:        3,
 		Height:       1234867,
 		RewardAmount: sdk.ZeroInt(),
-		RewardToken:  "0x0000000000000000000000000000000000000000",
+		RewardDenom:  "",
 		Members: []types.BridgeValidator{
 			{
 				Power:           1431655765,
@@ -258,7 +257,7 @@ func TestLastValsetRequests(t *testing.T) {
 		Nonce:        2,
 		Height:       1234767,
 		RewardAmount: sdk.ZeroInt(),
-		RewardToken:  "0x0000000000000000000000000000000000000000",
+		RewardDenom:  "",
 		Members: []types.BridgeValidator{
 			{
 				Power:           2147483648,
@@ -306,7 +305,6 @@ func TestLastValsetRequests(t *testing.T) {
 }
 
 //nolint: exhaustivestruct
-// TODO: check that it doesn't accidently return a valset that HAS been signed
 // Right now it is basically just testing that any valset comes back
 func TestPendingValsetRequests(t *testing.T) {
 	specs := map[string]struct {
@@ -318,7 +316,7 @@ func TestPendingValsetRequests(t *testing.T) {
 					Nonce:        6,
 					Height:       1235167,
 					RewardAmount: sdk.ZeroInt(),
-					RewardToken:  "0x0000000000000000000000000000000000000000",
+					RewardDenom:  "",
 					Members: []types.BridgeValidator{
 						{
 							Power:           858993459,
@@ -346,7 +344,7 @@ func TestPendingValsetRequests(t *testing.T) {
 					Nonce:        5,
 					Height:       1235067,
 					RewardAmount: sdk.ZeroInt(),
-					RewardToken:  "0x0000000000000000000000000000000000000000",
+					RewardDenom:  "",
 					Members: []types.BridgeValidator{
 						{
 							Power:           858993459,
@@ -374,7 +372,7 @@ func TestPendingValsetRequests(t *testing.T) {
 					Nonce:        4,
 					Height:       1234967,
 					RewardAmount: sdk.ZeroInt(),
-					RewardToken:  "0x0000000000000000000000000000000000000000",
+					RewardDenom:  "",
 					Members: []types.BridgeValidator{
 						{
 							Power:           1073741824,
@@ -398,7 +396,7 @@ func TestPendingValsetRequests(t *testing.T) {
 					Nonce:        3,
 					Height:       1234867,
 					RewardAmount: sdk.ZeroInt(),
-					RewardToken:  "0x0000000000000000000000000000000000000000",
+					RewardDenom:  "",
 					Members: []types.BridgeValidator{
 						{
 							Power:           1431655765,
@@ -418,7 +416,7 @@ func TestPendingValsetRequests(t *testing.T) {
 					Nonce:        2,
 					Height:       1234767,
 					RewardAmount: sdk.ZeroInt(),
-					RewardToken:  "0x0000000000000000000000000000000000000000",
+					RewardDenom:  "",
 					Members: []types.BridgeValidator{
 						{
 							Power:           2147483648,
@@ -440,7 +438,7 @@ func TestPendingValsetRequests(t *testing.T) {
 					},
 					Height:       1234667,
 					RewardAmount: sdk.NewInt(0),
-					RewardToken:  "0x0000000000000000000000000000000000000000",
+					RewardDenom:  "",
 				},
 			},
 			},
@@ -474,7 +472,6 @@ func TestPendingValsetRequests(t *testing.T) {
 }
 
 //nolint: exhaustivestruct
-// TODO: check that it actually returns a batch that has NOT been signed, not just any batch
 func TestLastPendingBatchRequest(t *testing.T) {
 
 	specs := map[string]struct {
@@ -646,7 +643,6 @@ func TestQueryLogicCalls(t *testing.T) {
 		var validators []sdk.ValAddress
 		for j := 0; j <= i; j++ {
 			// add an validator each block
-			// TODO: replace with real SDK addresses
 			valAddr := bytes.Repeat([]byte{byte(j)}, 20)
 			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
 			require.NoError(t, err)
@@ -704,7 +700,6 @@ func TestQueryLogicCallsConfirms(t *testing.T) {
 		var validators []sdk.ValAddress
 		for j := 0; j <= i; j++ {
 			// add an validator each block
-			// TODO: replace with real SDK addresses
 			valAddr := bytes.Repeat([]byte{byte(j)}, 20)
 			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
 			require.NoError(t, err)
@@ -746,7 +741,6 @@ func TestQueryLogicCallsConfirms(t *testing.T) {
 }
 
 //nolint: exhaustivestruct
-// TODO: test that it gets the correct batch, not just any batch.
 // Check with multiple nonces and tokenContracts
 func TestQueryBatch(t *testing.T) {
 	input := CreateTestEnv(t)
@@ -799,7 +793,6 @@ func TestQueryBatch(t *testing.T) {
 		},
 	}
 
-	// TODO: this test is failing on the empty representation of valset members
 	assert.Equal(t, &expectedRes, batch, batch)
 }
 
@@ -912,7 +905,7 @@ func TestQueryCurrentValset(t *testing.T) {
 			Nonce:        1,
 			Height:       1234567,
 			RewardAmount: sdk.ZeroInt(),
-			RewardToken:  "0x0000000000000000000000000000000000000000",
+			RewardDenom:  "",
 			Members: []types.BridgeValidator{
 				{
 					Power:           858993459,

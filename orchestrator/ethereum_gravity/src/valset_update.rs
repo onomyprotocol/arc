@@ -2,8 +2,10 @@ use std::{cmp::min, time::Duration};
 
 use gravity_utils::{
     clarity::{
-        abi::encode_call, u256, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256,
+        abi::{encode_call, Token},
+        u256, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256,
     },
+    deep_space::address::Address as CosmosAddress,
     error::GravityError,
     types::*,
     u64_array_bigints,
@@ -30,6 +32,7 @@ pub async fn send_eth_valset_update(
     gravity_contract_address: EthAddress,
     gravity_id: String,
     our_eth_key: EthPrivateKey,
+    reward_recipient: CosmosAddress,
 ) -> Result<(), GravityError> {
     let old_nonce = old_valset.nonce;
     let new_nonce = new_valset.nonce;
@@ -48,7 +51,13 @@ pub async fn send_eth_valset_update(
         return Ok(());
     }
 
-    let payload = encode_valset_update_payload(new_valset, old_valset, confirms, gravity_id)?;
+    let payload = encode_valset_update_payload(
+        new_valset,
+        old_valset,
+        reward_recipient,
+        confirms,
+        gravity_id,
+    )?;
 
     let tx = web3
         .send_transaction(
@@ -80,6 +89,7 @@ pub async fn send_eth_valset_update(
 }
 
 /// Returns the cost in Eth of sending this valset update
+#[allow(clippy::too_many_arguments)]
 pub async fn estimate_valset_cost(
     new_valset: &Valset,
     old_valset: &Valset,
@@ -88,6 +98,7 @@ pub async fn estimate_valset_cost(
     gravity_contract_address: EthAddress,
     gravity_id: String,
     our_eth_key: EthPrivateKey,
+    reward_recipient: CosmosAddress,
 ) -> Result<GasCost, GravityError> {
     let our_eth_address = our_eth_key.to_address();
     let our_balance = web3.eth_get_balance(our_eth_address).await?;
@@ -103,7 +114,14 @@ pub async fn estimate_valset_cost(
             gas: Some(gas_limit.into()),
             value: Some(u256!(0).into()),
             data: Some(
-                encode_valset_update_payload(new_valset, old_valset, confirms, gravity_id)?.into(),
+                encode_valset_update_payload(
+                    new_valset,
+                    old_valset,
+                    reward_recipient,
+                    confirms,
+                    gravity_id,
+                )?
+                .into(),
             ),
         })
         .await?;
@@ -119,6 +137,7 @@ pub async fn estimate_valset_cost(
 pub fn encode_valset_update_payload(
     new_valset: &Valset,
     old_valset: &Valset,
+    reward_recipient: CosmosAddress,
     confirms: &[ValsetConfirmResponse],
     gravity_id: String,
 ) -> Result<Vec<u8>, GravityError> {
@@ -133,27 +152,13 @@ pub fn encode_valset_update_payload(
     let sig_data = old_valset.order_sigs(&hash, confirms)?;
     let sig_arrays = to_arrays(sig_data);
 
-    // Solidity function signature
-    // function updateValset(
-    // // The new version of the validator set encoded as a ValsetArgsStruct
-    // address[] memory _newValidators,
-    // uint256[] memory _newPowers,
-    // uint256 _newValsetNonce,
-    // uint256 _newRewardAmount,
-    // address _newRewardToken,
-    //
-    // // The current validators that approve the change encoded as a ValsetArgsStruct
-    // // note that these rewards where *already* issued but we must pass it back in for the hash
-    // address[] memory _currentValidators,
-    // uint256[] memory _currentPowers,
-    // uint256 _currentValsetNonce,
-    // uint256 _currentRewardAmount,
-    // address _currentRewardToken,
-    //
-    // // These are arrays of the parts of the current validator's signatures
-    // Signature[] _sigs,
-    let tokens = &[new_valset_token, old_valset_token, sig_arrays.sigs];
-    let payload = encode_call("updateValset((address[],uint256[],uint256,uint256,address),(address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[])",
+    let tokens = &[
+        new_valset_token,
+        old_valset_token,
+        sig_arrays.sigs,
+        Token::String(reward_recipient.to_string()),
+    ];
+    let payload = encode_call("updateValset((address[],uint256[],uint256,uint256,string),(address[],uint256[],uint256,uint256,string),(uint8,bytes32,bytes32)[],string)",
     tokens).unwrap();
 
     Ok(payload)

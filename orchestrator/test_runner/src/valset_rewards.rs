@@ -1,26 +1,29 @@
 //! This is a test for validator set relaying rewards
 
+use std::{collections::HashMap, time::Duration};
+
 use cosmos_gravity::query::get_gravity_params;
 use gravity_proto::{
     cosmos_sdk_proto::cosmos::params::v1beta1::ParamChange,
     gravity::query_client::QueryClient as GravityQueryClient,
 };
 use gravity_utils::{
-    clarity::{u256, Address as EthAddress},
-    deep_space::{coin::Coin, Contact},
+    clarity::{u256, Address as EthAddress, Uint256},
+    deep_space::{coin::Coin, Address as CosmosAddress, Contact},
     u64_array_bigints,
     web30::client::Web3,
 };
+use tokio::time::{sleep, timeout};
 use tonic::transport::Channel;
 
 use crate::{
     airdrop_proposal::wait_for_proposals_to_execute,
     happy_path::test_valset_update,
-    happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption,
     utils::{
-        create_parameter_change_proposal, footoken_metadata, get_erc20_balance_safe,
-        vote_yes_on_proposals, ValidatorKeys,
+        create_default_test_config, create_parameter_change_proposal, footoken_metadata,
+        start_orchestrators, vote_yes_on_proposals, ValidatorKeys,
     },
+    TOTAL_TIMEOUT,
 };
 
 pub async fn valset_rewards_test(
@@ -33,21 +36,11 @@ pub async fn valset_rewards_test(
     let mut grpc_client = grpc_client;
     let token_to_send_to_eth = footoken_metadata(contact).await.base;
 
-    // first we deploy the Cosmos asset that we will use as a reward and make sure it is adopted
-    // by the Cosmos chain
-    let erc20_contract = deploy_cosmos_representing_erc20_and_check_adoption(
-        gravity_address,
-        web30,
-        Some(keys.clone()),
-        &mut grpc_client,
-        false,
-        footoken_metadata(contact).await,
-    )
-    .await;
+    let no_relay_market_config = create_default_test_config();
+    start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
 
-    // reward of 1 mfootoken
     let valset_reward = Coin {
-        denom: token_to_send_to_eth,
+        denom: token_to_send_to_eth.clone(),
         amount: u256!(1_000_000),
     };
 
@@ -74,7 +67,7 @@ pub async fn valset_rewards_test(
 
     // next we create a governance proposal to use the newly bridged asset as the reward
     // and vote to pass the proposal
-    info!("Creating parameter change governance proposal");
+    info!("Creating parameter change governance proposal.");
     create_parameter_change_proposal(contact, keys[0].validator_key, params_to_change).await;
 
     vote_yes_on_proposals(contact, &keys, None).await;
@@ -87,22 +80,63 @@ pub async fn valset_rewards_test(
     assert_eq!(params.bridge_chain_id, 1);
     assert_eq!(params.bridge_ethereum_address, gravity_address.to_string());
 
-    // trigger a valset update
-    test_valset_update(web30, contact, &mut grpc_client, &keys, gravity_address).await;
-
-    // check that one of the relayers has footoken now
-    let mut found = false;
+    // capture the foo token balance before the valset update
+    let mut inital_reward_token_balance: HashMap<CosmosAddress, Uint256> = HashMap::new();
     for key in keys.iter() {
-        let target_address = key.eth_key.to_address();
-        let balance_of_footoken = get_erc20_balance_safe(erc20_contract, web30, target_address)
+        let orch_address = key.orch_key.to_address(&contact.get_prefix()).unwrap();
+        let balance = contact
+            .get_balance(orch_address, token_to_send_to_eth.to_string())
             .await
             .unwrap();
-        if balance_of_footoken == valset_reward.amount {
-            found = true;
+        if balance.is_none() {
+            continue;
         }
+        inital_reward_token_balance.insert(orch_address, balance.unwrap().amount);
     }
-    if !found {
-        panic!("No relayer was rewarded in footoken for relaying validator set!")
+
+    info!("Trigger a valset update.");
+    test_valset_update(web30, contact, &mut grpc_client, &keys, gravity_address).await;
+
+    let check_valset_reward_deposit = async {
+        loop {
+            let mut found = false;
+            for key in keys.iter() {
+                let orch_address = key.orch_key.to_address(&contact.get_prefix()).unwrap();
+                let balance = contact
+                    .get_balance(orch_address, token_to_send_to_eth.to_string())
+                    .await
+                    .unwrap();
+                if balance.is_none() {
+                    continue;
+                }
+                let balance = balance.unwrap().amount;
+                let initial_balance = inital_reward_token_balance.get(&orch_address);
+                if initial_balance.is_none() {
+                    continue;
+                }
+                let initial_balance = *initial_balance.unwrap();
+                if initial_balance.checked_add(valset_reward.amount).unwrap() == balance {
+                    info!("Found increased valset update reward of the, orch {}, initial balance: {}, reward: {}, new balance :{}!",
+                                orch_address, initial_balance, valset_reward.amount, balance);
+                    found = true;
+                }
+            }
+
+            if found {
+                break;
+            }
+
+            sleep(Duration::from_secs(5)).await;
+        }
+    };
+
+    info!("Waiting for valset reward deposit.");
+    if timeout(TOTAL_TIMEOUT, check_valset_reward_deposit)
+        .await
+        .is_err()
+    {
+        panic!("Failed to perform the valset reward deposits to Cosmos!");
     }
-    info!("Successfully Issued validator set reward!");
+
+    info!("Successfully issued validator set reward!");
 }

@@ -54,7 +54,7 @@ mod tests {
             nonce: 0,
             members: members0,
             reward_amount: u256!(0),
-            reward_token: None,
+            reward_denom: "".to_string(),
         };
 
         powers[0] -= 3;
@@ -70,7 +70,7 @@ mod tests {
             nonce: 1,
             members: members1,
             reward_amount: u256!(0),
-            reward_token: None,
+            reward_denom: "".to_string(),
         };
 
         let mut confirms = Vec::new();
@@ -85,9 +85,14 @@ mod tests {
             })
         }
 
-        let encoded_update_bytes =
-            encode_valset_update_payload(&valset1, &valset0, &confirms, gravity_id.to_string())
-                .unwrap();
+        let encoded_update_bytes = encode_valset_update_payload(
+            &valset1,
+            &valset0,
+            some_cosmos_address,
+            &confirms,
+            gravity_id.to_string(),
+        )
+        .unwrap();
 
         assert_eq!(
             bytes_to_hex_str(&encoded_update_bytes),

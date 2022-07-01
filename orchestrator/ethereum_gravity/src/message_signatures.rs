@@ -1,7 +1,6 @@
 use gravity_utils::{
     clarity::{
         abi::{encode_tokens, Token},
-        constants::ZERO_ADDRESS,
         utils::get_ethereum_msg_hash,
     },
     types::{LogicCall, TransactionBatch, Valset},
@@ -14,11 +13,8 @@ use gravity_utils::{
 /// digest that is normally signed or may be used as a 'hash of the message'
 pub fn encode_valset_confirm(gravity_id: String, valset: &Valset) -> Vec<u8> {
     let (eth_addresses, powers) = valset.to_arrays();
-    let reward_token = if let Some(v) = valset.reward_token {
-        v
-    } else {
-        ZERO_ADDRESS
-    };
+    let reward_denom = valset.reward_denom.to_string();
+
     encode_tokens(&[
         Token::FixedString(gravity_id),
         Token::FixedString("checkpoint".to_string()),
@@ -26,7 +22,7 @@ pub fn encode_valset_confirm(gravity_id: String, valset: &Valset) -> Vec<u8> {
         eth_addresses.into(),
         powers.into(),
         valset.reward_amount.into(),
-        reward_token.into(),
+        Token::String(reward_denom),
     ])
 }
 
@@ -116,83 +112,83 @@ mod test {
 
     #[test]
     fn test_valset_signature() {
-        let correct_hash: Vec<u8> =
-            hex_str_to_bytes("0xaca2f283f21a03ba182dc7d34a55c04771b25087401d680011df7dcba453f798")
-                .unwrap();
+        let gravity_id = "foo".to_string();
+        let reward_amount = u256!(1000);
+        let reward_denom = "foo_denom".to_string();
 
-        // a validator set, keep an eye on the sorting here as it's manually
-        // sorted and won't be identical to the other signer impl without manual
-        // ordering checks
-        let valset = Valset {
+        let mut members = vec![
+            ValsetMember {
+                eth_address: "0xc783df8a850f42e7F7e57013759C285caa701eB6"
+                    .parse()
+                    .unwrap(),
+
+                power: 3333,
+            },
+            ValsetMember {
+                eth_address: "0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4"
+                    .parse()
+                    .unwrap(),
+
+                power: 3333,
+            },
+            ValsetMember {
+                eth_address: "0xE5904695748fe4A84b40b3fc79De2277660BD1D3"
+                    .parse()
+                    .unwrap(),
+
+                power: 3333,
+            },
+        ];
+        members.sort();
+
+        println!("members : {:?}", members.clone());
+
+        let mut valset = Valset {
             nonce: 0,
-            reward_amount: u256!(0),
-            reward_token: None,
-            members: vec![
-                ValsetMember {
-                    eth_address: "0xE5904695748fe4A84b40b3fc79De2277660BD1D3"
-                        .parse()
-                        .unwrap(),
-
-                    power: 3333,
-                },
-                ValsetMember {
-                    eth_address: "0xc783df8a850f42e7F7e57013759C285caa701eB6"
-                        .parse()
-                        .unwrap(),
-
-                    power: 3333,
-                },
-                ValsetMember {
-                    eth_address: "0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4"
-                        .parse()
-                        .unwrap(),
-
-                    power: 3333,
-                },
-            ],
+            reward_amount,
+            reward_denom,
+            members,
         };
-        let checkpoint = encode_valset_confirm("foo".to_string(), &valset);
+
+        // check with filled reward
+
+        let checkpoint = encode_valset_confirm(gravity_id.clone(), &valset);
         let checkpoint_hash = Keccak256::digest(&checkpoint);
+
+        let correct_hash: Vec<u8> =
+            hex_str_to_bytes("0x2751e9f1cdef7c6f1365e81a42707c0ecff75e6cd7cecd6c456e571234548a1e")
+                .unwrap();
         assert_eq!(
             bytes_to_hex_str(&correct_hash),
             bytes_to_hex_str(&checkpoint_hash)
         );
 
-        // the same valset, except with an intentionally incorrect hash
-        let valset = Valset {
-            nonce: 1,
-            reward_amount: u256!(0),
-            reward_token: None,
-            members: vec![
-                ValsetMember {
-                    eth_address: "0xc783df8a850f42e7F7e57013759C285caa701eB6"
-                        .parse()
-                        .unwrap(),
-
-                    power: 3333,
-                },
-                ValsetMember {
-                    eth_address: "0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4"
-                        .parse()
-                        .unwrap(),
-
-                    power: 3333,
-                },
-                ValsetMember {
-                    eth_address: "0xE5904695748fe4A84b40b3fc79De2277660BD1D3"
-                        .parse()
-                        .unwrap(),
-
-                    power: 3333,
-                },
-            ],
-        };
-        let checkpoint = encode_valset_confirm("foo".to_string(), &valset);
+        // check with empty reward
+        valset.reward_amount = u256!(0);
+        valset.reward_denom = "".to_string();
+        let checkpoint = encode_valset_confirm(gravity_id.clone(), &valset);
         let checkpoint_hash = Keccak256::digest(&checkpoint);
+
+        let correct_hash: Vec<u8> =
+            hex_str_to_bytes("0xa2c8dc58c06fa959763bffd4c8fe8668869b7b5c866a7b0f0f1739b92a6cd5d1")
+                .unwrap();
+        assert_eq!(
+            bytes_to_hex_str(&correct_hash),
+            bytes_to_hex_str(&checkpoint_hash)
+        );
+
+        // check with updated and same hash
+        valset.nonce = 1;
+        let checkpoint = encode_valset_confirm(gravity_id, &valset);
+        let checkpoint_hash = Keccak256::digest(&checkpoint);
+
+        let correct_hash: Vec<u8> =
+            hex_str_to_bytes("0xa2c8dc58c06fa959763bffd4c8fe8668869b7b5c866a7b0f0f1739b92a6cd5d1")
+                .unwrap();
         assert_ne!(
             bytes_to_hex_str(&correct_hash),
             bytes_to_hex_str(&checkpoint_hash)
-        )
+        );
     }
 
     #[test]

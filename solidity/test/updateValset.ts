@@ -3,7 +3,15 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, makeCheckpoint, parseEvent, signHash, ZeroAddress} from "../test-utils/pure";
+import {
+    EmptyCosmosAddress,
+    EmptyDenom,
+    examplePowers,
+    getSignerAddresses,
+    makeCheckpoint, parseEvent,
+    signHash
+} from "../test-utils/pure";
+import {BigNumber} from "ethers";
 
 chai.use(solidity);
 const {expect} = chai;
@@ -16,7 +24,7 @@ async function runTest(opts: {
     badValidatorSig?: boolean;
     zeroedValidatorSig?: boolean;
     notEnoughPower?: boolean;
-    badReward?: boolean;
+    emptyRewardRecipient?: boolean;
     notEnoughReward?: boolean;
     withReward?: boolean;
     notEnoughPowerNewSet?: boolean;
@@ -25,15 +33,17 @@ async function runTest(opts: {
 }) {
     const signers = await ethers.getSigners();
     const gravityId = ethers.utils.formatBytes32String("foo");
+    const cosmosAddress = "cosmos1zkl8g9vd62x0ykvwq4mdcaehydvwc8ylh6panp"
+    const rewardDenom = "uatom"
+    const rewardAmount = 5000000
 
     // This is the power distribution on the Cosmos hub as of 7/14/2020
     let powers = examplePowers();
     let validators = sortValidators(signers.slice(0, powers.length));
 
-    const {
-        gravity,
-        testERC20,
-    } = await deployContracts(gravityId, validators, powers);
+    let rewardRecipient = EmptyCosmosAddress
+
+    const { gravity } = await deployContracts(gravityId, validators, powers);
 
     let newPowers = examplePowers();
     newPowers[0] -= 3;
@@ -43,8 +53,7 @@ async function runTest(opts: {
 
     // arbitrarily set a duplicate validator
     if (opts.duplicateValidator) {
-        let firstValidator = newValidators[0];
-        newValidators[22] = firstValidator;
+        newValidators[22] = newValidators[0];
     }
 
     if (opts.malformedNewValset) {
@@ -73,7 +82,7 @@ async function runTest(opts: {
         powers,
         valsetNonce: currentValsetNonce,
         rewardAmount: 0,
-        rewardToken: ZeroAddress
+        rewardDenom: EmptyDenom
     }
 
     let newValset = {
@@ -81,38 +90,18 @@ async function runTest(opts: {
         powers: newPowers,
         valsetNonce: newValsetNonce,
         rewardAmount: 0,
-        rewardToken: ZeroAddress
+        rewardDenom: EmptyDenom
     }
 
-    let ERC20contract;
-    if (opts.badReward) {
-        // some amount of a reward, in a random token that's not in the bridge
-        // should panic because the token doesn't exist
-        newValset.rewardAmount = 5000000;
-        newValset.rewardToken = "0x8bcd7D3532CB626A7138962Bdb859737e5B6d4a7";
+    if (opts.emptyRewardRecipient) {
+        // the reward is present but the recipient is empty
+        newValset.rewardAmount = rewardAmount;
+        newValset.rewardDenom = rewardDenom;
     } else if (opts.withReward) {
-        // deploy a ERC20 representing a Cosmos asset, as this is the common
-        // case for validator set rewards
-        const eventArgs = await parseEvent(gravity, gravity.deployERC20('uatom', 'Atom', 'ATOM', 6), 1)
-        newValset.rewardToken = eventArgs._tokenContract
+        newValset.rewardDenom = rewardDenom
         // five atom, issued as an inflationary reward
-        newValset.rewardAmount = 5000000
-
-        // connect with the contract to check balances later
-        ERC20contract = new ethers.Contract(eventArgs._tokenContract, [
-            "function balanceOf(address account) view returns (uint256 balance)"
-        ], gravity.provider);
-
-    } else if (opts.notEnoughReward) {
-        // send in 1000 tokens, then have a reward of five million
-        await testERC20.functions.approve(gravity.address, 1000);
-        await gravity.functions.sendToCosmos(
-            testERC20.address,
-            ethers.utils.formatBytes32String("myCosmosAddress"),
-            1000
-        );
-        newValset.rewardToken = testERC20.address
-        newValset.rewardAmount = 5000000
+        newValset.rewardAmount = rewardAmount
+        rewardRecipient = cosmosAddress
     }
 
     const checkpoint = makeCheckpoint(
@@ -120,7 +109,7 @@ async function runTest(opts: {
         newValset.powers,
         newValset.valsetNonce,
         newValset.rewardAmount,
-        newValset.rewardToken,
+        newValset.rewardDenom,
         gravityId
     );
 
@@ -159,20 +148,24 @@ async function runTest(opts: {
         powers.pop();
     }
 
-    let valsetUpdateTx = await gravity.updateValset(
+    const valsetUpdateEventArgs = await parseEvent(gravity, gravity.updateValset(
         newValset,
         currentValset,
-        sigs
-    );
+        sigs,
+        rewardRecipient
+    ), 0)
 
     // check that the relayer was paid
     if (opts.withReward) {
-        // panic if we failed to deploy the contract earlier
-        expect(ERC20contract)
-        if (ERC20contract) {
-            expect((await ERC20contract.functions.balanceOf(await valsetUpdateTx.from))[0].toBigInt())
-                .to.equal(BigInt(5000000));
-        }
+        expect(valsetUpdateEventArgs).to.deep.equal({
+            _newValsetNonce: BigNumber.from(1),
+            _eventNonce: BigNumber.from(2),
+            _rewardAmount: BigNumber.from(rewardAmount),
+            _rewardDenom: rewardDenom,
+            _rewardRecipient: rewardRecipient,
+            _validators: await getSignerAddresses(newValidators),
+            _powers: newPowers.map(item => BigNumber.from(item))
+        })
     }
 
     return {gravity, checkpoint};
@@ -239,19 +232,13 @@ describe("updateValset tests", function () {
         );
     });
 
-    it("throws on bad reward ", async function () {
-        await expect(runTest({badReward: true})).to.be.revertedWith(
-            "Address: call to non-contract"
+    it("throws on empty reward recipient", async function () {
+        await expect(runTest({emptyRewardRecipient: true})).to.be.revertedWith(
+            "IncorrectRewardRecipient()"
         );
     });
 
-    it("throws on not enough reward ", async function () {
-        await expect(runTest({notEnoughReward: true})).to.be.revertedWith(
-            "transfer amount exceeds balance"
-        );
-    });
-
-    it("pays reward correctly", async function () {
+    it("emits the event with the reward", async function () {
         let {gravity, checkpoint} = await runTest({withReward: true});
         expect((await gravity.functions.state_lastValsetCheckpoint())[0]).to.equal(checkpoint);
     });
@@ -286,7 +273,7 @@ describe("updateValset Go test hash", function () {
             powers: powers,
             valsetNonce: 0,
             rewardAmount: 0,
-            rewardToken: ZeroAddress
+            rewardDenom: EmptyDenom
         }
 
         const checkpoint = makeCheckpoint(
@@ -294,7 +281,7 @@ describe("updateValset Go test hash", function () {
             newValset.powers,
             newValset.valsetNonce,
             newValset.rewardAmount,
-            newValset.rewardToken,
+            newValset.rewardDenom,
             gravityId
         );
 
@@ -307,7 +294,7 @@ describe("updateValset Go test hash", function () {
                 "address[]", // validators
                 "uint256[]", // powers
                 "uint256", // rewardAmount
-                "address" // rewardToken
+                "string" // rewardDenom
             ],
             [
                 gravityId,
@@ -316,7 +303,7 @@ describe("updateValset Go test hash", function () {
                 newValset.validators,
                 newValset.powers,
                 newValset.rewardAmount,
-                newValset.rewardToken,
+                newValset.rewardDenom,
             ]
         );
         const valsetDigest = ethers.utils.keccak256(abiEncodedValset);
@@ -331,7 +318,7 @@ describe("updateValset Go test hash", function () {
             "powers": powers,
             "valsetNonce": newValset.valsetNonce,
             "rewardAmount": newValset.rewardAmount,
-            "rewardToken": newValset.rewardToken
+            "rewardDenom": newValset.rewardDenom
         })
         console.log("abiEncodedValset:", abiEncodedValset)
         console.log("valsetDigest:", valsetDigest)

@@ -58,38 +58,42 @@ pub async fn happy_path_test_v2(
         denom: token_to_send_to_eth.clone(),
         amount: amount_to_bridge,
     };
+    let send_to_eth_coin_fee = Coin {
+        denom: token_to_send_to_eth.clone(),
+        amount: u256!(1),
+    };
 
     let user = get_user_key();
-    // send the user some footoken
-    contact
-        .send_coins(
-            send_to_user_coin.clone(),
-            Some(get_fee()),
-            user.cosmos_address,
-            Some(TOTAL_TIMEOUT),
-            keys[0].validator_key,
-        )
-        .await
-        .unwrap();
 
-    let balances = contact.get_balances(user.cosmos_address).await.unwrap();
-    let mut found = false;
-    for coin in balances {
-        if coin.denom == token_to_send_to_eth.clone() {
-            found = true;
-            break;
-        }
-    }
-    if !found {
-        panic!(
-            "Failed to send {} to the user address",
-            token_to_send_to_eth
+    // send the foo token to bridge and stake token to pay for cosmos fee
+    for coin in &vec![send_to_user_coin.clone(), get_fee()] {
+        info!(
+            "Sending {} to the test user, address: {}",
+            coin.clone(),
+            user.cosmos_address
         );
+
+        contact
+            .send_coins(
+                coin.clone(),
+                Some(get_fee()),
+                user.cosmos_address,
+                Some(TOTAL_TIMEOUT),
+                keys[0].validator_key,
+            )
+            .await
+            .unwrap();
+
+        let balance = contact
+            .get_balance(user.cosmos_address, coin.clone().denom)
+            .await
+            .unwrap();
+        if balance.is_none() {
+            panic!("Failed to send {} to the user address", coin);
+        }
+        info!("Sent {} to user address {}", coin, user.cosmos_address);
     }
-    info!(
-        "Sent some {} to user address {}",
-        token_to_send_to_eth, user.cosmos_address
-    );
+
     // send the user some eth, they only need this to check their
     // erc20 balance, so a pretty minor usecase
     send_one_eth(user.eth_address, web30).await;
@@ -99,7 +103,7 @@ pub async fn happy_path_test_v2(
         user.cosmos_key,
         user.eth_address,
         send_to_eth_coin,
-        get_fee(),
+        send_to_eth_coin_fee,
         get_fee(),
         contact,
     )

@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, parseEvent, signHash, ZeroAddress,} from "../test-utils/pure";
+import {examplePowers, getSignerAddresses, parseEvent, signHash, EmptyDenom,} from "../test-utils/pure";
 import {BigNumber} from "ethers";
 
 chai.use(solidity);
@@ -109,7 +109,7 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
         powers,
         valsetNonce: currentValsetNonce,
         rewardAmount: 0,
-        rewardToken: ZeroAddress
+        rewardDenom: EmptyDenom
     }
 
     await gravity.submitBatch(

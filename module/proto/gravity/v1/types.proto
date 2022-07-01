@@ -22,8 +22,8 @@ message Valset {
     (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int",
     (gogoproto.nullable)   = false
   ];
-  // the reward token in it's Ethereum hex address representation
-  string reward_token               = 5;
+  // the cosmos native reward token/denom
+  string reward_denom               = 5;
   
 }
 

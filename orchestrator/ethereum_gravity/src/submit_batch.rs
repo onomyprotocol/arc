@@ -142,26 +142,6 @@ fn encode_batch_payload(
     let sig_arrays = to_arrays(sig_data);
     let (amounts, destinations, fees) = batch.get_checkpoint_values();
 
-    // Solidity function signature
-    // function submitBatch(
-    // // The validators that approve the batch and new valset encoded as a ValsetArgs struct
-    // address[] memory _currentValidators,
-    // uint256[] memory _currentPowers,
-    // uint256 _currentValsetNonce,
-    // uint256 _rewardAmount,
-    // address _rewardToken,
-    //
-    // // These are arrays of the parts of the validators signatures
-    // uint8[] memory _v,
-    // bytes32[] memory _r,
-    // bytes32[] memory _s,
-    // // The batch of transactions
-    // uint256[] memory _amounts,
-    // address[] memory _destinations,
-    // uint256[] memory _fees,
-    // uint256 _batchNonce,
-    // address _tokenContract,
-    // uint256 _batchTimeout
     let tokens = &[
         current_valset_token,
         sig_arrays.sigs,
@@ -172,7 +152,7 @@ fn encode_batch_payload(
         batch.token_contract.into(),
         batch.batch_timeout.into(),
     ];
-    let payload = encode_call("submitBatch((address[],uint256[],uint256,uint256,address),(uint8,bytes32,bytes32)[],uint256[],address[],uint256[],uint256,address,uint256)",
+    let payload = encode_call("submitBatch((address[],uint256[],uint256,uint256,string),(uint8,bytes32,bytes32)[],uint256[],address[],uint256[],uint256,address,uint256)",
     tokens).unwrap();
     trace!("Tokens {:?}", tokens);
 

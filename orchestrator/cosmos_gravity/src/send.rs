@@ -13,9 +13,7 @@ use gravity_proto::{
     },
 };
 use gravity_utils::{
-    clarity::{
-        constants::ZERO_ADDRESS, Address as EthAddress, PrivateKey as EthPrivateKey, Signature,
-    },
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Signature},
     deep_space::{
         address::Address, coin::Coin, error::CosmosGrpcError, private_key::PrivateKey,
         utils::bytes_to_hex_str, Contact, Msg,
@@ -114,7 +112,7 @@ pub async fn send_valset_confirms(
             private_key,
         )
         .await;
-    info!("Valset confirm res is {:?}", res);
+    debug!("Valset confirm res is {:?}", res);
     res
 }
 
@@ -284,7 +282,8 @@ pub async fn send_ethereum_claims(
             block_height: valset.block_height.try_resize_to_u64().unwrap(),
             members: valset.members.iter().map(|v| v.into()).collect(),
             reward_amount: valset.reward_amount.to_string(),
-            reward_token: valset.reward_token.unwrap_or(ZERO_ADDRESS).to_string(),
+            reward_denom: valset.reward_denom,
+            reward_recipient: valset.reward_recipient,
             orchestrator: our_address.to_string(),
         };
         let msg = Msg::new("/gravity.v1.MsgValsetUpdatedClaim", claim);

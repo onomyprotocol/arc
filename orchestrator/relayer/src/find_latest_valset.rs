@@ -52,7 +52,7 @@ pub async fn find_latest_valset(
                         nonce: event.valset_nonce,
                         members: event.members,
                         reward_amount: event.reward_amount,
-                        reward_token: event.reward_token,
+                        reward_denom: event.reward_denom,
                     };
                     let cosmos_chain_valset =
                         cosmos_gravity::query::get_valset(grpc_client, latest_eth_valset.nonce)
@@ -92,7 +92,7 @@ fn check_if_valsets_differ(cosmos_valset: Option<Valset>, ethereum_valset: &Vals
         // or with our Ethereum search
         assert_eq!(cosmos_valset.nonce, ethereum_valset.nonce);
 
-        let mut c_valset = cosmos_valset.members;
+        let mut c_valset = cosmos_valset.members.clone();
         let mut e_valset = ethereum_valset.members.clone();
         c_valset.sort();
         e_valset.sort();
@@ -104,5 +104,9 @@ fn check_if_valsets_differ(cosmos_valset: Option<Valset>, ethereum_valset: &Vals
         } else {
             info!("Validator sets for nonce {} Cosmos and Ethereum differ. Possible bridge highjacking!", ethereum_valset.nonce)
         }
+        info!(
+            "\n cosmos valset: {:?}, \n ethereum valset: {:?}",
+            cosmos_valset, *ethereum_valset
+        );
     }
 }

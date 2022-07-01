@@ -4,6 +4,7 @@ use gravity_utils::{
     connection_prep::{
         check_for_eth, check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready,
     },
+    deep_space::address::Address as CosmosAddress,
     error::GravityError,
     types::{BatchRequestMode, RelayerConfig},
 };
@@ -71,6 +72,10 @@ pub async fn relayer(
     };
     info!("Gravity contract address {}", contract_address);
 
+    // TODO add additional arg param to override it
+    // by default the address will be taken from the cosmos_key
+    let reward_recipient: CosmosAddress = cosmos_key.to_address(&contact.get_prefix()).unwrap();
+
     // setup and explain relayer settings
     if let Some(fee) = args.fees.clone() {
         if config.batch_request_mode != BatchRequestMode::None {
@@ -94,6 +99,7 @@ pub async fn relayer(
         contract_address,
         params.gravity_id,
         config,
+        reward_recipient,
     )
     .await
 }

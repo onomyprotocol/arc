@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Apache-2.0
-pragma solidity 0.8.10;
+pragma solidity 0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -16,6 +16,7 @@ error InvalidLogicCallTransfers();
 error InvalidLogicCallFees();
 error InvalidSendToCosmos();
 error IncorrectCheckpoint();
+error IncorrectRewardRecipient();
 error MalformedNewValidatorSet();
 error MalformedCurrentValidatorSet();
 error MalformedBatch();
@@ -56,8 +57,8 @@ struct ValsetArgs {
 	// the reward amount denominated in the below reward token, can be
 	// set to zero
 	uint256 rewardAmount;
-	// the reward token, should be set to the zero address if not being used
-	address rewardToken;
+	// the cosmos reward denom/token, should be set to the empty if not being used
+	string rewardDenom;
 }
 
 // This represents a validator signature
@@ -121,7 +122,8 @@ contract Gravity is ReentrancyGuard {
 		uint256 indexed _newValsetNonce,
 		uint256 _eventNonce,
 		uint256 _rewardAmount,
-		address _rewardToken,
+		string _rewardDenom,
+	    string _rewardRecipient,
 		address[] _validators,
 		uint256[] _powers
 	);
@@ -214,7 +216,7 @@ contract Gravity is ReentrancyGuard {
 				_valsetArgs.validators,
 				_valsetArgs.powers,
 				_valsetArgs.rewardAmount,
-				_valsetArgs.rewardToken
+				_valsetArgs.rewardDenom
 			)
 		);
 
@@ -269,7 +271,9 @@ contract Gravity is ReentrancyGuard {
 		// The current validators that approve the change
 		ValsetArgs calldata _currentValset,
 		// These are arrays of the parts of the current validator's signatures
-		Signature[] calldata _sigs
+		Signature[] calldata _sigs,
+		// The cosmos originated address of the reward recipient, might be empty
+		string calldata rewardRecipient
 	) external {
 		// CHECKS
 
@@ -331,6 +335,11 @@ contract Gravity is ReentrancyGuard {
 
 		checkValidatorSignatures(_currentValset, _sigs, newCheckpoint, constant_powerThreshold);
 
+		// The reward recipient must be present if the reward is present
+		if (bytes(_newValset.rewardDenom).length != 0 && _newValset.rewardAmount != 0 && bytes(rewardRecipient).length == 0) {
+			revert IncorrectRewardRecipient();
+		}
+
 		// ACTIONS
 
 		// Stored to be used next time to validate that the valset
@@ -340,11 +349,6 @@ contract Gravity is ReentrancyGuard {
 		// Store new nonce
 		state_lastValsetNonce = _newValset.valsetNonce;
 
-		// Send submission reward to msg.sender if reward token is a valid value
-		if (_newValset.rewardToken != address(0) && _newValset.rewardAmount != 0) {
-			IERC20(_newValset.rewardToken).safeTransfer(msg.sender, _newValset.rewardAmount);
-		}
-
 		// LOGS
 
 		state_lastEventNonce = state_lastEventNonce + 1;
@@ -352,7 +356,8 @@ contract Gravity is ReentrancyGuard {
 			_newValset.valsetNonce,
 			state_lastEventNonce,
 			_newValset.rewardAmount,
-			_newValset.rewardToken,
+			_newValset.rewardDenom,
+			rewardRecipient,
 			_newValset.validators,
 			_newValset.powers
 		);
@@ -674,7 +679,7 @@ contract Gravity is ReentrancyGuard {
 		}
 
 		ValsetArgs memory _valset;
-		_valset = ValsetArgs(_validators, _powers, 0, 0, address(0));
+		_valset = ValsetArgs(_validators, _powers, 0, 0, "");
 
 		bytes32 newCheckpoint = makeCheckpoint(_valset, _gravityId);
 
@@ -689,7 +694,8 @@ contract Gravity is ReentrancyGuard {
 			state_lastValsetNonce,
 			state_lastEventNonce,
 			0,
-			address(0),
+			"",
+			"",
 			_validators,
 			_powers
 		);

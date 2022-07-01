@@ -3,38 +3,36 @@ import { BigNumberish } from "ethers";
 import { Signer } from "ethers";
 import { ContractTransaction, utils } from 'ethers';
 
-export const ZeroAddress: string = "0x0000000000000000000000000000000000000000"
-
-export async function getSignerAddresses(signers: Signer[]) {
-  return await Promise.all(signers.map(signer => signer.getAddress()));
-}
-
-
-export function makeCheckpoint(
-  validators: string[],
-  powers: BigNumberish[],
-  valsetNonce: BigNumberish,
-  rewardAmount: BigNumberish,
-  rewardToken: string,
-  gravityId: string
-) {
-  const methodName = ethers.utils.formatBytes32String("checkpoint");
-
-  let abiEncoded = ethers.utils.defaultAbiCoder.encode(
-    ["bytes32", "bytes32", "uint256", "address[]", "uint256[]", "uint256", "address"],
-    [gravityId, methodName, valsetNonce, validators, powers, rewardAmount, rewardToken]
-  );
-
-  let checkpoint = ethers.utils.keccak256(abiEncoded);
-
-  return checkpoint;
-}
+export const EmptyDenom: string = ""
+export const EmptyCosmosAddress: string = ""
 
 export type Sig = {
   v: number,
   r: string,
   s: string
 };
+
+export async function getSignerAddresses(signers: Signer[]) {
+  return await Promise.all(signers.map(signer => signer.getAddress()));
+}
+
+export function makeCheckpoint(
+  validators: string[],
+  powers: BigNumberish[],
+  valsetNonce: BigNumberish,
+  rewardAmount: BigNumberish,
+  rewardDenom: string,
+  gravityId: string
+) {
+  const methodName = ethers.utils.formatBytes32String("checkpoint");
+
+  let abiEncoded = ethers.utils.defaultAbiCoder.encode(
+    ["bytes32", "bytes32", "uint256", "address[]", "uint256[]", "uint256", "string"],
+    [gravityId, methodName, valsetNonce, validators, powers, rewardAmount, rewardDenom]
+  );
+
+  return ethers.utils.keccak256(abiEncoded);;
+}
 
 export async function signHash(signers: Signer[], hash: string) {
   let sigs: Sig[] = [];
@@ -48,27 +46,6 @@ export async function signHash(signers: Signer[], hash: string) {
   }
 
   return sigs;
-}
-
-export function makeTxBatchHash(
-  amounts: number[],
-  destinations: string[],
-  fees: number[],
-  nonces: number[],
-  gravityId: string
-) {
-  const methodName = ethers.utils.formatBytes32String("transactionBatch");
-
-  let abiEncoded = ethers.utils.defaultAbiCoder.encode(
-    ["bytes32", "bytes32", "uint256[]", "address[]", "uint256[]", "uint256[]"],
-    [gravityId, methodName, amounts, destinations, fees, nonces]
-  );
-
-  // console.log(abiEncoded);
-
-  let txHash = ethers.utils.keccak256(abiEncoded);
-
-  return txHash;
 }
 
 export async function parseEvent(contract: any, txPromise: Promise<ContractTransaction>, eventOrder: number) {

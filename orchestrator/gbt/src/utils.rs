@@ -8,14 +8,11 @@ pub const TIMEOUT: Duration = Duration::from_secs(60);
 pub fn print_relaying_explanation(input: &RelayerConfig, batch_requests: bool) {
     info!("Relaying from Cosmos => Ethereum is enabled, this will cost ETH");
     match input.valset_relaying_mode {
-        ValsetRelayingMode::ProfitableOnly {margin} => info!(
-            "This relayer will only relay validator set updates if they have a profitable reward with at least {} margin", margin
-        ),
         ValsetRelayingMode::Altruistic => info!(
             "This relayer will relay validator set updates altruistically if required by the network"
         ),
         ValsetRelayingMode::EveryValset => warn!(
-            "This relayer will relay every validator set update. This will cost a lot of ETH!"
+            "This relayer will relay every validator set update. "
         ),
     }
     match (input.batch_request_mode, batch_requests) {

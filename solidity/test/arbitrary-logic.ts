@@ -5,7 +5,7 @@ import {TestLogicContract} from "../typechain/TestLogicContract";
 import {SimpleLogicBatchMiddleware} from "../typechain/SimpleLogicBatchMiddleware";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, signHash, ZeroAddress} from "../test-utils/pure";
+import {examplePowers, getSignerAddresses, signHash, EmptyDenom} from "../test-utils/pure";
 import {MintedForDeployer} from "./deployERC20";
 
 chai.use(solidity);
@@ -200,7 +200,7 @@ async function runTest(opts: {
         powers,
         valsetNonce: currentValsetNonce,
         rewardAmount: 0,
-        rewardToken: ZeroAddress
+        rewardDenom: EmptyDenom
     }
 
     let logicCallSubmitResult = await gravity.submitLogicCall(
@@ -381,7 +381,7 @@ describe("logicCall Go test hash", function () {
             powers,
             valsetNonce: currentValsetNonce,
             rewardAmount: 0,
-            rewardToken: ZeroAddress
+            rewardDenom: EmptyDenom
         }
 
         var res = await gravity.populateTransaction.submitLogicCall(

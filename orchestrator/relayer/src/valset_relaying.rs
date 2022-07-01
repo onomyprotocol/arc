@@ -11,15 +11,13 @@ use ethereum_gravity::{
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
     clarity::{address::Address as EthAddress, PrivateKey as EthPrivateKey},
+    deep_space::address::Address as CosmosAddress,
     error::GravityError,
     num_conversion::{print_eth, print_gwei},
-    prices::get_weth_price,
     types::{RelayerConfig, Valset, ValsetConfirmResponse, ValsetRelayingMode},
     web30::client::Web3,
 };
 use tonic::transport::Channel;
-
-use crate::batch_relaying::get_cost_with_margin;
 
 #[allow(clippy::too_many_arguments)]
 /// High level entry point for valset relaying, this function starts by finding
@@ -36,6 +34,7 @@ pub async fn relay_valsets(
     gravity_id: String,
     timeout: Duration,
     config: &RelayerConfig,
+    reward_recipient: CosmosAddress,
 ) {
     // we have to start with the current valset, we need to know what's currently
     // in the contract in order to determine if a new validator set is valid.
@@ -83,6 +82,7 @@ pub async fn relay_valsets(
         ethereum_key,
         timeout,
         config,
+        reward_recipient,
     )
     .await;
 }
@@ -100,6 +100,7 @@ async fn relay_valid_valset(
     ethereum_key: EthPrivateKey,
     timeout: Duration,
     config: &RelayerConfig,
+    reward_recipient: CosmosAddress,
 ) {
     let cost = ethereum_gravity::valset_update::estimate_valset_cost(
         valset_to_relay,
@@ -109,6 +110,7 @@ async fn relay_valid_valset(
         gravity_contract_address,
         gravity_id.clone(),
         ethereum_key,
+        reward_recipient,
     )
     .await;
     if cost.is_err() {
@@ -136,9 +138,6 @@ async fn relay_valid_valset(
     let should_relay = should_relay_valset(
         latest_cosmos_valset_nonce,
         valset_to_relay,
-        ethereum_key.to_address(),
-        cost,
-        web3,
         &config.valset_relaying_mode,
     )
     .await;
@@ -153,6 +152,7 @@ async fn relay_valid_valset(
             gravity_contract_address,
             gravity_id,
             ethereum_key,
+            reward_recipient,
         )
         .await;
     } else {
@@ -230,34 +230,9 @@ async fn find_latest_valid_valset(
 async fn should_relay_valset(
     latest_cosmos_valset_nonce: u64,
     valset: &Valset,
-    pubkey: EthAddress,
-    cost: GasCost,
-    web3: &Web3,
     config: &ValsetRelayingMode,
 ) -> bool {
     match config {
-        // if the user has configured only profitable relaying then it is our only consideration
-        ValsetRelayingMode::ProfitableOnly { margin } => match valset.reward_token {
-            Some(reward_token) => {
-                let price = get_weth_price(reward_token, valset.reward_amount, pubkey, web3).await;
-                let cost_with_margin = get_cost_with_margin(cost.get_total(), *margin);
-                // we need to see how much WETH we can get for the reward token amount,
-                // and compare that value to the gas cost times the margin
-                match price {
-                    Ok(price) => price > cost_with_margin,
-                    Err(e) => {
-                        info!(
-                            "Unable to determine swap price of token {} for WETH \n
-                             it may just not be on Uniswap - Will not be relaying valset {:?}",
-                            reward_token, e
-                        );
-                        false
-                    }
-                }
-            }
-            None => false,
-        },
-
         // if the user has requested to relay every single valset, we do so
         ValsetRelayingMode::EveryValset => true,
         // user is an altruistic relayer, so we'll do our best to balance not spending
