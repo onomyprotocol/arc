@@ -2,9 +2,13 @@ name: Integration tests
 
 on:
   push:
-    branches: [master, main]
+    branches:
+      - main
+      - native-reward # temp
   pull_request:
-    branches: [master, main]
+    branches:
+      - main
+      - native-reward # temp
 
 jobs:
   happy-path-hardhat:

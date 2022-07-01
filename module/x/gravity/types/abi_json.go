@@ -1,5 +1,12 @@
 package types
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+)
+
 // The go-ethereum ABI encoder *only* encodes function calls and then it only encodes
 // function calls for which you provide an ABI json just like you would get out of the
 // solidity compiler with your compiled contract.
@@ -13,9 +20,15 @@ package types
 // 'function specification' that will encode the same arguments into a function call. We can then
 // truncate the first several bytes where the call name is encoded to finally get the equal of the
 
-const (
+var (
+	OutgoingBatchTxCheckpointABI, ValsetCheckpointABI, OutgoingLogicCallABI abi.ABI
+)
+
+func init() {
+	var err error
+
 	// OutgoingBatchTxCheckpointABIJSON checks the ETH ABI for compatability of the OutgoingBatchTx message
-	OutgoingBatchTxCheckpointABIJSON = `[{
+	OutgoingBatchTxCheckpointABI, err = abi.JSON(strings.NewReader(`[{
 		"name": "submitBatch",
 		"stateMutability": "pure",
 		"type": "function",
@@ -32,10 +45,14 @@ const (
 		"outputs": [
 			{ "internalType": "bytes32", "name": "", "type": "bytes32" }
 		]
-	}]`
+	}]`))
+
+	if err != nil {
+		panic(fmt.Sprintf("can't decode OutgoingBatchTxCheckpointABI, %s", err))
+	}
 
 	// ValsetCheckpointABIJSON checks the ETH ABI for compatability of the Valset update message
-	ValsetCheckpointABIJSON = `[{
+	ValsetCheckpointABI, err = abi.JSON(strings.NewReader(`[{
 		"name": "checkpoint",
 		"stateMutability": "pure",
 		"type": "function",
@@ -45,16 +62,20 @@ const (
 			{ "internalType": "uint256",   "name": "_valsetNonce", "type": "uint256"   },
 			{ "internalType": "address[]", "name": "_validators",  "type": "address[]" },
 			{ "internalType": "uint256[]", "name": "_powers",      "type": "uint256[]" },
-			{ "internalType": "uint256",   "name": "_rewardAmount","type": "uint256"   },
-			{ "internalType": "address",   "name": "_rewardToken", "type": "address"   }
+			{ "internalType": "uint256",   "name": "_rewardAmount", "type": "uint256"  },
+			{ "internalType": "string",    "name": "_rewardDenom",  "type": "string"   }
 		],
 		"outputs": [
 			{ "internalType": "bytes32", "name": "", "type": "bytes32" }
 		]
-	}]`
+	}]`))
+
+	if err != nil {
+		panic(fmt.Sprintf("can't decode ValsetCheckpointABI, %s", err))
+	}
 
 	// OutgoingLogicCallABIJSON checks the ETH ABI for compatability of the logic call message
-	OutgoingLogicCallABIJSON = `[{
+	OutgoingLogicCallABI, err = abi.JSON(strings.NewReader(`[{
 	  "name": "checkpoint",
       "outputs": [],
       "stateMutability": "pure",
@@ -72,5 +93,10 @@ const (
 			{ "internalType": "bytes32",   "name": "_invalidationId",         "type": "bytes32"   },
 			{ "internalType": "uint256",   "name": "_invalidationNonce",      "type": "uint256"   }
       ]
-    }]`
-)
+    }]`))
+
+	if err != nil {
+		panic(fmt.Sprintf("can't decode OutgoingLogicCallABI, %s", err))
+	}
+
+}

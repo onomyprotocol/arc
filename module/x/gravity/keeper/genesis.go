@@ -158,14 +158,13 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		k.setCosmosOriginatedDenomToERC20(ctx, item.Denom, *ethAddr)
 	}
 
-	// now that we have the denom-erc20 mapping we need to validate
-	// that the valset reward is possible and cosmos originated remove
-	// this if you want a non-cosmos originated reward
+	// the valset reward is possible in cosmos native tokens only
 	valsetReward := k.GetParams(ctx).ValsetReward
 	if valsetReward.IsValid() && !valsetReward.IsZero() {
-		_, exists := k.GetCosmosOriginatedERC20(ctx, valsetReward.Denom)
+		_, exists := k.bankKeeper.GetDenomMetaData(ctx, valsetReward.Denom)
 		if !exists {
-			panic("Invalid Cosmos originated denom for valset reward")
+			panic(fmt.Sprintf("Invalid Cosmos originated denom for valset reward, denom %s "+
+				"not found in the bank keeper metadata", valsetReward.Denom))
 		}
 	}
 

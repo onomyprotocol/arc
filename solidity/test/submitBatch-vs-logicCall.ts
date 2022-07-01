@@ -4,7 +4,7 @@ import {solidity} from "ethereum-waffle";
 import {TestTokenBatchMiddleware} from "../typechain/TestTokenBatchMiddleware";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, signHash, ZeroAddress,} from "../test-utils/pure";
+import {examplePowers, getSignerAddresses, signHash, EmptyDenom,} from "../test-utils/pure";
 import {Signer} from "ethers";
 import {Gravity} from "../typechain/Gravity";
 import {TestERC20A} from "../typechain/TestERC20A";
@@ -151,7 +151,7 @@ async function runSubmitBatchTest(opts: { batchSize: number }) {
         powers,
         valsetNonce: 0,
         rewardAmount: 0,
-        rewardToken: ZeroAddress
+        rewardDenom: EmptyDenom
     }
 
     await gravity.submitBatch(
@@ -297,7 +297,7 @@ async function runLogicCallTest(opts: {
         powers,
         valsetNonce: 0,
         rewardAmount: 0,
-        rewardToken: ZeroAddress
+        rewardDenom: EmptyDenom
     }
 
     await gravity.submitLogicCall(

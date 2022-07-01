@@ -656,7 +656,7 @@ func TestMsgValsetConfirm(t *testing.T) {
 		blockHeight  int64 = 200
 		signature          = "7c331bd8f2f586b04a2e2cafc6542442ef52e8b8be49533fa6b8962e822bc01e295a62733abfd65a412a8de8286f2794134c160c27a2827bdb71044b94b003cc1c"
 		badSignature       = "6c331bd8f2f586b04a2e2cafc6542442ef52e8b8be49533fa6b8962e822bc01e295a62733abfd65a412a8de8286f2794134c160c27a2827bdb71044b94b003cc1c"
-		ethAddress         = "0xd62FF457C6165FF214C1658c993A8a203E601B03"
+		ethAddress         = "0x6DBd7922e7f9502191ECe180635942f2DcEa73BC"
 		wrongAddress       = "0xb9a2c7853F181C3dd4a0517FCb9470C0f709C08C"
 	)
 	ethAddressParsed, err := types.NewEthAddress(ethAddress)

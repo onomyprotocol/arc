@@ -2,7 +2,7 @@ import { Gravity } from "../typechain/Gravity";
 import { TestERC20A } from "../typechain/TestERC20A";
 import { TestERC20BNOM } from "../typechain/TestERC20BNOM";
 import { ethers } from "hardhat";
-import { makeCheckpoint, getSignerAddresses, ZeroAddress } from "./pure";
+import { makeCheckpoint, getSignerAddresses, EmptyDenom } from "./pure";
 import { Signer } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -29,7 +29,7 @@ export async function deployContracts(
 
   const valAddresses = await getSignerAddresses(validators);
 
-  const checkpoint = makeCheckpoint(valAddresses, powers, 0, 0, ZeroAddress, gravityId);
+  const checkpoint = makeCheckpoint(valAddresses, powers, 0, 0, EmptyDenom, gravityId);
 
   const gravity = (await Gravity.deploy(
     gravityId,

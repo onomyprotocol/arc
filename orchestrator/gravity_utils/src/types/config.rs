@@ -72,13 +72,8 @@ impl From<TomlRelayerConfig> for RelayerConfig {
 }
 
 /// The various possible modes for relaying validator set updates
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ValsetRelayingMode {
-    /// Only ever relay profitable valsets, regardless of all other
-    /// considerations. Profitable being defined as the value of
-    /// the reward token in uniswap being greater than WETH cost of
-    /// relaying * margin
-    ProfitableOnly { margin: f64 },
     /// Relay validator sets when continued operation of the chain
     /// requires it, this will cost some ETH
     Altruistic,
@@ -87,22 +82,16 @@ pub enum ValsetRelayingMode {
 }
 
 /// A version of valset relaying mode that's easy to serialize as toml
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct TomlValsetRelayingMode {
     mode: String,
-    margin: Option<f64>,
 }
 
 impl From<TomlValsetRelayingMode> for ValsetRelayingMode {
     fn from(input: TomlValsetRelayingMode) -> Self {
-        match input.mode.as_str() {
-            "ProfitableOnly" | "profitableonly" | "PROFITABLEONLY" => {
-                ValsetRelayingMode::ProfitableOnly {
-                    margin: input.margin.unwrap(),
-                }
-            }
-            "Altruistic" | "altruistic" | "ALTRUISTIC" => ValsetRelayingMode::Altruistic,
-            "EveryValset" | "everyvalset" | "EVERYVALSET" => ValsetRelayingMode::EveryValset,
+        match input.mode.to_uppercase().as_str() {
+            "EVERYVALSET" => ValsetRelayingMode::EveryValset,
+            "ALTRUISTIC" => ValsetRelayingMode::Altruistic,
             _ => panic!("Invalid TomlValsetRelayingMode"),
         }
     }
@@ -122,7 +111,7 @@ pub enum BatchRequestMode {
 
 /// A whitelisted token that will be relayed given the batch
 /// provides at least amount of this specific token
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct WhitelistToken {
     /// the amount which the batch must have to be relayed
     pub amount: Uint256,
@@ -161,19 +150,15 @@ pub struct TomlBatchRelayingMode {
 
 impl From<TomlBatchRelayingMode> for BatchRelayingMode {
     fn from(input: TomlBatchRelayingMode) -> Self {
-        match input.mode.as_str() {
-            "EveryBatch" | "everybatch" | "EVERYBATCH" => BatchRelayingMode::EveryBatch,
-            "ProfitableOnly" | "profitableonly" | "PROFITABLEONLY" => {
-                BatchRelayingMode::ProfitableOnly {
-                    margin: input.margin.unwrap(),
-                }
-            }
-            "ProfitableWithWhitelist" | "profitablewithwhitelist" | "PROFITABLEWITHWHITELIST" => {
-                BatchRelayingMode::ProfitableWithWhitelist {
-                    margin: input.margin.unwrap(),
-                    whitelist: input.whitelist.unwrap(),
-                }
-            }
+        match input.mode.to_uppercase().as_str() {
+            "EVERYBATCH" => BatchRelayingMode::EveryBatch,
+            "PROFITABLEONLY" => BatchRelayingMode::ProfitableOnly {
+                margin: input.margin.unwrap(),
+            },
+            "PROFITABLEWITHWHITELIST" => BatchRelayingMode::ProfitableWithWhitelist {
+                margin: input.margin.unwrap(),
+                whitelist: input.whitelist.unwrap(),
+            },
             _ => panic!("Bad TomlBatchRelayingMode"),
         }
     }
@@ -194,7 +179,6 @@ fn default_logic_call_market_enabled() -> bool {
 fn default_valset_relaying_mode() -> TomlValsetRelayingMode {
     TomlValsetRelayingMode {
         mode: "Altruistic".to_string(),
-        margin: None,
     }
 }
 

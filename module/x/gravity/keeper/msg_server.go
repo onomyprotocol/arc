@@ -95,7 +95,7 @@ func (k msgServer) ValsetConfirm(c context.Context, msg *types.MsgValsetConfirm)
 	}
 	err = k.confirmHandlerCommon(ctx, msg.EthAddress, msg.Orchestrator, msg.Signature, checkpoint)
 	if err != nil {
-		return nil, err
+		return nil, sdkerrors.Wrap(err, fmt.Sprintf("for valset confirm, msg: %+v", msg))
 	}
 
 	// persist signature
@@ -201,7 +201,7 @@ func (k msgServer) ConfirmBatch(c context.Context, msg *types.MsgConfirmBatch) (
 	orchaddr, _ := sdk.AccAddressFromBech32(msg.Orchestrator)
 	err = k.confirmHandlerCommon(ctx, msg.EthSigner, msg.Orchestrator, msg.Signature, checkpoint)
 	if err != nil {
-		return nil, err
+		return nil, sdkerrors.Wrap(err, "for batch confirm")
 	}
 
 	// check if we already have this confirm
@@ -243,7 +243,7 @@ func (k msgServer) ConfirmLogicCall(c context.Context, msg *types.MsgConfirmLogi
 	}
 	err = k.confirmHandlerCommon(ctx, msg.EthSigner, msg.Orchestrator, msg.Signature, checkpoint)
 	if err != nil {
-		return nil, err
+		return nil, sdkerrors.Wrap(err, "for logic call confirm")
 	}
 
 	// check if we already have this confirm
@@ -302,8 +302,7 @@ func (k msgServer) claimHandlerCommon(ctx sdk.Context, msgAny *codectypes.Any, m
 		sdk.NewEvent(
 			sdk.EventTypeMessage,
 			sdk.NewAttribute(sdk.AttributeKeyModule, string(msg.GetType())),
-			// TODO: maybe return something better here? is this the right string representation?
-			sdk.NewAttribute(types.AttributeKeyAttestationID, string(types.GetAttestationKey(msg.GetEventNonce(), hash))),
+			sdk.NewAttribute(types.AttributeKeyAttestationID, types.GetAttestationKey(msg.GetEventNonce(), hash)),
 		),
 	)
 
@@ -352,7 +351,6 @@ func (k msgServer) confirmHandlerCommon(ctx sdk.Context, ethAddress string, orch
 }
 
 // DepositClaim handles MsgSendToCosmosClaim
-// TODO it is possible to submit an old msgDepositClaim (old defined as covering an event nonce that has already been
 // executed aka 'observed' and had it's slashing window expire) that will never be cleaned up in the endblocker. This
 // should not be a security risk as 'old' events can never execute but it does store spam in the chain.
 func (k msgServer) SendToCosmosClaim(c context.Context, msg *types.MsgSendToCosmosClaim) (*types.MsgSendToCosmosClaimResponse, error) {
@@ -375,7 +373,6 @@ func (k msgServer) SendToCosmosClaim(c context.Context, msg *types.MsgSendToCosm
 }
 
 // WithdrawClaim handles MsgBatchSendToEthClaim
-// TODO it is possible to submit an old msgWithdrawClaim (old defined as covering an event nonce that has already been
 // executed aka 'observed' and had it's slashing window expire) that will never be cleaned up in the endblocker. This
 // should not be a security risk as 'old' events can never execute but it does store spam in the chain.
 func (k msgServer) BatchSendToEthClaim(c context.Context, msg *types.MsgBatchSendToEthClaim) (*types.MsgBatchSendToEthClaimResponse, error) {

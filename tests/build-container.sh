@@ -6,8 +6,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 DOCKERFOLDER=$DIR/dockerfile
 REPOFOLDER=$DIR/..
 
-#docker system prune -a -f
-
 # setup for Mac M1 Compatibility 
 PLATFORM_CMD=""
 CROSS_COMPILE=""
@@ -22,6 +20,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     CROSS_COMPILE="x86_64-linux-musl-"
     TARGET="x86_64-unknown-linux-musl"
     # the linker is also set in `orchestrator/.cargo/config`
+    # Here is the installation instruction https://github.com/FiloSottile/homebrew-musl-cross
 fi
 
 # By default we want to do a clean build, but for faster development `USE_LOCAL_ARTIFACTS=1` can

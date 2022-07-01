@@ -19,7 +19,7 @@ use gravity_proto::{
 use gravity_utils::{
     clarity::{address::Address as EthAddress, u256, PrivateKey as EthPrivateKey, Uint256},
     deep_space::{
-        client::ChainStatus, coin::Coin, error::CosmosGrpcError,
+        address::Address as CosmosAddress, client::ChainStatus, coin::Coin, error::CosmosGrpcError,
         private_key::PrivateKey as CosmosPrivateKey, utils::FeeInfo, Contact,
     },
     error::GravityError,
@@ -76,6 +76,10 @@ pub async fn orchestrator_main_loop(
         fee.clone(),
     );
 
+    // TODO add additional arg param to override it
+    // by default the address will be taken from the cosmos_key
+    let reward_recipient: CosmosAddress = cosmos_key.to_address(&contact.get_prefix()).unwrap();
+
     let c = relayer_main_loop(
         ethereum_key,
         Some(cosmos_key),
@@ -86,6 +90,7 @@ pub async fn orchestrator_main_loop(
         gravity_contract_address,
         gravity_id,
         &config.relayer,
+        reward_recipient,
     );
 
     // if the relayer is not enabled we just don't start the future

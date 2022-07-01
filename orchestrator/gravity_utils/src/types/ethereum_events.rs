@@ -9,7 +9,7 @@
 
 use std::unimplemented;
 
-use clarity::{constants::ZERO_ADDRESS, Address as EthAddress, Uint256};
+use clarity::{Address as EthAddress, Uint256};
 use deep_space::{utils::bytes_to_hex_str, Address as CosmosAddress};
 use serde::{Deserialize, Serialize};
 use web30::types::Log;
@@ -22,7 +22,6 @@ use crate::error::GravityError;
 const ONE_MEGABYTE: usize = 1000usize.pow(3);
 const U32_MAX: Uint256 = Uint256::from_u32(u32::MAX);
 const U64_MAX: Uint256 = Uint256::from_u64(u64::MAX);
-const USIZE_MAX: Uint256 = Uint256::from_u128(usize::MAX as u128);
 
 /// A parsed struct representing the Ethereum event fired by the Gravity contract
 /// when the validator set is updated.
@@ -32,7 +31,8 @@ pub struct ValsetUpdatedEvent {
     pub event_nonce: u64,
     pub block_height: Uint256,
     pub reward_amount: Uint256,
-    pub reward_token: Option<EthAddress>,
+    pub reward_denom: String,
+    pub reward_recipient: String,
     pub members: Vec<ValsetMember>,
 }
 
@@ -41,20 +41,20 @@ pub struct ValsetUpdatedEvent {
 struct ValsetDataBytes {
     pub event_nonce: u64,
     pub reward_amount: Uint256,
-    pub reward_token: Option<EthAddress>,
+    pub reward_denom: String,
+    pub reward_recipient: String,
     pub members: Vec<ValsetMember>,
 }
 
+// TODO refactor the entire file to parse by arg index instead of code duplication.
 impl ValsetUpdatedEvent {
     /// Decodes the data bytes of a valset log event, separated for easy testing
     fn decode_data_bytes(input: &[u8]) -> Result<ValsetDataBytes, GravityError> {
-        if input.len() < 6 * 32 {
+        if input.len() < 7 * 32 {
             return Err(GravityError::ValidationError(
                 "too short for ValsetUpdatedEventData".to_string(),
             ));
         }
-        // first index is the event nonce, then the reward token, amount, following two have event data we don't
-        // care about, sixth index contains the length of the eth address array
 
         // event nonce
         let index_start = 0;
@@ -74,112 +74,51 @@ impl ValsetUpdatedEvent {
         let reward_amount_data = &input[index_start..index_end];
         let reward_amount = Uint256::from_bytes_be(reward_amount_data).unwrap();
 
-        // reward token
-        let index_start = 2 * 32;
-        let index_end = index_start + 32;
-        let reward_token_data = &input[index_start..index_end];
-        // addresses are 12 bytes shorter than the 32 byte field they are stored in
-        let reward_token = EthAddress::from_slice(&reward_token_data[12..]);
-        if let Err(e) = reward_token {
-            return Err(GravityError::ValidationError(format!(
-                "Bad reward address, must be incorrect parsing {:?}",
-                e
-            )));
-        }
-        let reward_token = reward_token.unwrap();
-        // zero address represents no reward, so we replace it here with a none
-        // for ease of checking in the future
-        let reward_token = if reward_token == ZERO_ADDRESS {
-            None
-        } else {
-            Some(reward_token)
+        let reward_denom = match parse_string(input, 2) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
         };
 
-        // below this we are parsing the dynamic data from the 6th index on
-        let index_start = 5 * 32;
-        let index_end = index_start + 32;
-        let eth_addresses_offset = index_end;
-        if input.len() < eth_addresses_offset {
-            return Err(GravityError::ValidationError(
-                "too short for dynamic data".to_string(),
-            ));
-        }
+        let reward_recipient = match parse_string(input, 3) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
+        };
 
-        let len_eth_addresses = Uint256::from_bytes_be(&input[index_start..index_end]).unwrap();
-        if len_eth_addresses > USIZE_MAX {
-            return Err(GravityError::ValidationError(
-                "Ethereum array len overflow, probably incorrect parsing".to_string(),
-            ));
-        }
-        let len_eth_addresses: usize = len_eth_addresses.to_string().parse().unwrap();
-        let index_start = (6 + len_eth_addresses) * 32;
-        let index_end = index_start + 32;
-        let powers_offset = index_end;
-        if input.len() < powers_offset {
-            return Err(GravityError::ValidationError(
-                "too short for dynamic data".to_string(),
-            ));
-        }
+        let validators_addresses: Vec<EthAddress> = match parse_address_array(input, 4) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
+        };
 
-        let len_powers = Uint256::from_bytes_be(&input[index_start..index_end]).unwrap();
-        if len_powers > USIZE_MAX {
+        let validators_powers: Vec<Uint256> = match parse_uint256_array(input, 5) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
+        };
+
+        if validators_addresses.len() != validators_powers.len() {
             return Err(GravityError::ValidationError(
-                "Powers array len overflow, probably incorrect parsing".to_string(),
-            ));
-        }
-        let len_powers: usize = len_eth_addresses.to_string().parse().unwrap();
-        if len_powers != len_eth_addresses {
-            return Err(GravityError::ValidationError(
-                "Array len mismatch, probably incorrect parsing".to_string(),
+                "validators_addresses len != validators_powers len".to_string(),
             ));
         }
 
         let mut validators = Vec::new();
-        for i in 0..len_eth_addresses {
-            let power_start = (i * 32) + powers_offset;
-            let power_end = power_start + 32;
-            let address_start = (i * 32) + eth_addresses_offset;
-            let address_end = address_start + 32;
-
-            if input.len() < address_end || input.len() < power_end {
-                return Err(GravityError::ValidationError(
-                    "too short for dynamic data".to_string(),
-                ));
-            }
-
-            let power = Uint256::from_bytes_be(&input[power_start..power_end]).unwrap();
-            // an eth address at 20 bytes is 12 bytes shorter than the Uint256 it's stored in.
-            let eth_address = EthAddress::from_slice(&input[address_start + 12..address_end]);
-            if eth_address.is_err() {
-                return Err(GravityError::ValidationError(
-                    "Ethereum Address parsing error, probably incorrect parsing".to_string(),
-                ));
-            }
-            let eth_address = eth_address.unwrap();
+        for i in 0..validators_powers.len() {
+            let power = validators_powers[i];
             if power > U64_MAX {
                 return Err(GravityError::ValidationError(
                     "Power greater than u64::MAX, probably incorrect parsing".to_string(),
                 ));
             }
             let power: u64 = power.to_string().parse().unwrap();
+            let eth_address = validators_addresses[i];
             validators.push(ValsetMember { power, eth_address })
-        }
-        let mut check = validators.clone();
-        check.sort();
-        check.reverse();
-        // if the validator set is not sorted we're in a bad spot
-        if validators != check {
-            trace!(
-                "Someone submitted an unsorted validator set, this means all updates will fail until someone feeds in this unsorted value by hand {:?} instead of {:?}",
-                validators, check
-            );
         }
 
         Ok(ValsetDataBytes {
             event_nonce,
             members: validators,
             reward_amount,
-            reward_token,
+            reward_denom,
+            reward_recipient,
         })
     }
 
@@ -222,7 +161,8 @@ impl ValsetUpdatedEvent {
             event_nonce: decoded_bytes.event_nonce,
             block_height,
             reward_amount: decoded_bytes.reward_amount,
-            reward_token: decoded_bytes.reward_token,
+            reward_denom: decoded_bytes.reward_denom,
+            reward_recipient: decoded_bytes.reward_recipient,
             members: decoded_bytes.members,
         })
     }
@@ -437,7 +377,14 @@ impl SendToCosmosEvent {
                 "denom length overflow, probably incorrect parsing".to_string(),
             ));
         }
-        let destination_str_len: usize = destination_str_len.to_string().parse().unwrap();
+        let destination_str_len: usize = match destination_str_len.try_resize_to_usize() {
+            Some(v) => v,
+            None => {
+                return Err(GravityError::ValidationError(
+                    "Can't resize to usize".into(),
+                ))
+            }
+        };
 
         let destination_str_start = 4 * 32;
         let destination_str_end = destination_str_start + destination_str_len;
@@ -611,7 +558,15 @@ impl Erc20DeployedEvent {
                 "denom length overflow, probably incorrect parsing".to_string(),
             ));
         }
-        let denom_len: usize = denom_len.to_string().parse().unwrap();
+        let denom_len: usize = match denom_len.try_resize_to_usize() {
+            Some(v) => v,
+            None => {
+                return Err(GravityError::ValidationError(
+                    "Can't resize to usize".into(),
+                ))
+            }
+        };
+
         let index_start = 6 * 32;
         let index_end = index_start + denom_len;
         let denom = String::from_utf8(data[index_start..index_end].to_vec());
@@ -664,7 +619,15 @@ impl Erc20DeployedEvent {
                 "ERC20 Name length overflow, probably incorrect parsing".to_string(),
             ));
         }
-        let erc20_name_len: usize = erc20_name_len.to_string().parse().unwrap();
+        let erc20_name_len: usize = match erc20_name_len.try_resize_to_usize() {
+            Some(v) => v,
+            None => {
+                return Err(GravityError::ValidationError(
+                    "Can't resize to usize".into(),
+                ))
+            }
+        };
+
         let index_start = index_end;
         let index_end = index_start + erc20_name_len;
 
@@ -718,7 +681,15 @@ impl Erc20DeployedEvent {
                 "Symbol length overflow, probably incorrect parsing".to_string(),
             ));
         }
-        let symbol_len: usize = symbol_len.to_string().parse().unwrap();
+        let symbol_len: usize = match symbol_len.try_resize_to_usize() {
+            Some(v) => v,
+            None => {
+                return Err(GravityError::ValidationError(
+                    "Can't resize to usize".into(),
+                ))
+            }
+        };
+
         let index_start = index_end;
         let index_end = index_start + symbol_len;
 
@@ -783,6 +754,7 @@ impl Erc20DeployedEvent {
         ret
     }
 }
+
 /// A parsed struct representing the Ethereum event fired when someone uses the Gravity
 /// contract to deploy a new ERC20 contract representing a Cosmos asset
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Eq, PartialEq, Hash)]
@@ -818,6 +790,151 @@ impl LogicCallExecutedEvent {
     }
 }
 
+fn parse_string(data: &[u8], arg_index: usize) -> Result<String, GravityError> {
+    // fetching the string from the first 32 bytes
+    let offset_start = arg_index * 32;
+    let offset_end = offset_start + 32;
+    let offset = Uint256::from_bytes_be(&data[offset_start..offset_end]).unwrap();
+
+    // parse start and end of the string length
+    let len_start_index = match offset.try_resize_to_usize() {
+        Some(v) => v,
+        None => {
+            return Err(GravityError::ValidationError(
+                "Can't resize to usize".into(),
+            ))
+        }
+    };
+    let len_end_index = len_start_index + 32;
+
+    let len = Uint256::from_bytes_be(&data[len_start_index..len_end_index]).unwrap();
+    let len: usize = match len.try_resize_to_usize() {
+        Some(v) => v,
+        None => {
+            return Err(GravityError::ValidationError(
+                "Can't resize to usize".into(),
+            ))
+        }
+    };
+
+    if len == 0 {
+        return Ok("".to_string());
+    }
+
+    let start_index = len_end_index;
+    // based on string length compute how many next bytes will be taken for that string
+    let end_index = start_index + (((len - 1) / 32) + 1) * 32;
+
+    match String::from_utf8(data[start_index..end_index].to_vec()) {
+        Ok(s) => Ok(s.trim_matches(char::from(0)).to_string()),
+        Err(e) => Err(GravityError::ValidationError(format!(
+            "Can't convert bytes from {:?} to {:?} to string, err: {:?}",
+            start_index, end_index, e
+        ))),
+    }
+}
+
+fn parse_address_array(data: &[u8], arg_index: usize) -> Result<Vec<EthAddress>, GravityError> {
+    // fetching the string from the first 32 bytes
+    let offset_start = arg_index * 32;
+    let offset_end = offset_start + 32;
+    let offset = Uint256::from_bytes_be(&data[offset_start..offset_end]).unwrap();
+
+    // parse start and end of the string length
+    let len_start_index: usize = match offset.try_resize_to_usize() {
+        Some(v) => v,
+        None => {
+            return Err(GravityError::ValidationError(
+                "Can't resize to usize".into(),
+            ))
+        }
+    };
+
+    let len_end_index = len_start_index + 32;
+
+    let len = Uint256::from_bytes_be(&data[len_start_index..len_end_index]).unwrap();
+    let len: usize = match len.try_resize_to_usize() {
+        Some(v) => v,
+        None => {
+            return Err(GravityError::ValidationError(
+                "Can't resize to usize".into(),
+            ))
+        }
+    };
+
+    let mut list: Vec<EthAddress> = Vec::new();
+    if len == 0 {
+        return Ok(list);
+    }
+
+    for i in 0..len {
+        let start_index = len_end_index + (32 * i);
+        let end_index = start_index + 32;
+
+        match EthAddress::from_slice(&data[start_index + 12..end_index]) {
+            Ok(v) => list.push(v),
+            Err(e) => {
+                return Err(GravityError::ValidationError(format!(
+                    "Can't convert bytes from {:?} to {:?} to string, err: {:?}",
+                    start_index, end_index, e
+                )));
+            }
+        }
+    }
+
+    Ok(list)
+}
+
+fn parse_uint256_array(data: &[u8], arg_index: usize) -> Result<Vec<Uint256>, GravityError> {
+    // fetching the string from the first 32 bytes
+    let offset_start = arg_index * 32;
+    let offset_end = offset_start + 32;
+    let offset = Uint256::from_bytes_be(&data[offset_start..offset_end]).unwrap();
+
+    // parse start and end of the string length
+    let len_start_index: usize = match offset.try_resize_to_usize() {
+        Some(v) => v,
+        None => {
+            return Err(GravityError::ValidationError(
+                "Can't resize to usize".into(),
+            ))
+        }
+    };
+    let len_end_index = len_start_index + 32;
+
+    let len = Uint256::from_bytes_be(&data[len_start_index..len_end_index]).unwrap();
+    let len: usize = match len.try_resize_to_usize() {
+        Some(v) => v,
+        None => {
+            return Err(GravityError::ValidationError(
+                "Can't resize to usize".into(),
+            ))
+        }
+    };
+
+    let mut list: Vec<Uint256> = Vec::new();
+    if len == 0 {
+        return Ok(list);
+    }
+
+    for i in 0..len {
+        let start_index = len_end_index + (32 * i);
+        let end_index = start_index + 32;
+
+        match Uint256::from_bytes_be(&data[start_index..end_index]) {
+            Some(v) => list.push(v),
+            None => {
+                return Err(GravityError::ValidationError(format!(
+                    "Can't convert bytes from {:?} to {:?} to Uint256, values is empty",
+                    start_index, end_index
+                )));
+            }
+        }
+    }
+
+    Ok(list)
+}
+
 /// Function used for debug printing hex dumps
 /// of ethereum events with each uint256 on a new
 /// line
@@ -841,7 +958,7 @@ mod tests {
 
     use super::*;
 
-    const FUZZ_TIMES: u64 = 10_000;
+    const FUZZ_TIMES: u64 = 1_000;
 
     fn get_fuzz_bytes(rng: &mut ThreadRng) -> Vec<u8> {
         let range = Uniform::from(1..200_000);
@@ -857,44 +974,52 @@ mod tests {
 
     #[test]
     fn test_valset_decode() {
-        let event = "0x0000000000000000000000000000000000000000000000000000000000000001\
-                          000000000000000000000000000000000000000000000000000000000000000000\
-                          000000000000000000000000000000000000000000000000000000000000000000\
-                          0000000000000000000000000000000000000000000000000000000000a0000000\
-                          000000000000000000000000000000000000000000000000000000012000000000\
-                          000000000000000000000000000000000000000000000000000000030000000000\
-                          000000000000001bb537aa56ffc7d608793baffc6c9c7de3c4f270000000000000\
-                          000000000000906313229cfb30959b39a5946099e4526625cbd400000000000000\
-                          00000000009f49c7617b72b5784f482bd728d26eba354a0b390000000000000000\
-                          000000000000000000000000000000000000000000000003000000000000000000\
-                          000000000000000000000000000000000000005555555500000000000000000000\
-                          000000000000000000000000000000000000555555550000000000000000000000\
-                          000000000000000000000000000000000055555555";
+        let event = "0x\
+        0000000000000000000000000000000000000000000000000000000000000002\
+        00000000000000000000000000000000000000000000000000000000004c4b40\
+        00000000000000000000000000000000000000000000000000000000000000c0\
+        0000000000000000000000000000000000000000000000000000000000000100\
+        0000000000000000000000000000000000000000000000000000000000000160\
+        00000000000000000000000000000000000000000000000000000000000001e0\
+        0000000000000000000000000000000000000000000000000000000000000005\
+        7561746f6d000000000000000000000000000000000000000000000000000000\
+        000000000000000000000000000000000000000000000000000000000000002d\
+        636f736d6f73317a6b6c386739766436327830796b767771346d646361656879\
+        6476776338796c683670616e7000000000000000000000000000000000000000\
+        0000000000000000000000000000000000000000000000000000000000000003\
+        000000000000000000000000c783df8a850f42e7f7e57013759c285caa701eb6\
+        000000000000000000000000e5904695748fe4a84b40b3fc79de2277660bd1d3\
+        000000000000000000000000ead9c93b79ae7c1591b1fb5323bd777e86e150d4\
+        0000000000000000000000000000000000000000000000000000000000000003\
+        0000000000000000000000000000000000000000000000000000000038e38e36\
+        0000000000000000000000000000000000000000000000000000000038e38e3c\
+        0000000000000000000000000000000000000000000000000000000038e38e39";
+
         let event_bytes = hex_str_to_bytes(event).unwrap();
 
         let correct = ValsetDataBytes {
-            event_nonce: 1u8.into(),
-            reward_amount: u256!(0),
-            reward_token: None,
+            event_nonce: 2u8.into(),
+            reward_amount: u256!(5000000),
+            reward_denom: "uatom".to_string(),
+            reward_recipient: "cosmos1zkl8g9vd62x0ykvwq4mdcaehydvwc8ylh6panp".to_string(),
             members: vec![
                 ValsetMember {
-                    eth_address: "0x1bb537Aa56fFc7D608793BAFFC6c9C7De3c4F270"
+                    eth_address: "0xc783df8a850f42e7F7e57013759C285caa701eB6"
                         .parse()
                         .unwrap(),
-                    power: 1431655765,
+                    power: 954437174,
                 },
                 ValsetMember {
-                    eth_address: "0x906313229CFB30959b39A5946099e4526625CBD4"
+                    eth_address: "0xE5904695748fe4A84b40b3fc79De2277660BD1D3"
                         .parse()
                         .unwrap(),
-                    power: 1431655765,
+                    power: 954437180,
                 },
                 ValsetMember {
-                    eth_address: "0x9F49C7617b72b5784F482Bd728d26EbA354a0B39"
+                    eth_address: "0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4"
                         .parse()
                         .unwrap(),
-
-                    power: 1431655765,
+                    power: 954437177,
                 },
             ],
         };

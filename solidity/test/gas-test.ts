@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, signHash, ZeroAddress} from "../test-utils/pure";
+import {examplePowers, getSignerAddresses, signHash, EmptyDenom} from "../test-utils/pure";
 
 chai.use(solidity);
 
@@ -27,7 +27,7 @@ describe("Gas tests", function () {
             powers,
             valsetNonce: 0,
             rewardAmount: 0,
-            rewardToken: ZeroAddress
+            rewardDenom: EmptyDenom
         }
 
         await gravity.testMakeCheckpoint(
@@ -61,7 +61,7 @@ describe("Gas tests", function () {
             powers: powers,
             valsetNonce: 0,
             rewardAmount: 0,
-            rewardToken: ZeroAddress
+            rewardDenom: EmptyDenom
         };
         await gravity.testCheckValidatorSignatures(
             v,

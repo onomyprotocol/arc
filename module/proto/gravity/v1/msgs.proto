@@ -246,8 +246,9 @@ message MsgValsetUpdatedClaim {
     (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int",
     (gogoproto.nullable)   = false
   ];
-  string reward_token              = 6;
-  string orchestrator              = 7;
+  string reward_denom              = 6;
+  string reward_recipient          = 7;
+  string orchestrator              = 8;
 }
 
 message MsgValsetUpdatedClaimResponse {}

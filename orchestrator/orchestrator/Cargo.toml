@@ -14,7 +14,7 @@ ethereum_gravity = { path = "../ethereum_gravity" }
 gravity_proto = { path = "../gravity_proto" }
 gravity_utils = { path = "../gravity_utils" }
 metrics_exporter = { path = "../metrics_exporter" }
-relayer = { path = "../relayer/" }
+relayer = { path = "../relayer" }
 
 futures = "0.3"
 lazy_static = "1"

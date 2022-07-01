@@ -1,7 +1,6 @@
 use gravity_utils::{
     clarity::{
         abi::{encode_call, Token},
-        constants::ZERO_ADDRESS,
         u256, Address as EthAddress, Uint256,
     },
     types::*,
@@ -158,23 +157,20 @@ impl GasCost {
 ///     uint256[] powers;
 ///     uint256 valsetNonce;
 ///     uint256 rewardAmount;
-///     address rewardToken;
+///     string rewardDenom;
 // }
 pub fn encode_valset_struct(valset: &Valset) -> Token {
     let (addresses, powers) = valset.to_arrays();
     let nonce = valset.nonce;
     let reward_amount = valset.reward_amount;
-    // the zero address represents 'no reward' in this case we have replaced it with a 'none'
-    // so that it's easy to identify if this validator set has a reward or not. Now that we're
-    // going to encode it for the contract call we need return it to the magic value the contract
-    // expects.
-    let reward_token = valset.reward_token.unwrap_or(ZERO_ADDRESS);
+    // the zero address represents 'no reward'
+    let reward_denom = valset.reward_denom.to_string();
     let struct_tokens = &[
         addresses.into(),
         powers.into(),
         nonce.into(),
         reward_amount.into(),
-        reward_token.into(),
+        Token::String(reward_denom),
     ];
     Token::Struct(struct_tokens.to_vec())
 }

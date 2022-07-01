@@ -93,10 +93,7 @@ lazy_static! {
     static ref MINER_ADDRESS: EthAddress = MINER_PRIVATE_KEY.to_address();
 }
 
-/// Gets the standard non-token fee for the testnet. We deploy the test chain with STAKE
-/// and FOOTOKEN balances by default, one footoken is sufficient for any Cosmos tx fee except
-/// fees for send_to_eth messages which have to be of the same bridged denom so that the relayers
-/// on the Ethereum side can be paid in that token.
+/// returns the static fee for the tests
 pub fn get_fee() -> Coin {
     Coin {
         denom: get_test_token_name(),
@@ -110,8 +107,9 @@ pub fn get_deposit() -> Coin {
         amount: u256!(1000000000000000000), // 10^18
     }
 }
+
 pub fn get_test_token_name() -> String {
-    "footoken".to_string()
+    "stake".to_string()
 }
 
 pub fn get_chain_id() -> String {

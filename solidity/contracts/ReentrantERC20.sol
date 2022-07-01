@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Apache-2.0
-pragma solidity 0.8.10;
+pragma solidity 0.8.15;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Gravity.sol";
 
@@ -17,7 +17,6 @@ contract ReentrantERC20 {
 		address[] memory addresses = new address[](0);
 		Signature[] memory sigs = new Signature[](0);
 		uint256[] memory uint256s = new uint256[](0);
-		address blankAddress = address(0);
 		bytes memory bytess = new bytes(0);
 		uint256 zero = 0;
 		LogicCallArgs memory args;
@@ -38,7 +37,7 @@ contract ReentrantERC20 {
 		}
 
 		{
-			valset = ValsetArgs(addresses, uint256s, zero, zero, blankAddress);
+			valset = ValsetArgs(addresses, uint256s, zero, zero, "");
 		}
 
 		Gravity(state_gravityAddress).submitLogicCall(valset, sigs, args);

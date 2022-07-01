@@ -6,7 +6,7 @@ use std::{
     fmt::Debug,
 };
 
-use clarity::{constants::ZERO_ADDRESS, u256, Address as EthAddress, Signature as EthSignature};
+use clarity::{u256, Address as EthAddress, Signature as EthSignature};
 use deep_space::{error::CosmosGrpcError, Address as CosmosAddress};
 use serde::{Deserialize, Serialize};
 
@@ -81,10 +81,9 @@ pub struct Valset {
     /// normalized powers for them
     pub members: Vec<ValsetMember>,
     /// An optional reward to be issued to the Relayer on Ethereum
-    /// TODO make Option<Uint256>
     pub reward_amount: Uint256,
-    /// An optional reward to be issued to the Relayer on Ethereum
-    pub reward_token: Option<EthAddress>,
+    /// An optional reward to be issued to the Relayer on Cosmos
+    pub reward_denom: String,
 }
 
 impl Valset {
@@ -296,17 +295,12 @@ impl From<gravity_proto::gravity::Valset> for Valset {
 
 impl From<&gravity_proto::gravity::Valset> for Valset {
     fn from(input: &gravity_proto::gravity::Valset) -> Self {
-        let parsed_reward_token = input.reward_token.parse().unwrap();
-        let reward_token = if parsed_reward_token == ZERO_ADDRESS {
-            None
-        } else {
-            Some(parsed_reward_token)
-        };
+        let reward_denom = input.reward_denom.clone();
         Valset {
             nonce: input.nonce,
             members: input.members.iter().map(|i| i.into()).collect(),
             reward_amount: Uint256::from_dec_or_hex_str_restricted(&input.reward_amount).unwrap(),
-            reward_token,
+            reward_denom,
         }
     }
 }
@@ -320,20 +314,9 @@ pub struct ValsetMember {
 }
 
 impl Ord for ValsetMember {
-    // Alex wrote the Go sorting implementation for validator
-    // sets as Greatest to Least, now this isn't the convention
-    // for any standard sorting implementation and Rust doesn't
-    // really like it when you implement sort yourself. It prefers
-    // Ord. So here we implement Ord with the Eth address sorting
-    // reversed, since they are also sorted greatest to least in
-    // the Cosmos module. Then we can call .sort and .reverse and get
-    // the same sorting as the Cosmos module.
+    // Sort by the eth_address asc
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.power != other.power {
-            self.power.cmp(&other.power)
-        } else {
-            self.eth_address.cmp(&other.eth_address).reverse()
-        }
+        self.eth_address.cmp(&other.eth_address)
     }
 }
 
@@ -424,7 +407,7 @@ impl Into<gravity_proto::gravity::Valset> for &Valset {
             height: 0,
             members: self.members.iter().map(|v| v.into()).collect(),
             reward_amount: self.reward_amount.to_string(),
-            reward_token: self.reward_token.unwrap_or(ZERO_ADDRESS).to_string(),
+            reward_denom: self.reward_denom.to_string(),
         }
     }
 }

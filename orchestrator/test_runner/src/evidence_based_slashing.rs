@@ -50,7 +50,7 @@ pub async fn evidence_based_slashing(
             eth_address: eth_addr,
         }],
         reward_amount: u256!(0),
-        reward_token: None,
+        reward_denom: "".to_string(),
     };
     let gravity_id = get_gravity_id(gravity_address, eth_addr, web30)
         .await

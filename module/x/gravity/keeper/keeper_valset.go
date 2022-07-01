@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -265,14 +264,9 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) (types.Valset, error) {
 	// on how many validators have keys set.
 	bridgeValidators := make([]*types.InternalBridgeValidator, 0, len(validators))
 	totalPower := sdk.NewInt(0)
-	// TODO someone with in depth info on Cosmos staking should determine
-	// if this is doing what I think it's doing
+
 	for _, validator := range validators {
 		val := validator.GetOperator()
-		if err := sdk.VerifyAddressFormat(val); err != nil {
-			return types.Valset{}, sdkerrors.Wrap(err, types.ErrInvalidValAddress.Error())
-		}
-
 		p := sdk.NewInt(k.StakingKeeper.GetLastValidatorPower(ctx, val))
 
 		if ethAddr, found := k.GetEthAddressByValidator(ctx, val); found {
@@ -290,35 +284,21 @@ func (k Keeper) GetCurrentValset(ctx sdk.Context) (types.Valset, error) {
 		bridgeValidators[i].Power = normalizeValidatorPower(bridgeValidators[i].Power, totalPower)
 	}
 
-	// get the reward from the params store
-	reward := k.GetParams(ctx).ValsetReward
-	var rewardToken *types.EthAddress
-	var rewardAmount sdk.Int
-	if !reward.IsValid() || reward.IsZero() {
-		// the case where a validator has 'no reward'. The 'no reward' value is interpreted as having a zero
-		// address for the ERC20 token and a zero value for the reward amount. Since we store a coin with the
-		// params, a coin with a blank denom and/or zero amount is interpreted in this way.
-		za := types.ZeroAddress()
-		rewardToken = &za
-		rewardAmount = sdk.NewIntFromUint64(0)
-
-	} else {
-		rewardToken, rewardAmount = k.RewardToERC20Lookup(ctx, reward)
+	rewardDenom := ""
+	rewardAmount := sdk.ZeroInt()
+	rewardParams := k.GetParams(ctx).ValsetReward
+	if rewardParams.IsValid() && !rewardParams.IsZero() {
+		rewardDenom = rewardParams.Denom
+		rewardAmount = rewardParams.Amount
 	}
 
 	// increment the nonce, since this potential future valset should be after the current valset
 	valsetNonce := k.GetLatestValsetNonce(ctx) + 1
 
-	valset, err := types.NewValset(valsetNonce, uint64(ctx.BlockHeight()), bridgeValidators, rewardAmount, *rewardToken)
+	valset, err := types.NewValset(valsetNonce, uint64(ctx.BlockHeight()), bridgeValidators, rewardAmount, rewardDenom)
 	if err != nil {
 		return types.Valset{}, (sdkerrors.Wrap(err, types.ErrInvalidValset.Error()))
 	}
-
-	// this part is important for gravity contract
-	// since we expect the valset to be sorted by Eth Address in ASC order
-	sort.Slice(valset.Members, func(i, j int) bool {
-		return strings.ToLower(valset.Members[i].EthereumAddress) < strings.ToLower(valset.Members[j].EthereumAddress)
-	})
 
 	return *valset, nil
 }

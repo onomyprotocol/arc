@@ -186,7 +186,7 @@ dependencies = [
 [[package]]
 name = "clarity"
 version = "0.5.1"
-source = "git+https://github.com/onomyprotocol/clarity.git?rev=52bc13f7d2778d293e2d787528d481604620a281#52bc13f7d2778d293e2d787528d481604620a281"
+source = "git+https://github.com/onomyprotocol/clarity.git?rev=0b69d4aabae546a2d1bd296f04ba64a8a1546b9a#0b69d4aabae546a2d1bd296f04ba64a8a1546b9a"
 dependencies = [
  "secp256k1",
  "serde",
@@ -2239,7 +2239,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 [[package]]
 name = "web30"
 version = "0.18.3"
-source = "git+https://github.com/onomyprotocol/web30.git?rev=645c0509246fedff01aed1aa4c26eb804f3fec1a#645c0509246fedff01aed1aa4c26eb804f3fec1a"
+source = "git+https://github.com/onomyprotocol/web30.git?rev=3e009bf55c7740ef5bb692c1f1ec8d9724687dbc#3e009bf55c7740ef5bb692c1f1ec8d9724687dbc"
 dependencies = [
  "clarity",
  "hyper",

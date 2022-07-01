@@ -18,19 +18,16 @@ pub async fn get_weth_price(
         return Ok(u256!(0));
     }
 
-    // TODO: Make sure the market is not too thin
-    let price = web3
-        .get_uniswap_price(
-            pubkey,
-            token,
-            *WETH_CONTRACT_ADDRESS,
-            None,
-            amount,
-            None,
-            None,
-        )
-        .await;
-    price
+    web3.get_uniswap_price(
+        pubkey,
+        token,
+        *WETH_CONTRACT_ADDRESS,
+        None,
+        amount,
+        None,
+        None,
+    )
+    .await
 }
 
 /// utility function, gets the price of a given ER20 token in uniswap in DAI given the erc20 address and amount
@@ -46,17 +43,14 @@ pub async fn get_dai_price(
         return Ok(u256!(0));
     }
 
-    // TODO: Make sure the market is not too thin
-    let price = web3
-        .get_uniswap_price(
-            pubkey,
-            token,
-            *DAI_CONTRACT_ADDRESS,
-            None,
-            amount,
-            None,
-            None,
-        )
-        .await;
-    price
+    web3.get_uniswap_price(
+        pubkey,
+        token,
+        *DAI_CONTRACT_ADDRESS,
+        None,
+        amount,
+        None,
+        None,
+    )
+    .await
 }

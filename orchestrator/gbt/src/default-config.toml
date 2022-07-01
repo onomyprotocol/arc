@@ -13,10 +13,6 @@ batch_request_mode = "ProfitableOnly"
 [relayer.valset_relaying_mode]
 mode = "Altruistic"
 
-# [relayer.valset_relaying_mode]
-# mode = "ProfitableOnly"
-# margin = 1.5
-
 [relayer.batch_relaying_mode]
 mode = "ProfitableOnly"
 margin = 1.1

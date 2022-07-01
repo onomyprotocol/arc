@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, signHash, ZeroAddress,} from "../test-utils/pure";
+import {examplePowers, getSignerAddresses, signHash, EmptyDenom,} from "../test-utils/pure";
 
 chai.use(solidity);
 const {expect} = chai;
@@ -150,7 +150,7 @@ async function runTest(opts: {
         powers,
         valsetNonce: currentValsetNonce,
         rewardAmount: 0,
-        rewardToken: ZeroAddress
+        rewardDenom: EmptyDenom
     }
 
     let batchSubmitTx = await gravity.submitBatch(
@@ -304,7 +304,7 @@ describe("submitBatch Go test hash", function () {
             powers,
             valsetNonce: currentValsetNonce,
             rewardAmount: 0,
-            rewardToken: ZeroAddress
+            rewardDenom: EmptyDenom
         }
 
         await gravity.submitBatch(

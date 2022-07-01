@@ -601,11 +601,6 @@ func (e *MsgValsetUpdatedClaim) ValidateBasic() error {
 		return fmt.Errorf("nonce == 0")
 	}
 
-	err := ValidateEthAddress(e.RewardToken)
-	if err != nil {
-		return err
-	}
-
 	for _, member := range e.Members {
 		err := ValidateEthAddress(member.EthereumAddress)
 		if err != nil {
@@ -659,7 +654,7 @@ func (b *MsgValsetUpdatedClaim) ClaimHash() ([]byte, error) {
 		return nil, sdkerrors.Wrap(err, "invalid members")
 	}
 	internalMembers.Sort()
-	path := fmt.Sprintf("%d/%d/%d/%x/%s/%s", b.EventNonce, b.ValsetNonce, b.BlockHeight, internalMembers.ToExternal(), b.RewardAmount.String(), b.RewardToken)
+	path := fmt.Sprintf("%d/%d/%d/%x/%s/%s/%s", b.EventNonce, b.ValsetNonce, b.BlockHeight, internalMembers.ToExternal(), b.RewardAmount.String(), b.RewardDenom, b.RewardRecipient)
 	return tmhash.Sum([]byte(path)), nil
 }
 

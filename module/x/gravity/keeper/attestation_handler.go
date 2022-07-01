@@ -2,15 +2,15 @@ package keeper
 
 import (
 	"fmt"
-	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	"math/big"
 	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
-
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	distypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+
 	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 )
 
@@ -271,70 +271,54 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation, claim
 			),
 		)
 	case *types.MsgValsetUpdatedClaim:
-		rewardAddress, err := types.NewEthAddress(claim.RewardToken)
-		if err != nil {
-			return sdkerrors.Wrap(err, "invalid reward token on claim")
-		}
-		// TODO here we should check the contents of the validator set against
-		// the store, if they differ we should take some action to indicate to the
-		// user that bridge highjacking has occurred
 		a.keeper.SetLastObservedValset(ctx, types.Valset{
 			Nonce:        claim.ValsetNonce,
 			Members:      claim.Members,
 			Height:       0,
 			RewardAmount: claim.RewardAmount,
-			RewardToken:  claim.RewardToken,
+			RewardDenom:  claim.RewardDenom,
 		})
-		// if the reward is greater than zero and the reward token
-		// is valid then some reward was issued by this validator set
-		// and we need to either add to the total tokens for a Cosmos native
-		// token, or burn non cosmos native tokens
-		if claim.RewardAmount.GT(sdk.ZeroInt()) && claim.RewardToken != types.ZeroAddressString {
-			// Check if coin is Cosmos-originated asset and get denom
-			isCosmosOriginated, denom := a.keeper.ERC20ToDenomLookup(ctx, *rewardAddress)
-			if isCosmosOriginated {
-				// If it is cosmos originated, mint some coins to account
-				// for coins that now exist on Ethereum and may eventually come
-				// back to Cosmos.
-				//
-				// Note the flow is
-				// user relays valset and gets reward -> event relayed to cosmos mints tokens to module
-				// -> user sends tokens to cosmos and gets the minted tokens from the module
-				//
-				// it is not possible for this to be a race condition thanks to the event nonces
-				// no matter how long it takes to relay the valset updated event the deposit event
-				// for the user will always come after.
-				//
-				// Note we are minting based on the claim! This is important as the reward value
-				// could change between when this event occurred and the present
-				coins := sdk.Coins{sdk.NewCoin(denom, claim.RewardAmount)}
-				if err := a.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
-					ctx.EventManager().EmitEvent(
-						sdk.NewEvent(
-							sdk.EventTypeMessage,
-							sdk.NewAttribute("MsgValsetUpdatedClaim", strconv.Itoa(int(claim.GetEventNonce()))),
-						),
-					)
-					return sdkerrors.Wrapf(err, "unable to mint cosmos originated coins %v", coins)
-				}
-			} else {
-				// // If it is not cosmos originated, burn the coins (aka Vouchers)
-				// // so that we don't think we have more in the bridge than we actually do
-				// coins := sdk.Coins{sdk.NewCoin(denom, claim.RewardAmount)}
-				// a.bankKeeper.BurnCoins(ctx, types.ModuleName, coins)
-
-				// if you want to issue Ethereum originated tokens remove this panic and uncomment
-				// the above code but note that you will have to constantly replenish the tokens in the
-				// module or your chain will eventually halt.
-				panic("Can not use Ethereum originated token as reward!")
-			}
-		}
 		ctx.EventManager().EmitEvent(
 			sdk.NewEvent(
 				sdk.EventTypeMessage,
 				sdk.NewAttribute("MsgValsetUpdatedClaim", strconv.Itoa(int(claim.GetEventNonce()))),
 			),
 		)
+
+		// if the reward is greater than zero and the reward token isn't nil we process the reward
+		if !claim.RewardAmount.IsNil() && claim.RewardAmount.GT(sdk.ZeroInt()) && claim.RewardDenom != "" {
+			// Mint some coins to account and send to the recipient.
+			//
+			// Note the flow is
+			// user relays valset -> event relayed to cosmos mints tokens to module and sends to recipient
+			//
+			// it is not possible for this to be a race condition thanks to the event nonces
+			// no matter how long it takes to relay the valset updated event the deposit event
+			// for the user will always come after.
+			//
+			// Note we are minting based on the claim! This is important as the reward value
+			// could change between when this event occurred and the present
+			coins := sdk.Coins{sdk.NewCoin(claim.RewardDenom, claim.RewardAmount)}
+			if err := a.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
+				return sdkerrors.Wrapf(err, "unable to mint cosmos originated coins for valset reward, coins: %v",
+					coins)
+			}
+
+			// If the recipient address is valid we send the minted coins to the provided address.
+			// If the address is wrong, the minted coins will be sent to the community pool.
+			recipient, err := sdk.AccAddressFromBech32(claim.RewardRecipient)
+			if err != nil {
+				if err := a.SendToCommunityPool(ctx, coins); err != nil {
+					return sdkerrors.Wrapf(err, "unable to send coins to community pool for valset reward, coins: %v",
+						coins)
+				}
+				return nil
+			}
+			if err := a.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, coins); err != nil {
+				return sdkerrors.Wrapf(err, "unable to send coins to recipient for valset reward, coins: %v, %s",
+					coins, recipient.String())
+			}
+		}
 
 	default:
 		panic(fmt.Sprintf("Invalid event type for attestations %s", claim.GetType()))
