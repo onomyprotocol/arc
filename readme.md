@@ -34,7 +34,7 @@ These are mid-level docs on the [design overview page](/docs/design/overview.md)
 
 ### Integrated EVM Chains
 
-[Ethereum](https://github.com/onomyprotocol/onomy-arc/tree/main/) | [Avalanche](https://github.com/onomyprotocol/onomy-arc/tree/avax) | [Aurora](https://github.com/onomyprotocol/near-aurora-bridge) | [Polygon](https://github.com/onomyprotocol/onomy-arc/tree/polygon) | [Fantom](https://github.com/onomyprotocol/onomy-arc/tree/fantom) | [Neon](https://github.com/onomyprotocol/onomy-arc/tree/neon) | [Moonbeam](https://github.com/onomyprotocol/onomy-arc/tree/moonbeam) 
+[Ethereum](https://github.com/onomyprotocol/arc/tree/main/) | [Avalanche](https://github.com/onomyprotocol/arc/tree/avax) | [Aurora](https://github.com/onomyprotocol/near-aurora-bridge) | [Polygon](https://github.com/onomyprotocol/arc/tree/polygon) | [Fantom](https://github.com/onomyprotocol/arc/tree/fantom) | [Neon](https://github.com/onomyprotocol/arc/tree/neon) | [Moonbeam](https://github.com/onomyprotocol/arc/tree/moonbeam) 
 
 ### Developer Guide
 
