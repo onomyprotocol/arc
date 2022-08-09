@@ -31,7 +31,7 @@ The test runner module contains some logic for running the contract deployer and
 
 In order to add a new test define a new test_type environmental variable in the test runners `main.rs` file from there you can create a new file containing the test logic templated off of the various existing examples.
 
-The [happy_path_test](/orchestrator/test_runner/src/happy_path.rs) for example uses several repeatable utility functions to
+The [happy_path_test](/orchestrator/test_runner/src/validator_out) for example uses several repeatable utility functions to
 
 - start the orchestrators (with integrated relaying turned on)
 - generate keys for test users

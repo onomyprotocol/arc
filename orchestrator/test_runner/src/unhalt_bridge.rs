@@ -21,8 +21,8 @@ use tonic::transport::Channel;
 use crate::{
     airdrop_proposal::wait_for_proposals_to_execute,
     get_deposit, get_fee,
-    happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result},
     utils::*,
+    validator_out::{test_erc20_deposit_panic, test_erc20_deposit_result},
     ONE_ETH, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
 };
 

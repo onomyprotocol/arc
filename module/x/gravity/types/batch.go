@@ -11,7 +11,7 @@ import (
 )
 
 func (o OutgoingTransferTx) ToInternal() (*InternalOutgoingTransferTx, error) {
-	return NewInternalOutgoingTransferTx(o.Id, o.Sender, o.DestAddress, o.Erc20Token, o.Erc20Fee)
+	return NewInternalOutgoingTransferTx(o.Id, o.Sender, o.DestAddress, o.Erc20Token, o.Fee)
 }
 
 // InternalOutgoingTransferTx is an internal duplicate of OutgoingTransferTx with validation
@@ -20,7 +20,7 @@ type InternalOutgoingTransferTx struct {
 	Sender      sdk.AccAddress
 	DestAddress *EthAddress
 	Erc20Token  *InternalERC20Token
-	Erc20Fee    *InternalERC20Token
+	Fee         *sdk.Coin
 }
 
 func NewInternalOutgoingTransferTx(
@@ -28,7 +28,7 @@ func NewInternalOutgoingTransferTx(
 	sender string,
 	destAddress string,
 	erc20Token ERC20Token,
-	erc20Fee ERC20Token,
+	fee sdk.Coin,
 ) (*InternalOutgoingTransferTx, error) {
 	send, err := sdk.AccAddressFromBech32(sender)
 	if err != nil {
@@ -42,17 +42,13 @@ func NewInternalOutgoingTransferTx(
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "invalid Erc20Token")
 	}
-	fee, err := erc20Fee.ToInternal()
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "invalid Erc20Fee")
-	}
 
 	return &InternalOutgoingTransferTx{
 		Id:          id,
 		Sender:      send,
 		DestAddress: dest,
 		Erc20Token:  token,
-		Erc20Fee:    fee,
+		Fee:         &fee,
 	}, nil
 }
 
@@ -62,7 +58,7 @@ func (i InternalOutgoingTransferTx) ToExternal() OutgoingTransferTx {
 		Sender:      i.Sender.String(),
 		DestAddress: i.DestAddress.GetAddress(),
 		Erc20Token:  i.Erc20Token.ToExternal(),
-		Erc20Fee:    i.Erc20Fee.ToExternal(),
+		Fee:         *i.Fee,
 	}
 }
 
@@ -77,9 +73,9 @@ func (i InternalOutgoingTransferTx) ValidateBasic() error {
 	if err != nil {
 		return sdkerrors.Wrap(err, "invalid Erc20Token")
 	}
-	err = i.Erc20Fee.ValidateBasic()
+	err = i.Fee.Validate()
 	if err != nil {
-		return sdkerrors.Wrap(err, "invalid Erc20Fee")
+		return sdkerrors.Wrap(err, "invalid Fee")
 	}
 	return nil
 }
@@ -219,11 +215,10 @@ func (i InternalOutgoingTxBatch) GetCheckpoint(gravityIDstring string) []byte {
 	// Run through the elements of the batch and serialize them
 	txAmounts := make([]*big.Int, len(i.Transactions))
 	txDestinations := make([]gethcommon.Address, len(i.Transactions))
-	txFees := make([]*big.Int, len(i.Transactions))
+
 	for j, tx := range i.Transactions {
 		txAmounts[j] = tx.Erc20Token.Amount.BigInt()
 		txDestinations[j] = gethcommon.HexToAddress(tx.DestAddress.GetAddress())
-		txFees[j] = tx.Erc20Fee.Amount.BigInt()
 	}
 
 	// the methodName needs to be the same as the 'name' above in the checkpointAbiJson
@@ -234,7 +229,6 @@ func (i InternalOutgoingTxBatch) GetCheckpoint(gravityIDstring string) []byte {
 		batchMethodName,
 		txAmounts,
 		txDestinations,
-		txFees,
 		big.NewInt(int64(i.BatchNonce)),
 		gethcommon.HexToAddress(i.TokenContract.GetAddress()),
 		big.NewInt(int64(i.BatchTimeout)),

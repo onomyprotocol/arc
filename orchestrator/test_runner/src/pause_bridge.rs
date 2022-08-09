@@ -24,8 +24,8 @@ use tonic::transport::Channel;
 use crate::{
     airdrop_proposal::wait_for_proposals_to_execute,
     get_fee,
-    happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result},
     utils::*,
+    validator_out::{test_erc20_deposit_panic, test_erc20_deposit_result},
     MINER_ADDRESS, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
 };
 
@@ -109,38 +109,45 @@ pub async fn pause_bridge_test(
     }
 
     // Try to create a batch and send tokens to Ethereum
-    let coin = contact
+    let coin_balance = contact
         .get_balance(
             user_keys.cosmos_address,
-            format!("gravity{}", erc20_address),
+            convert_to_erc20_denom(erc20_address),
         )
         .await
         .unwrap()
         .unwrap();
-    let token_name = coin.denom;
-    let amount = coin.amount;
 
-    let bridge_denom_fee = Coin {
-        denom: token_name.clone(),
-        amount: u256!(1),
+    let coin_to_bridge = Coin {
+        denom: coin_balance.denom,
+        amount: coin_balance.amount.checked_sub(u256!(5)).unwrap(),
     };
-    let amount = amount.checked_sub(u256!(5)).unwrap();
+    let bridge_fee = get_fee();
+    let cosmos_tx_fee = get_fee();
+
+    // send some coins to pay fees
+    send_cosmos_coins(
+        contact,
+        keys[0].validator_key,
+        vec![user_keys.cosmos_address],
+        vec![bridge_fee.clone(), cosmos_tx_fee.clone()],
+    )
+    .await;
+
     send_to_eth(
         user_keys.cosmos_key,
         user_keys.eth_address,
-        Coin {
-            denom: token_name.clone(),
-            amount,
-        },
-        bridge_denom_fee.clone(),
-        bridge_denom_fee.clone(),
+        coin_to_bridge.clone(),
+        bridge_fee,
+        cosmos_tx_fee,
         contact,
     )
     .await
     .unwrap();
+
     let res = send_request_batch(
         keys[0].orch_key,
-        token_name.clone(),
+        coin_to_bridge.denom.clone(),
         Some(get_fee()),
         contact,
     )
@@ -186,14 +193,14 @@ pub async fn pause_bridge_test(
     let res = contact
         .get_balance(
             user_keys.cosmos_address,
-            format!("gravity{}", erc20_address),
+            convert_to_erc20_denom(erc20_address),
         )
         .await
         .unwrap()
         .unwrap();
-    // check that our balance is equal to 200 (two deposits) minus 95 (sent to eth) - 1 (fee) - 1 (fee for batch request)
+    // check that our balance is equal to 200 (two deposits) minus 95 (sent to eth)
     // NOTE this makes the test not imdepotent but it's not anyways, a crash may leave the bridge halted
-    assert_eq!(res.amount, u256!(103));
+    assert_eq!(res.amount, u256!(105));
 
     let mut current_eth_batch_nonce =
         get_tx_batch_nonce(gravity_address, erc20_address, *MINER_ADDRESS, web30)
@@ -203,7 +210,7 @@ pub async fn pause_bridge_test(
     // now we make sure our tokens in the batch queue make it across
     send_request_batch(
         keys[0].orch_key,
-        token_name.clone(),
+        coin_to_bridge.denom.clone(),
         Some(get_fee()),
         contact,
     )

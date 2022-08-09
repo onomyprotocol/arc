@@ -1,5 +1,5 @@
 pub const TRANSACTION_BATCH_EXECUTED_EVENT_SIG: &str =
-    "TransactionBatchExecutedEvent(uint256,address,uint256)";
+    "TransactionBatchExecutedEvent(uint256,address,uint256,string)";
 
 pub const SENT_TO_COSMOS_EVENT_SIG: &str =
     "SendToCosmosEvent(address,address,string,uint256,uint256)";

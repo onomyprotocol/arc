@@ -1,8 +1,9 @@
 syntax = "proto3";
 package gravity.v1;
 
-import "gogoproto/gogo.proto";
+import "cosmos/base/v1beta1/coin.proto";
 import "gravity/v1/attestation.proto";
+import "gogoproto/gogo.proto";
 
 option go_package = "github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types";
 
@@ -17,11 +18,13 @@ message OutgoingTxBatch {
 
 // OutgoingTransferTx represents an individual send from gravity to ETH
 message OutgoingTransferTx {
-  uint64     id           = 1;
-  string     sender       = 2;
-  string     dest_address = 3;
-  ERC20Token erc20_token = 4 [(gogoproto.nullable) = false];
-  ERC20Token erc20_fee = 5 [(gogoproto.nullable) = false];
+  uint64     id                = 1;
+  string     sender            = 2;
+  string     dest_address      = 3;
+  ERC20Token erc20_token       = 4 [(gogoproto.nullable) = false];
+  cosmos.base.v1beta1.Coin fee = 5 [
+    (gogoproto.nullable)   = false
+  ];
 }
 
 // OutgoingLogicCall represents an individual logic call from gravity to ETH

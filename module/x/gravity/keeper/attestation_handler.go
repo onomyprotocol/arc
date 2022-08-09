@@ -9,7 +9,6 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	distypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 
 	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 )
@@ -36,19 +35,6 @@ func (a AttestationHandler) ValidateMembers() {
 	if a.distKeeper == nil {
 		panic("Nil distKeeper!")
 	}
-}
-
-// SendToCommunityPool handles sending incorrect deposits to the community pool, since the deposits
-// have already been made on Ethereum there's nothing we can do to reverse them, and we should at least
-// make use of the tokens which would otherwise be lost
-func (a AttestationHandler) SendToCommunityPool(ctx sdk.Context, coins sdk.Coins) error {
-	if err := a.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, distypes.ModuleName, coins); err != nil {
-		return sdkerrors.Wrap(err, "transfer to community pool failed")
-	}
-	feePool := (*a.distKeeper).GetFeePool(ctx)
-	feePool.CommunityPool = feePool.CommunityPool.Add(sdk.NewDecCoinsFromCoins(coins...)...)
-	(*a.distKeeper).SetFeePool(ctx, feePool)
-	return nil
 }
 
 // Handle is the entry point for Attestation processing.
@@ -157,7 +143,7 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation, claim
 		// the cosmos side they will be lost an inaccessible even though they are locked in the bridge.
 		// so we deposit the tokens into the community pool for later use
 		if invalidAddress {
-			if err = a.SendToCommunityPool(ctx, coins); err != nil {
+			if err = a.keeper.SendToCommunityPool(ctx, coins); err != nil {
 				hash, _ := claim.ClaimHash()
 				a.keeper.logger(ctx).Error("Failed community pool send",
 					"cause", err.Error(),
@@ -192,7 +178,7 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation, claim
 		if err != nil {
 			return sdkerrors.Wrap(err, "invalid token contract on batch")
 		}
-		a.keeper.OutgoingTxBatchExecuted(ctx, *contract, claim.BatchNonce)
+		a.keeper.OutgoingTxBatchExecuted(ctx, *contract, claim.BatchNonce, claim.RewardRecipient)
 		ctx.EventManager().EmitEvent(
 			sdk.NewEvent(
 				sdk.EventTypeMessage,
@@ -306,18 +292,7 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation, claim
 
 			// If the recipient address is valid we send the minted coins to the provided address.
 			// If the address is wrong, the minted coins will be sent to the community pool.
-			recipient, err := sdk.AccAddressFromBech32(claim.RewardRecipient)
-			if err != nil {
-				if err := a.SendToCommunityPool(ctx, coins); err != nil {
-					return sdkerrors.Wrapf(err, "unable to send coins to community pool for valset reward, coins: %v",
-						coins)
-				}
-				return nil
-			}
-			if err := a.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, coins); err != nil {
-				return sdkerrors.Wrapf(err, "unable to send coins to recipient for valset reward, coins: %v, %s",
-					coins, recipient.String())
-			}
+			return a.keeper.SendCoinsToRecipientOrCommunityPool(ctx, claim.RewardRecipient, coins)
 		}
 
 	default:

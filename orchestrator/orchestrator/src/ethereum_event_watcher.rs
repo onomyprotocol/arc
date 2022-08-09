@@ -153,8 +153,8 @@ pub async fn check_for_events(
         }
         if !withdraws.is_empty() {
             info!(
-                "Oracle observed batch with nonce {}, contract {}, and event nonce {}",
-                withdraws[0].batch_nonce, withdraws[0].erc20, withdraws[0].event_nonce
+                "Oracle observed batch with nonce {}, erc20 {}, reward recipient {}, and event nonce {}",
+                withdraws[0].batch_nonce, withdraws[0].erc20, withdraws[0].reward_recipient, withdraws[0].event_nonce
             )
         }
         if !erc20_deploys.is_empty() {

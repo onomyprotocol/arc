@@ -11,7 +11,7 @@ use gravity_utils::{
 };
 use tonic::transport::Channel;
 
-use crate::{happy_path::test_erc20_deposit_panic, utils::*, ONE_ETH};
+use crate::{get_fee, utils::*, validator_out::test_erc20_deposit_panic, ONE_ETH};
 
 // Justin: Here's the method I set up to test out sending and cancelling, but I have not been able to get any transaction ids
 // So I have not been able to generate the cancel request
@@ -44,28 +44,36 @@ pub async fn send_to_eth_and_cancel(
     )
     .await;
 
-    let token_name = format!("gravity{}", erc20_address);
-
-    let bridge_denom_fee = Coin {
-        denom: token_name.clone(),
-        amount: u256!(500),
+    let coin_to_bridge = Coin {
+        denom: convert_to_erc20_denom(erc20_address),
+        amount: ONE_ETH.checked_sub(u256!(1_500)).unwrap(),
     };
-    let amount = ONE_ETH.checked_sub(u256!(1_500)).unwrap();
+    let bridge_fee = get_fee();
+    let cosmos_tx_fee = get_fee();
+    // send some coins to pay fees
+    send_cosmos_coins(
+        contact,
+        keys[0].validator_key,
+        vec![user_keys.cosmos_address],
+        vec![
+            bridge_fee.clone(),
+            cosmos_tx_fee.clone(),
+            cosmos_tx_fee.clone(),
+        ],
+    )
+    .await;
+
     info!(
         "Sending {}{} from {} on Cosmos back to Ethereum",
-        amount, token_name, user_keys.cosmos_address
+        coin_to_bridge.amount, coin_to_bridge.denom, user_keys.cosmos_address
     );
 
-    // Generate the tx (this part is working for me)
     let res = send_to_eth(
         user_keys.cosmos_key,
         user_keys.eth_address,
-        Coin {
-            denom: token_name.clone(),
-            amount,
-        },
-        bridge_denom_fee.clone(),
-        bridge_denom_fee.clone(),
+        coin_to_bridge,
+        bridge_fee,
+        cosmos_tx_fee.clone(),
         contact,
     )
     .await
@@ -83,14 +91,9 @@ pub async fn send_to_eth_and_cancel(
 
     let send_to_eth_id = res.unbatched_transfers[0].id;
 
-    cancel_send_to_eth(
-        user_keys.cosmos_key,
-        bridge_denom_fee,
-        contact,
-        send_to_eth_id,
-    )
-    .await
-    .unwrap();
+    cancel_send_to_eth(user_keys.cosmos_key, cosmos_tx_fee, contact, send_to_eth_id)
+        .await
+        .unwrap();
 
     let res = get_pending_send_to_eth(&mut grpc_client, user_keys.cosmos_address)
         .await

@@ -19,11 +19,11 @@ use tonic::transport::Channel;
 
 use crate::{
     airdrop_proposal::wait_for_proposals_to_execute,
-    happy_path::test_valset_update,
     utils::{
         create_default_test_config, create_parameter_change_proposal, start_orchestrators,
         vote_yes_on_proposals, ValidatorKeys,
     },
+    validator_out::test_valset_update,
     TOTAL_TIMEOUT,
 };
 

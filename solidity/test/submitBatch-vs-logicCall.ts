@@ -4,7 +4,7 @@ import {solidity} from "ethereum-waffle";
 import {TestTokenBatchMiddleware} from "../typechain/TestTokenBatchMiddleware";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, signHash, EmptyDenom,} from "../test-utils/pure";
+import {EmptyCosmosAddress, EmptyDenom, examplePowers, getSignerAddresses, signHash,} from "../test-utils/pure";
 import {Signer} from "ethers";
 import {Gravity} from "../typechain/Gravity";
 import {TestERC20A} from "../typechain/TestERC20A";
@@ -17,10 +17,8 @@ const {expect} = chai;
 async function prepareTxBatch(batchSize: number, signers: Signer[]) {
     const numTxs = batchSize;
     const destinations = new Array(numTxs);
-    const fees = new Array(numTxs);
     const amounts = new Array(numTxs);
     for (let i = 0; i < numTxs; i++) {
-        fees[i] = 1;
         amounts[i] = 1;
         destinations[i] = await signers[i + 5].getAddress();
     }
@@ -28,7 +26,6 @@ async function prepareTxBatch(batchSize: number, signers: Signer[]) {
     return {
         numTxs,
         destinations,
-        fees,
         amounts,
     };
 }
@@ -57,7 +54,6 @@ async function prep() {
 
     let powers = examplePowers();
     let validators = sortValidators(signers.slice(0, powers.length));
-
 
     const {gravity, testERC20} = await deployContracts(
         gravityId,
@@ -126,7 +122,6 @@ async function runSubmitBatchTest(opts: { batchSize: number }) {
                 "bytes32",
                 "uint256[]",
                 "address[]",
-                "uint256[]",
                 "uint256",
                 "address",
                 "uint256",
@@ -136,7 +131,6 @@ async function runSubmitBatchTest(opts: { batchSize: number }) {
                 methodName,
                 txBatch.amounts,
                 txBatch.destinations,
-                txBatch.fees,
                 batchNonce,
                 testERC20.address,
                 batchTimeout,
@@ -156,15 +150,13 @@ async function runSubmitBatchTest(opts: { batchSize: number }) {
 
     await gravity.submitBatch(
         valset,
-
         sigs,
-
         txBatch.amounts,
         txBatch.destinations,
-        txBatch.fees,
         1,
         testERC20.address,
-        batchTimeout
+        batchTimeout,
+        EmptyCosmosAddress,
     );
 
     expect(
@@ -186,16 +178,16 @@ async function runSubmitBatchTest(opts: { batchSize: number }) {
     expect(
         (await testERC20.functions.balanceOf(gravity.address))[0].toBigInt(),
         "gravity does not have correct balance after submitBatch"
-        // Each tx in batch is worth 1 coin sent + 1 coin fee
-    ).to.equal(BigInt(1000 - txBatch.numTxs * 2));
+        // Each tx in batch is worth 1 coin sent
+    ).to.equal(BigInt(1000 - txBatch.numTxs));
 
     expect(
         (
             await testERC20.functions.balanceOf(await signers[0].getAddress())
         )[0].toBigInt(),
         "msg.sender does not have correct balance after submitBatch"
-        // msg.sender has received 1 coin in fees for each tx
-    ).to.equal(MintedForDeployer + BigInt(9000 + txBatch.numTxs));
+        // msg.sender has received 0 coin
+    ).to.equal(MintedForDeployer + BigInt(9000));
 }
 
 async function runLogicCallTest(opts: {
@@ -237,7 +229,6 @@ async function runLogicCallTest(opts: {
     // Preparing tx batch
     // ===================================
     const txBatch = await prepareTxBatch(opts.batchSize, signers);
-    const batchNonce = 1;
 
     // Using logicCall method
     // ========================

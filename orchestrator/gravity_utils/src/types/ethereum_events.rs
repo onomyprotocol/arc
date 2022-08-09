@@ -56,23 +56,15 @@ impl ValsetUpdatedEvent {
             ));
         }
 
-        // event nonce
-        let index_start = 0;
-        let index_end = index_start + 32;
-        let nonce_data = &input[index_start..index_end];
-        let event_nonce = Uint256::from_bytes_be(nonce_data).unwrap();
-        if event_nonce > U64_MAX {
-            return Err(GravityError::ValidationError(
-                "Nonce overflow, probably incorrect parsing".into(),
-            ));
-        }
-        let event_nonce: u64 = event_nonce.to_string().parse().unwrap();
+        let event_nonce = match parse_u64(input, 0) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
+        };
 
-        // reward amount
-        let index_start = 32;
-        let index_end = index_start + 32;
-        let reward_amount_data = &input[index_start..index_end];
-        let reward_amount = Uint256::from_bytes_be(reward_amount_data).unwrap();
+        let reward_amount = match parse_uint256(input, 1) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
+        };
 
         let reward_denom = match parse_string(input, 2) {
             Ok(v) => v,
@@ -203,6 +195,20 @@ pub struct TransactionBatchExecutedEvent {
     /// of the Gravity solidity contract. Ensuring that these events can only be played
     /// back in order
     pub event_nonce: u64,
+    /// the cosmos reward recipient for the batch relaying
+    pub reward_recipient: String,
+}
+
+/// struct for holding the data encoded fields
+/// of a Erc20DeployedEvent for unit testing
+#[derive(Eq, PartialEq, Debug)]
+struct TransactionBatchExecutedEventData {
+    /// the event nonce representing a unique ordering of events coming out
+    /// of the Gravity solidity contract. Ensuring that these events can only be played
+    /// back in order
+    pub event_nonce: u64,
+    /// the cosmos reward recipient for the batch relaying
+    pub reward_recipient: String,
 }
 
 impl TransactionBatchExecutedEvent {
@@ -212,7 +218,6 @@ impl TransactionBatchExecutedEvent {
         {
             let batch_nonce = Uint256::from_bytes_be(batch_nonce_data).unwrap();
             let erc20 = EthAddress::from_slice(&erc20_data[12..32])?;
-            let event_nonce = Uint256::from_bytes_be(&input.data).unwrap();
             let block_height = if let Some(bn) = input.block_number {
                 if bn > U64_MAX {
                     return Err(GravityError::ValidationError(
@@ -227,24 +232,55 @@ impl TransactionBatchExecutedEvent {
                         .to_string(),
                 ));
             };
-            if event_nonce > U64_MAX || batch_nonce > U64_MAX || block_height > U64_MAX {
-                Err(GravityError::ValidationError(
+            if batch_nonce > U64_MAX || block_height > U64_MAX {
+                return Err(GravityError::ValidationError(
                     "Event nonce overflow, probably incorrect parsing".to_string(),
-                ))
-            } else {
-                let batch_nonce: u64 = batch_nonce.to_string().parse().unwrap();
-                let event_nonce: u64 = event_nonce.to_string().parse().unwrap();
-                Ok(TransactionBatchExecutedEvent {
-                    batch_nonce,
-                    block_height,
-                    erc20,
-                    event_nonce,
-                })
+                ));
             }
+
+            let data = match TransactionBatchExecutedEvent::decode_data_bytes(&input.data) {
+                Ok(v) => v,
+                Err(e) => return Err(e),
+            };
+
+            let batch_nonce: u64 = batch_nonce.to_string().parse().unwrap();
+            let event_nonce: u64 = data.event_nonce;
+            let reward_recipient: String = data.reward_recipient;
+            Ok(TransactionBatchExecutedEvent {
+                batch_nonce,
+                block_height,
+                erc20,
+                event_nonce,
+                reward_recipient,
+            })
         } else {
             Err(GravityError::ValidationError("Too few topics".to_string()))
         }
     }
+
+    fn decode_data_bytes(input: &[u8]) -> Result<TransactionBatchExecutedEventData, GravityError> {
+        if input.len() < 4 * 32 {
+            return Err(GravityError::ValidationError(
+                "too short for TransactionBatchExecutedEventData".to_string(),
+            ));
+        }
+
+        let event_nonce = match parse_u64(input, 0) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
+        };
+
+        let reward_recipient = match parse_string(input, 1) {
+            Ok(v) => v,
+            Err(err) => return Err(err),
+        };
+
+        Ok(TransactionBatchExecutedEventData {
+            event_nonce,
+            reward_recipient,
+        })
+    }
+
     pub fn from_logs(input: &[Log]) -> Result<Vec<TransactionBatchExecutedEvent>, GravityError> {
         let mut res = Vec::new();
         for item in input {
@@ -382,7 +418,7 @@ impl SendToCosmosEvent {
             None => {
                 return Err(GravityError::ValidationError(
                     "Can't resize to usize".into(),
-                ))
+                ));
             }
         };
 
@@ -563,7 +599,7 @@ impl Erc20DeployedEvent {
             None => {
                 return Err(GravityError::ValidationError(
                     "Can't resize to usize".into(),
-                ))
+                ));
             }
         };
 
@@ -624,7 +660,7 @@ impl Erc20DeployedEvent {
             None => {
                 return Err(GravityError::ValidationError(
                     "Can't resize to usize".into(),
-                ))
+                ));
             }
         };
 
@@ -686,7 +722,7 @@ impl Erc20DeployedEvent {
             None => {
                 return Err(GravityError::ValidationError(
                     "Can't resize to usize".into(),
-                ))
+                ));
             }
         };
 
@@ -790,6 +826,36 @@ impl LogicCallExecutedEvent {
     }
 }
 
+fn parse_u64(data: &[u8], arg_index: usize) -> Result<u64, GravityError> {
+    let result = match parse_uint256(data, arg_index) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(e);
+        }
+    };
+    if result > U64_MAX {
+        return Err(GravityError::ValidationError(
+            "Converted result overflow, probably incorrect parsing".into(),
+        ));
+    }
+
+    match result.try_resize_to_u64() {
+        Some(v) => Ok(v),
+        None => Err(GravityError::ValidationError("Can't resize to u64".into())),
+    }
+}
+
+fn parse_uint256(data: &[u8], arg_index: usize) -> Result<Uint256, GravityError> {
+    let index_start = arg_index * 32;
+    let index_end = index_start + 32;
+    let u_data = &data[index_start..index_end];
+
+    match Uint256::from_bytes_be(u_data) {
+        Some(v) => Ok(v),
+        None => Err(GravityError::ValidationError("Can't parse Uint256".into())),
+    }
+}
+
 fn parse_string(data: &[u8], arg_index: usize) -> Result<String, GravityError> {
     // fetching the string from the first 32 bytes
     let offset_start = arg_index * 32;
@@ -802,7 +868,7 @@ fn parse_string(data: &[u8], arg_index: usize) -> Result<String, GravityError> {
         None => {
             return Err(GravityError::ValidationError(
                 "Can't resize to usize".into(),
-            ))
+            ));
         }
     };
     let len_end_index = len_start_index + 32;
@@ -813,7 +879,7 @@ fn parse_string(data: &[u8], arg_index: usize) -> Result<String, GravityError> {
         None => {
             return Err(GravityError::ValidationError(
                 "Can't resize to usize".into(),
-            ))
+            ));
         }
     };
 
@@ -846,7 +912,7 @@ fn parse_address_array(data: &[u8], arg_index: usize) -> Result<Vec<EthAddress>,
         None => {
             return Err(GravityError::ValidationError(
                 "Can't resize to usize".into(),
-            ))
+            ));
         }
     };
 
@@ -858,7 +924,7 @@ fn parse_address_array(data: &[u8], arg_index: usize) -> Result<Vec<EthAddress>,
         None => {
             return Err(GravityError::ValidationError(
                 "Can't resize to usize".into(),
-            ))
+            ));
         }
     };
 
@@ -897,7 +963,7 @@ fn parse_uint256_array(data: &[u8], arg_index: usize) -> Result<Vec<Uint256>, Gr
         None => {
             return Err(GravityError::ValidationError(
                 "Can't resize to usize".into(),
-            ))
+            ));
         }
     };
     let len_end_index = len_start_index + 32;
@@ -908,7 +974,7 @@ fn parse_uint256_array(data: &[u8], arg_index: usize) -> Result<Vec<Uint256>, Gr
         None => {
             return Err(GravityError::ValidationError(
                 "Can't resize to usize".into(),
-            ))
+            ));
         }
     };
 
@@ -1024,6 +1090,26 @@ mod tests {
             ],
         };
         let res = ValsetUpdatedEvent::decode_data_bytes(&event_bytes).unwrap();
+        assert_eq!(correct, res);
+    }
+
+    #[test]
+    fn test_batch_decode() {
+        let event = "0x\
+        0000000000000000000000000000000000000000000000000000000000000003\
+        0000000000000000000000000000000000000000000000000000000000000040\
+        000000000000000000000000000000000000000000000000000000000000002d\
+        636f736d6f73317a6b6c386739766436327830796b767771346d646361656879\
+        6476776338796c683670616e7000000000000000000000000000000000000000";
+
+        let event_bytes = hex_str_to_bytes(event).unwrap();
+
+        let correct = TransactionBatchExecutedEventData {
+            event_nonce: 3u64,
+            reward_recipient: "cosmos1zkl8g9vd62x0ykvwq4mdcaehydvwc8ylh6panp".to_string(),
+        };
+
+        let res = TransactionBatchExecutedEvent::decode_data_bytes(&event_bytes).unwrap();
         assert_eq!(correct, res);
     }
 

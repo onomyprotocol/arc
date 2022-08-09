@@ -1,6 +1,6 @@
 //! This is the happy path test for Cosmos to Ethereum asset transfers, meaning assets originated on Cosmos
 
-use std::{panic, time::Duration};
+use std::{collections::HashMap, panic, time::Duration};
 
 use cosmos_gravity::send::send_to_eth;
 use ethereum_gravity::{deploy_erc20::deploy_erc20, utils::get_valset_nonce};
@@ -10,15 +10,16 @@ use gravity_proto::{
 };
 use gravity_utils::{
     clarity::{u256, Address as EthAddress, Uint256},
-    deep_space::{coin::Coin, Contact},
+    deep_space::{coin::Coin, Address as CosmosAddress, Contact},
     u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
 };
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tonic::transport::Channel;
 
 use crate::{
-    get_fee,
+    await_validators_first_cosmos_deposit, get_fee, get_stake_token_name,
+    get_validators_cosmos_balances, send_cosmos_coins,
     utils::{
         create_default_test_config, footoken_metadata, get_decimals, get_erc20_balance_safe,
         get_event_nonce_safe, get_user_key, send_one_eth, start_orchestrators, ValidatorKeys,
@@ -48,63 +49,44 @@ pub async fn happy_path_test_v2(
 
     let token_to_send_to_eth = footoken_metadata(contact).await.base;
 
-    // one foo token
-    let amount_to_bridge = u256!(1_000_000);
-    let send_to_user_coin = Coin {
+    let coin_to_bridge = Coin {
         denom: token_to_send_to_eth.clone(),
-        amount: amount_to_bridge.checked_add(u256!(100)).unwrap(),
+        amount: u256!(1_000),
     };
-    let send_to_eth_coin = Coin {
-        denom: token_to_send_to_eth.clone(),
-        amount: amount_to_bridge,
+    let bridge_fee = Coin {
+        denom: get_stake_token_name(),
+        amount: u256!(100_000),
     };
-    let send_to_eth_coin_fee = Coin {
-        denom: token_to_send_to_eth.clone(),
-        amount: u256!(1),
-    };
-
+    let cosmos_tx_fee = get_fee();
     let user = get_user_key();
 
-    // send the foo token to bridge and stake token to pay for cosmos fee
-    for coin in &vec![send_to_user_coin.clone(), get_fee()] {
-        info!(
-            "Sending {} to the test user, address: {}",
-            coin.clone(),
-            user.cosmos_address
-        );
-
-        contact
-            .send_coins(
-                coin.clone(),
-                Some(get_fee()),
-                user.cosmos_address,
-                Some(TOTAL_TIMEOUT),
-                keys[0].validator_key,
-            )
-            .await
-            .unwrap();
-
-        let balance = contact
-            .get_balance(user.cosmos_address, coin.clone().denom)
-            .await
-            .unwrap();
-        if balance.is_none() {
-            panic!("Failed to send {} to the user address", coin);
-        }
-        info!("Sent {} to user address {}", coin, user.cosmos_address);
-    }
+    // send the foo token to bridge and stake token to pay for cosmos fee and bridge fee
+    send_cosmos_coins(
+        contact,
+        keys[0].validator_key,
+        vec![user.cosmos_address],
+        vec![
+            coin_to_bridge.clone(),
+            bridge_fee.clone(),
+            cosmos_tx_fee.clone(),
+        ],
+    )
+    .await;
 
     // send the user some eth, they only need this to check their
-    // erc20 balance, so a pretty minor usecase
+    // erc20 balance, so a pretty minor use case
     send_one_eth(user.eth_address, web30).await;
     info!("Sent 1 eth to user address {}", user.eth_address);
+
+    let initial_reward_token_balance: HashMap<CosmosAddress, Uint256> =
+        get_validators_cosmos_balances(contact, &keys, bridge_fee.denom.to_string()).await;
 
     let res = send_to_eth(
         user.cosmos_key,
         user.eth_address,
-        send_to_eth_coin,
-        send_to_eth_coin_fee,
-        get_fee(),
+        coin_to_bridge.clone(),
+        bridge_fee.clone(), // bridge fee
+        cosmos_tx_fee,      // cosmos tx fee
         contact,
     )
     .await
@@ -112,27 +94,25 @@ pub async fn happy_path_test_v2(
     info!("Send to eth res {:?}", res);
     info!(
         "Locked up {} {} to send to Cosmos",
-        amount_to_bridge, token_to_send_to_eth
+        coin_to_bridge.denom, coin_to_bridge.amount
     );
-
-    info!("Waiting for batch to be signed and relayed to Ethereum");
 
     let verify_asset_is_bridged_to_eth = async {
         loop {
             match get_erc20_balance_safe(erc20_contract, web30, user.eth_address).await {
                 Err(_) => {}
                 Ok(balance) => {
-                    if balance == amount_to_bridge {
+                    if balance == coin_to_bridge.amount {
                         info!(
                             "Successfully bridged {} Cosmos asset {} to Ethereum!",
-                            amount_to_bridge, token_to_send_to_eth
+                            coin_to_bridge.amount, token_to_send_to_eth
                         );
-                        assert!(balance == amount_to_bridge);
+                        assert!(balance == coin_to_bridge.amount);
                         break;
                     } else if !balance.is_zero() {
                         panic!(
                             "Expected {} {} but got {} instead",
-                            amount_to_bridge, token_to_send_to_eth, balance
+                            coin_to_bridge.amount, token_to_send_to_eth, balance
                         );
                     }
                 }
@@ -142,12 +122,36 @@ pub async fn happy_path_test_v2(
         }
     };
 
-    if tokio::time::timeout(TOTAL_TIMEOUT, verify_asset_is_bridged_to_eth)
+    info!("Waiting for batch to be signed and relayed to Ethereum");
+    if timeout(TOTAL_TIMEOUT, verify_asset_is_bridged_to_eth)
         .await
         .is_err()
     {
         panic!("failed to verify asset is bridged to ethereum: timed out")
     }
+
+    info!("Waiting for batch reward deposit.");
+    let expected_reward_increase = Coin {
+        denom: bridge_fee.denom,
+        // the orchestrator spends extra 3stake to pay for the signing after we captured the initial_reward_token_balance
+        amount: bridge_fee.amount.checked_sub(u256!(3)).unwrap(),
+    };
+
+    if timeout(
+        TOTAL_TIMEOUT,
+        await_validators_first_cosmos_deposit(
+            contact,
+            keys,
+            expected_reward_increase,
+            initial_reward_token_balance,
+        ),
+    )
+    .await
+    .is_err()
+    {
+        panic!("Failed to perform the valset reward deposits to Cosmos!");
+    }
+    info!("The batch reward is received.");
 }
 
 /// This segment is broken out because it's used in two different tests

@@ -3,7 +3,14 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, parseEvent, signHash, EmptyDenom,} from "../test-utils/pure";
+import {
+    EmptyCosmosAddress,
+    EmptyDenom,
+    examplePowers,
+    getSignerAddresses,
+    parseEvent,
+    signHash,
+} from "../test-utils/pure";
 import {BigNumber} from "ethers";
 
 chai.use(solidity);
@@ -11,7 +18,7 @@ const {expect} = chai;
 
 export const MintedForDeployer = BigInt("100000000000000000000000000")
 
-async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: boolean; }) {
+async function runTest() {
     // Prep and deploy Gravity contract
     // ========================
     const signers = await ethers.getSigners();
@@ -19,17 +26,7 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
     // This is the power distribution on the Cosmos hub as of 7/14/2020
     let powers = examplePowers();
     let validators = signers.slice(0, powers.length);
-
-    // arbitrarily set a duplicate validator
-    if (opts.duplicateValidator) {
-        let firstValidator = validators[0];
-        validators[22] = firstValidator;
-    }
-
-    // before deploying sort the validators
-    if (opts.sortValidators) {
-        sortValidators(validators)
-    }
+    sortValidators(validators)
 
     const {gravity} = await deployContracts(gravityId, validators, powers);
 
@@ -61,11 +58,9 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
     // ===============================
     const numTxs = 100;
     const txDestinationsInt = new Array(numTxs);
-    const txFees = new Array(numTxs);
 
     const txAmounts = new Array(numTxs);
     for (let i = 0; i < numTxs; i++) {
-        txFees[i] = 1;
         txAmounts[i] = 1;
         txDestinationsInt[i] = signers[i + 5];
     }
@@ -84,7 +79,6 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
             "bytes32",
             "uint256[]",
             "address[]",
-            "uint256[]",
             "uint256",
             "address",
             "uint256"
@@ -94,7 +88,6 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
             methodName,
             txAmounts,
             txDestinations,
-            txFees,
             batchNonce,
             eventArgs._tokenContract,
             batchTimeout
@@ -114,19 +107,17 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
 
     await gravity.submitBatch(
         valset,
-
         sigs,
-
         txAmounts,
         txDestinations,
-        txFees,
         batchNonce,
         eventArgs._tokenContract,
-        batchTimeout
+        batchTimeout,
+        EmptyCosmosAddress,
     );
 
     // Check that Gravity's balance is correct
-    expect((await ERC20contract.functions.balanceOf(gravity.address)).toString()).to.equal(maxUint256.sub(200).toString())
+    expect((await ERC20contract.functions.balanceOf(gravity.address)).toString()).to.equal(maxUint256.sub(100).toString())
 
     // Check that one of the recipient's balance is correct
     expect((await ERC20contract.functions.balanceOf(await signers[6].getAddress())).toString()).to.equal('1')
@@ -134,29 +125,8 @@ async function runTest(opts: { duplicateValidator?: boolean; sortValidators?: bo
 
 describe("deployERC20 tests", function () {
 
-    // Non-duplicate & sorted validators must work
-    it("runs with non-duplicate, sorted validators", async function () {
-        await runTest({sortValidators: true})
+    it("deploy successfully", async function () {
+        await runTest()
     });
 
-    // Non-duplicate yet unsorted validators must fail
-    it("throws MalformedNewValidatorSet on non-duplicate, unsorted validators", async function () {
-        await expect(runTest({})).to.be.revertedWith(
-            "MalformedNewValidatorSet()"
-        );
-    });
-
-    // Duplicate yet unsorted validators must fail
-    it("throws MalformedNewValidatorSet on duplicate, unsorted validators", async function () {
-        await expect(runTest({duplicateValidator: true})).to.be.revertedWith(
-            "MalformedNewValidatorSet()"
-        );
-    });
-
-    // Duplicate validators and already sorted must fail
-    it("throws MalformedNewValidatorSet on duplicate, sorted validators", async function () {
-        await expect(runTest({duplicateValidator: true, sortValidators: true})).to.be.revertedWith(
-            "MalformedNewValidatorSet()"
-        );
-    });
 });

@@ -37,14 +37,6 @@ var (
 	// i.e gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm
 	ValsetConfirmKey = "ValsetConfirmKey"
 
-	// OracleClaimKey Claim details by nonce and validator address
-	// i.e. gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm
-	// A claim is named more intuitively than an Attestation, it is literally
-	// a validator making a claim to have seen something happen. Claims are
-	// attached to attestations which can be thought of as 'the event' that
-	// will eventually be executed.
-	OracleClaimKey = "OracleClaimKey"
-
 	// OracleAttestationKey attestation details by nonce and validator address
 	// i.e. gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm
 	// An attestation can be thought of as the 'event to be executed' while
@@ -56,17 +48,11 @@ var (
 	// OutgoingTXPoolKey indexes the last nonce for the outgoing tx pool
 	OutgoingTXPoolKey = "OutgoingTXPoolKey"
 
-	// DenomiatorPrefix indexes token contract addresses from ETH on gravity
-	DenomiatorPrefix = "DenomiatorPrefix"
-
 	// OutgoingTXBatchKey indexes outgoing tx batches under a nonce and token address
 	OutgoingTXBatchKey = "OutgoingTXBatchKey"
 
 	// BatchConfirmKey indexes validator confirmations by token contract address
 	BatchConfirmKey = "BatchConfirmKey"
-
-	// SecondIndexNonceByClaimKey indexes latest nonce for a given claim type
-	SecondIndexNonceByClaimKey = "SecondIndexNonceByClaimKey"
 
 	// LastEventNonceByValidatorKey indexes lateset event nonce by validator
 	LastEventNonceByValidatorKey = "LastEventNonceByValidatorKey"
@@ -171,40 +157,6 @@ func GetValsetConfirmKey(nonce uint64, validator sdk.AccAddress) string {
 	return ValsetConfirmKey + ConvertByteArrToString(UInt64Bytes(nonce)) + string(validator.Bytes())
 }
 
-// GetClaimKey returns the following key format
-// prefix type               cosmos-validator-address                       nonce                             attestation-details-hash
-// [0x0][0 0 0 1][gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm][0 0 0 0 0 0 0 1][fd1af8cec6c67fcf156f1b61fdf91ebc04d05484d007436e75342fc05bbff35a]
-// The Claim hash identifies a unique event, for example it would have a event nonce, a sender and a receiver. Or an event nonce and a batch nonce. But
-// the Claim is stored indexed with the claimer key to make sure that it is unique.
-func GetClaimKey(details EthereumClaim) string {
-	var detailsHash []byte
-	if details != nil {
-		var err error
-		detailsHash, err = details.ClaimHash()
-		if err != nil {
-			panic(sdkerrors.Wrap(err, "unable to compute claim hash"))
-		}
-	} else {
-		panic("No claim without details!")
-	}
-	claimTypeLen := len([]byte{byte(details.GetType())})
-	nonceBz := UInt64Bytes(details.GetEventNonce())
-	if err := sdk.VerifyAddressFormat(details.GetClaimer()); err != nil {
-		panic(sdkerrors.Wrap(err, "invalid claimer address"))
-	}
-
-	addrLen := len(details.GetClaimer())
-
-	key := make([]byte, len(OracleClaimKey)+claimTypeLen+addrLen+len(nonceBz)+len(detailsHash))
-	copy(key[0:], OracleClaimKey)
-	copy(key[len(OracleClaimKey):], []byte{byte(details.GetType())})
-	// TODO this is the delegate address, should be stored by the valaddress
-	copy(key[len(OracleClaimKey)+claimTypeLen:], details.GetClaimer())
-	copy(key[len(OracleClaimKey)+claimTypeLen+addrLen:], nonceBz)
-	copy(key[len(OracleClaimKey)+claimTypeLen+addrLen+len(nonceBz):], detailsHash)
-	return ConvertByteArrToString(key)
-}
-
 // GetAttestationKey returns the following key format
 // prefix     nonce                             claim-details-hash
 // [0x5][0 0 0 0 0 0 0 1][fd1af8cec6c67fcf156f1b61fdf91ebc04d05484d007436e75342fc05bbff35a]
@@ -229,16 +181,17 @@ func GetOutgoingTxPoolContractPrefix(contractAddress EthAddress) string {
 }
 
 // GetOutgoingTxPoolKey returns the following key format
-// prefix	feeContract		feeAmount     id
-// [0x6][0xc783df8a850f42e7F7e57013759C285caa701eB6][1000000000][0 0 0 0 0 0 0 1]
-func GetOutgoingTxPoolKey(fee InternalERC20Token, id uint64) string {
+// prefix	denomContract		feeAmount     id
+// [0x6][0xc783df8a850f42e7F7e57013759C285caa701eB6][1000000000][0 0 0 0 0 0 0 1].
+// The key is build this way to get txs with desc feeAmount sorting.
+func GetOutgoingTxPoolKey(erc20Address string, feeAmount sdk.Int, id uint64) string {
 	// sdkInts have a size limit of 255 bits or 32 bytes
 	// therefore this will never panic and is always safe
 	amount := make([]byte, 32)
-	amount = fee.Amount.BigInt().FillBytes(amount)
+	amount = feeAmount.BigInt().FillBytes(amount)
 
 	a := append(amount, UInt64Bytes(id)...)
-	b := append([]byte(fee.Contract.GetAddress()), a...)
+	b := append([]byte(erc20Address), a...)
 	r := append([]byte(OutgoingTXPoolKey), b...)
 	return ConvertByteArrToString(r)
 }

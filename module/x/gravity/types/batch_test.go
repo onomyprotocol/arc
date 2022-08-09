@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,20 +34,20 @@ func TestOutgoingTxBatchCheckpointGold1(t *testing.T) {
 					Amount:   sdk.NewInt(0x1),
 					Contract: erc20Address.GetAddress(),
 				},
-				Erc20Fee: ERC20Token{
-					Amount:   sdk.NewInt(0x1),
-					Contract: erc20Address.GetAddress(),
+				Fee: sdk.Coin{
+					Amount: sdk.NewInt(1),
+					Denom:  "stake",
 				},
 			},
 		},
 		TokenContract: erc20Address.GetAddress(),
 	}
 
-	// TODO: get from params
 	ourHash := src.GetCheckpoint("foo")
 
 	// hash from bridge contract
-	goldHash := "0xa3a7ee0a363b8ad2514e7ee8f110d7449c0d88f3b0913c28c1751e6e0079a9b2"[2:]
+	// if you update it here update in the rust as well
+	goldHash := "0x81672af5f562cfe8f1649b06c3f04572b702396343e9aa178ac5a9ce87bbafb5"[2:]
 	// The function used to compute the "gold hash" above is in /solidity/test/updateValsetAndSubmitBatch.ts
 	// Be aware that every time that you run the above .ts file, it will use a different tokenContractAddress and thus compute
 	// a different hash.

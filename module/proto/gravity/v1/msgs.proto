@@ -198,11 +198,12 @@ message MsgSendToCosmosClaimResponse {}
 // BatchSendToEthClaim claims that a batch of send to eth
 // operations on the bridge contract was executed.
 message MsgBatchSendToEthClaim {
-  uint64 event_nonce    = 1;
-  uint64 block_height   = 2;
-  uint64 batch_nonce    = 3;
-  string token_contract = 4;
-  string orchestrator   = 5;
+  uint64 event_nonce      = 1;
+  uint64 block_height     = 2;
+  uint64 batch_nonce      = 3;
+  string token_contract   = 4;
+  string orchestrator     = 5;
+  string reward_recipient = 7;
 }
 
 message MsgBatchSendToEthClaimResponse {}

@@ -1,6 +1,6 @@
 //! This is a test for validator set relaying rewards
 
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use cosmos_gravity::query::get_gravity_params;
 use gravity_proto::{
@@ -13,16 +13,17 @@ use gravity_utils::{
     u64_array_bigints,
     web30::client::Web3,
 };
-use tokio::time::{sleep, timeout};
+use tokio::time::timeout;
 use tonic::transport::Channel;
 
 use crate::{
     airdrop_proposal::wait_for_proposals_to_execute,
-    happy_path::test_valset_update,
+    await_validators_first_cosmos_deposit, get_validators_cosmos_balances,
     utils::{
         create_default_test_config, create_parameter_change_proposal, footoken_metadata,
         start_orchestrators, vote_yes_on_proposals, ValidatorKeys,
     },
+    validator_out::test_valset_update,
     TOTAL_TIMEOUT,
 };
 
@@ -80,63 +81,26 @@ pub async fn valset_rewards_test(
     assert_eq!(params.bridge_chain_id, 1);
     assert_eq!(params.bridge_ethereum_address, gravity_address.to_string());
 
-    // capture the foo token balance before the valset update
-    let mut inital_reward_token_balance: HashMap<CosmosAddress, Uint256> = HashMap::new();
-    for key in keys.iter() {
-        let orch_address = key.orch_key.to_address(&contact.get_prefix()).unwrap();
-        let balance = contact
-            .get_balance(orch_address, token_to_send_to_eth.to_string())
-            .await
-            .unwrap();
-        if balance.is_none() {
-            continue;
-        }
-        inital_reward_token_balance.insert(orch_address, balance.unwrap().amount);
-    }
+    let initial_reward_token_balance: HashMap<CosmosAddress, Uint256> =
+        get_validators_cosmos_balances(contact, &keys, token_to_send_to_eth.to_string()).await;
 
     info!("Trigger a valset update.");
     test_valset_update(web30, contact, &mut grpc_client, &keys, gravity_address).await;
 
-    let check_valset_reward_deposit = async {
-        loop {
-            let mut found = false;
-            for key in keys.iter() {
-                let orch_address = key.orch_key.to_address(&contact.get_prefix()).unwrap();
-                let balance = contact
-                    .get_balance(orch_address, token_to_send_to_eth.to_string())
-                    .await
-                    .unwrap();
-                if balance.is_none() {
-                    continue;
-                }
-                let balance = balance.unwrap().amount;
-                let initial_balance = inital_reward_token_balance.get(&orch_address);
-                if initial_balance.is_none() {
-                    continue;
-                }
-                let initial_balance = *initial_balance.unwrap();
-                if initial_balance.checked_add(valset_reward.amount).unwrap() == balance {
-                    info!("Found increased valset update reward of the, orch {}, initial balance: {}, reward: {}, new balance :{}!",
-                                orch_address, initial_balance, valset_reward.amount, balance);
-                    found = true;
-                }
-            }
-
-            if found {
-                break;
-            }
-
-            sleep(Duration::from_secs(5)).await;
-        }
-    };
-
     info!("Waiting for valset reward deposit.");
-    if timeout(TOTAL_TIMEOUT, check_valset_reward_deposit)
-        .await
-        .is_err()
+    if timeout(
+        TOTAL_TIMEOUT,
+        await_validators_first_cosmos_deposit(
+            contact,
+            keys,
+            valset_reward,
+            initial_reward_token_balance,
+        ),
+    )
+    .await
+    .is_err()
     {
         panic!("Failed to perform the valset reward deposits to Cosmos!");
     }
-
     info!("Successfully issued validator set reward!");
 }

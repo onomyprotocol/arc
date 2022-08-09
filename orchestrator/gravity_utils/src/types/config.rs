@@ -1,10 +1,8 @@
 //! contains configuration structs that need to be accessed across crates.
-
-use clarity::{Address as EthAddress, Uint256};
 use serde::{Deserialize, Serialize};
 
 /// Global configuration struct for Gravity bridge tools
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Default, Clone)]
 pub struct GravityBridgeToolsConfig {
     pub relayer: RelayerConfig,
     pub orchestrator: OrchestratorConfig,
@@ -12,7 +10,7 @@ pub struct GravityBridgeToolsConfig {
 }
 
 /// Toml serializable configuration struct for Gravity bridge tools
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Default, Clone)]
 pub struct TomlGravityBridgeToolsConfig {
     #[serde(default = "TomlRelayerConfig::default")]
     pub relayer: TomlRelayerConfig,
@@ -33,7 +31,7 @@ impl From<TomlGravityBridgeToolsConfig> for GravityBridgeToolsConfig {
 }
 
 /// Relayer configuration options
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct RelayerConfig {
     pub valset_relaying_mode: ValsetRelayingMode,
     pub batch_request_mode: BatchRequestMode,
@@ -45,7 +43,7 @@ pub struct RelayerConfig {
 }
 
 /// Relayer configuration that's is more easily parsable with toml
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct TomlRelayerConfig {
     #[serde(default = "default_valset_relaying_mode")]
     pub valset_relaying_mode: TomlValsetRelayingMode,
@@ -100,65 +98,31 @@ impl From<TomlValsetRelayingMode> for ValsetRelayingMode {
 /// The various possible modes for automatic requests of batches
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BatchRequestMode {
-    /// Only ever request profitable batches, regardless of all other
-    /// considerations, this is fuzzier than the other modes
-    ProfitableOnly,
     /// Every possible valid batch should be requested
     EveryBatch,
     /// Does not automatically request batches
     None,
 }
 
-/// A whitelisted token that will be relayed given the batch
-/// provides at least amount of this specific token
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
-pub struct WhitelistToken {
-    /// the amount which the batch must have to be relayed
-    pub amount: Uint256,
-    /// the token which the batch must have the specified amount
-    /// of to be relayed
-    pub token: EthAddress,
-}
-
 /// The various possible modes for batch relaying
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub enum BatchRelayingMode {
-    /// Every possible tach is relayed, mostly for developers
+    /// Every possible batch is relayed
     EveryBatch,
-    /// Only consider batches that are profitable as defined by
-    /// the given token being listed in Uniswap for a WETH value
-    /// higher than cost of relaying * margin
-    ProfitableOnly { margin: f64 },
-    /// Consider and relay batches that are profitable as previously
-    /// defined, but also consider specific tokens with the given value
-    /// as an acceptable reward. This is an advanced mode and may lose money
-    /// if not carefully configured
-    ProfitableWithWhitelist {
-        /// The margin for all token types not in the whitelist
-        margin: f64,
-        whitelist: Vec<WhitelistToken>,
-    },
+    /// Does not automatically request batches
+    None,
 }
 
 /// A version of BatchRelaying mode that is easy to serialize as toml
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct TomlBatchRelayingMode {
     mode: String,
-    margin: Option<f64>,
-    whitelist: Option<Vec<WhitelistToken>>,
 }
 
 impl From<TomlBatchRelayingMode> for BatchRelayingMode {
     fn from(input: TomlBatchRelayingMode) -> Self {
         match input.mode.to_uppercase().as_str() {
             "EVERYBATCH" => BatchRelayingMode::EveryBatch,
-            "PROFITABLEONLY" => BatchRelayingMode::ProfitableOnly {
-                margin: input.margin.unwrap(),
-            },
-            "PROFITABLEWITHWHITELIST" => BatchRelayingMode::ProfitableWithWhitelist {
-                margin: input.margin.unwrap(),
-                whitelist: input.whitelist.unwrap(),
-            },
             _ => panic!("Bad TomlBatchRelayingMode"),
         }
     }
@@ -166,9 +130,7 @@ impl From<TomlBatchRelayingMode> for BatchRelayingMode {
 
 fn default_batch_relaying_mode() -> TomlBatchRelayingMode {
     TomlBatchRelayingMode {
-        mode: "ProfitableOnly".to_string(),
-        margin: Some(1.1),
-        whitelist: None,
+        mode: "EveryBatch".to_string(),
     }
 }
 
@@ -183,7 +145,7 @@ fn default_valset_relaying_mode() -> TomlValsetRelayingMode {
 }
 
 fn default_batch_request_mode() -> BatchRequestMode {
-    BatchRequestMode::ProfitableOnly
+    BatchRequestMode::EveryBatch
 }
 
 fn default_relayer_loop_speed() -> u64 {
@@ -193,6 +155,7 @@ fn default_relayer_loop_speed() -> u64 {
 impl Default for RelayerConfig {
     fn default() -> Self {
         RelayerConfig {
+            // FIXME check if needed
             valset_relaying_mode: default_valset_relaying_mode().into(),
             batch_request_mode: default_batch_request_mode(),
             batch_relaying_mode: default_batch_relaying_mode().into(),

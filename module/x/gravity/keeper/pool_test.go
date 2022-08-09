@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -29,12 +28,13 @@ func TestAddToOutgoingPool(t *testing.T) {
 	allVouchersToken, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 	require.NoError(t, err)
 	allVouchers := sdk.Coins{allVouchersToken.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers)
+	allCoins := allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 10000))
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allCoins)
 	require.NoError(t, err)
 
 	// when
@@ -42,9 +42,7 @@ func TestAddToOutgoingPool(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
 
 		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
@@ -54,15 +52,14 @@ func TestAddToOutgoingPool(t *testing.T) {
 		// 2: amount 101, fee 3
 		// 3: amount 102, fee 2
 		// 4: amount 103, fee 1
-
 	}
 	// then
 	got := input.GravityKeeper.GetUnbatchedTransactionsByContract(ctx, *tokenContract)
 
 	receiverAddr, _ := types.NewEthAddress(myReceiver)
-	threeTok, _ := types.NewInternalERC20Token(sdk.NewInt(3), myTokenContractAddr)
-	twoTok, _ := types.NewInternalERC20Token(sdk.NewInt(2), myTokenContractAddr)
-	oneTok, _ := types.NewInternalERC20Token(sdk.NewInt(1), myTokenContractAddr)
+	oneTokFee := sdk.NewInt64Coin(sdk.DefaultBondDenom, 1)
+	twoTokFee := sdk.NewInt64Coin(sdk.DefaultBondDenom, 2)
+	threeTokFee := sdk.NewInt64Coin(sdk.DefaultBondDenom, 3)
 	oneHundredTok, _ := types.NewInternalERC20Token(sdk.NewInt(100), myTokenContractAddr)
 	oneHundredOneTok, _ := types.NewInternalERC20Token(sdk.NewInt(101), myTokenContractAddr)
 	oneHundredTwoTok, _ := types.NewInternalERC20Token(sdk.NewInt(102), myTokenContractAddr)
@@ -70,28 +67,28 @@ func TestAddToOutgoingPool(t *testing.T) {
 	exp := []*types.InternalOutgoingTransferTx{
 		{
 			Id:          2,
-			Erc20Fee:    threeTok,
+			Fee:         &threeTokFee,
 			Sender:      mySender,
 			DestAddress: receiverAddr,
 			Erc20Token:  oneHundredOneTok,
 		},
 		{
 			Id:          3,
-			Erc20Fee:    twoTok,
+			Fee:         &twoTokFee,
 			Sender:      mySender,
 			DestAddress: receiverAddr,
 			Erc20Token:  oneHundredTwoTok,
 		},
 		{
 			Id:          1,
-			Erc20Fee:    twoTok,
+			Fee:         &twoTokFee,
 			Sender:      mySender,
 			DestAddress: receiverAddr,
 			Erc20Token:  oneHundredTok,
 		},
 		{
 			Id:          4,
-			Erc20Fee:    oneTok,
+			Fee:         &oneTokFee,
 			Sender:      mySender,
 			DestAddress: receiverAddr,
 			Erc20Token:  oneHundredThreeTok,
@@ -114,9 +111,7 @@ func TestAddToOutgoingPoolEdgeCases(t *testing.T) {
 	amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(100)), myTokenContractAddr)
 	require.NoError(t, err)
 	amount := amountToken.GravityCoin()
-	feeToken, err := types.NewInternalERC20Token(sdk.NewInt(2), myTokenContractAddr)
-	require.NoError(t, err)
-	fee := feeToken.GravityCoin()
+	fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(2))
 
 	//////// Nonexistant Token ////////
 	r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
@@ -144,18 +139,14 @@ func TestAddToOutgoingPoolEdgeCases(t *testing.T) {
 	require.Zero(t, r)
 
 	//////// Insufficient Balance from Fee ////////
-	badFeeToken, err := types.NewInternalERC20Token(sdk.NewInt(999999), myTokenContractAddr)
-	require.NoError(t, err)
-	badFee := badFeeToken.GravityCoin()
+	badFee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(999999))
 	r, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, badFee)
 	require.Error(t, err)
 	require.Zero(t, r)
 
 	//////// Insufficient Balance from Amount and Fee ////////
 	// Amount is 100, fee is the current balance - 99
-	badFeeToken, err = types.NewInternalERC20Token(sdk.NewInt(99999-99), myTokenContractAddr)
-	require.NoError(t, err)
-	badFee = badFeeToken.GravityCoin()
+	badFee = sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(999999-99))
 	r, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, badFee)
 	require.Error(t, err)
 	require.Zero(t, r)
@@ -170,10 +161,7 @@ func TestAddToOutgoingPoolEdgeCases(t *testing.T) {
 	require.Zero(t, r)
 
 	//////// Inconsistent Entry ////////
-	badFeeContractAddr := "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca6"
-	badFeeToken, err = types.NewInternalERC20Token(sdk.NewInt(100), badFeeContractAddr)
-	require.NoError(t, err)
-	badFee = badFeeToken.GravityCoin()
+	badFee = sdk.NewInt64Coin("none-existing", int64(100))
 	r, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, badFee)
 	require.Error(t, err)
 	require.Zero(t, r)
@@ -195,12 +183,13 @@ func TestTotalBatchFeeInPool(t *testing.T) {
 	allVouchersToken, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 	require.NoError(t, err)
 	allVouchers := sdk.Coins{allVouchersToken.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers)
+	allCoins := allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allCoins)
 	require.NoError(t, err)
 
 	// create outgoing pool
@@ -208,9 +197,7 @@ func TestTotalBatchFeeInPool(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
 
 		r, err2 := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err2)
@@ -240,9 +227,7 @@ func TestTotalBatchFeeInPool(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myToken2ContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(5), myToken2ContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(5))
 
 		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
@@ -254,11 +239,10 @@ func TestTotalBatchFeeInPool(t *testing.T) {
 		tokenFeeMap should be
 		map[0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5:8 0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0:500]
 		**/
-	assert.Equal(t, batchFees[0].TotalFees.BigInt(), big.NewInt(int64(8)))
+	assert.Equal(t, batchFees[0].TotalFees, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 8)))
 	assert.Equal(t, batchFees[0].TxCount, uint64(4))
-	assert.Equal(t, batchFees[1].TotalFees.BigInt(), big.NewInt(int64(500)))
+	assert.Equal(t, batchFees[1].TotalFees, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 500)))
 	assert.Equal(t, batchFees[1].TxCount, uint64(100))
-
 }
 
 func TestGetBatchFeeByTokenType(t *testing.T) {
@@ -287,29 +271,32 @@ func TestGetBatchFeeByTokenType(t *testing.T) {
 	allVouchersToken1, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr1)
 	require.NoError(t, err)
 	allVouchers1 := sdk.Coins{allVouchersToken1.GravityCoin()}
+	allCoins1 := allVouchers1.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
 	allVouchersToken2, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr2)
 	require.NoError(t, err)
 	allVouchers2 := sdk.Coins{allVouchersToken2.GravityCoin()}
+	allCoins2 := allVouchers2.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
 	allVouchersToken3, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr3)
 	require.NoError(t, err)
 	allVouchers3 := sdk.Coins{allVouchersToken3.GravityCoin()}
+	allCoins3 := allVouchers3.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
 
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers1)
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins1)
 	require.NoError(t, err)
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers2)
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins2)
 	require.NoError(t, err)
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers3)
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins3)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender1)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allVouchers1)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allCoins1)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender2)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allVouchers2)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allCoins2)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender3)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender3, allVouchers3)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender3, allCoins3)
 	require.NoError(t, err)
 
 	totalFee1 := int64(0)
@@ -321,23 +308,17 @@ func TestGetBatchFeeByTokenType(t *testing.T) {
 		require.NoError(t, err)
 		amount1 := amountToken1.GravityCoin()
 		feeAmt1 := int64(i + 1) // fees can't be 0
-		feeToken1, err := types.NewInternalERC20Token(sdk.NewInt(feeAmt1), myTokenContractAddr1)
-		require.NoError(t, err)
-		fee1 := feeToken1.GravityCoin()
+		fee1 := sdk.NewInt64Coin(sdk.DefaultBondDenom, feeAmt1)
 		amountToken2, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr2)
 		require.NoError(t, err)
 		amount2 := amountToken2.GravityCoin()
 		feeAmt2 := int64(2*i + 1) // fees can't be 0
-		feeToken2, err := types.NewInternalERC20Token(sdk.NewInt(feeAmt2), myTokenContractAddr2)
-		require.NoError(t, err)
-		fee2 := feeToken2.GravityCoin()
+		fee2 := sdk.NewInt64Coin(sdk.DefaultBondDenom, feeAmt2)
 		amountToken3, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr3)
 		require.NoError(t, err)
 		amount3 := amountToken3.GravityCoin()
 		feeAmt3 := int64(3*i + 1) // fees can't be 0
-		feeToken3, err := types.NewInternalERC20Token(sdk.NewInt(feeAmt3), myTokenContractAddr3)
-		require.NoError(t, err)
-		fee3 := feeToken3.GravityCoin()
+		fee3 := sdk.NewInt64Coin(sdk.DefaultBondDenom, feeAmt3)
 
 		if i >= 10 {
 			totalFee1 += feeAmt1
@@ -363,17 +344,16 @@ func TestGetBatchFeeByTokenType(t *testing.T) {
 
 	batchFee1 := input.GravityKeeper.GetBatchFeeByTokenType(ctx, *tokenContract1, 100)
 	require.Equal(t, batchFee1.Token, myTokenContractAddr1)
-	require.Equal(t, batchFee1.TotalFees.Uint64(), uint64(totalFee1), fmt.Errorf("expected total fees %d but got %d", batchFee1.TotalFees.Uint64(), uint64(totalFee1)))
+	require.Equal(t, batchFee1.TotalFees, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, totalFee1)), fmt.Errorf("expected total fees %v but got %d", batchFee1.TotalFees, uint64(totalFee1)))
 	require.Equal(t, batchFee1.TxCount, uint64(100), fmt.Errorf("expected tx count %d but got %d", batchFee1.TxCount, uint64(100)))
 	batchFee2 := input.GravityKeeper.GetBatchFeeByTokenType(ctx, *tokenContract2, 100)
 	require.Equal(t, batchFee2.Token, myTokenContractAddr2)
-	require.Equal(t, batchFee2.TotalFees.Uint64(), uint64(totalFee2), fmt.Errorf("expected total fees %d but got %d", batchFee2.TotalFees.Uint64(), uint64(totalFee2)))
+	require.Equal(t, batchFee2.TotalFees, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, totalFee2)), fmt.Errorf("expected total fees %v but got %d", batchFee2.TotalFees, uint64(totalFee2)))
 	require.Equal(t, batchFee2.TxCount, uint64(100), fmt.Errorf("expected tx count %d but got %d", batchFee2.TxCount, uint64(100)))
 	batchFee3 := input.GravityKeeper.GetBatchFeeByTokenType(ctx, *tokenContract3, 100)
 	require.Equal(t, batchFee3.Token, myTokenContractAddr3)
-	require.Equal(t, batchFee3.TotalFees.Uint64(), uint64(totalFee3), fmt.Errorf("expected total fees %d but got %d", batchFee3.TotalFees.Uint64(), uint64(totalFee3)))
+	require.Equal(t, batchFee3.TotalFees, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, totalFee3)), fmt.Errorf("expected total fees %v but got %d", batchFee3.TotalFees, uint64(totalFee3)))
 	require.Equal(t, batchFee3.TxCount, uint64(100), fmt.Errorf("expected tx count %d but got %d", batchFee3.TxCount, uint64(100)))
-
 }
 
 func TestRemoveFromOutgoingPoolAndRefund(t *testing.T) {
@@ -393,17 +373,19 @@ func TestRemoveFromOutgoingPoolAndRefund(t *testing.T) {
 	allVouchersToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(originalBal), myTokenContractAddr)
 	require.NoError(t, err)
 	allVouchers := sdk.Coins{allVouchersToken.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers)
+	allCoins := allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(originalBal)))
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allCoins)
 	require.NoError(t, err)
 
 	// Create unbatched transactions
 	require.Empty(t, input.GravityKeeper.GetUnbatchedTransactions(ctx))
-	feesAndAmounts := uint64(0)
+	spentAmounts := uint64(0)
+	feesAmounts := uint64(0)
 	ids := make([]uint64, 4)
 	fees := []uint64{2, 3, 2, 1}
 	amounts := []uint64{100, 101, 102, 103}
@@ -411,11 +393,9 @@ func TestRemoveFromOutgoingPoolAndRefund(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(amounts[i]), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
-
-		feesAndAmounts += v + amounts[i]
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
+		spentAmounts += amounts[i]
+		feesAmounts += v
 		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
 		t.Logf("___ response: %#v", r)
@@ -428,34 +408,38 @@ func TestRemoveFromOutgoingPoolAndRefund(t *testing.T) {
 
 	}
 	// Check balance
-	currentBal := input.BankKeeper.GetBalance(ctx, mySender, myTokenDenom).Amount.Uint64()
-	require.Equal(t, currentBal, originalBal-feesAndAmounts)
+	currentBals := input.BankKeeper.GetAllBalances(ctx, mySender)
+	require.Equal(t, currentBals.AmountOf(myTokenDenom).Uint64(), originalBal-spentAmounts)
+	require.Equal(t, currentBals.AmountOf(sdk.DefaultBondDenom).Uint64(), originalBal-feesAmounts)
 
 	// Check that removing a transaction refunds the costs and the tx no longer exists in the pool
-	checkRemovedTx(t, input, ctx, ids[2], fees[2], amounts[2], &feesAndAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
-	checkRemovedTx(t, input, ctx, ids[3], fees[3], amounts[3], &feesAndAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
-	checkRemovedTx(t, input, ctx, ids[1], fees[1], amounts[1], &feesAndAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
-	checkRemovedTx(t, input, ctx, ids[0], fees[0], amounts[0], &feesAndAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
+	checkRemovedTx(t, input, ctx, ids[2], fees[2], amounts[2], &spentAmounts, &feesAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
+	checkRemovedTx(t, input, ctx, ids[3], fees[3], amounts[3], &spentAmounts, &feesAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
+	checkRemovedTx(t, input, ctx, ids[1], fees[1], amounts[1], &spentAmounts, &feesAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
+	checkRemovedTx(t, input, ctx, ids[0], fees[0], amounts[0], &spentAmounts, &feesAmounts, originalBal, mySender, myTokenContractAddr, myTokenDenom)
 	require.Empty(t, input.GravityKeeper.GetUnbatchedTransactions(ctx))
 }
 
 // Helper method to:
 // 1. Remove the transaction specified by `id`, `myTokenContractAddr` and `fee`
-// 2. Update the feesAndAmounts tracker by subtracting the refunded `fee` and `amount`
+// 2. Update the spentAmounts tracker by subtracting the refunded `fee` and `amount`
 // 3. Require that `mySender` has been refunded the correct amount for the cancelled transaction
 // 4. Require that the unbatched transaction pool does not contain the refunded transaction via iterating its elements
 func checkRemovedTx(t *testing.T, input TestInput, ctx sdk.Context, id uint64, fee uint64, amount uint64,
-	feesAndAmounts *uint64, originalBal uint64, mySender sdk.AccAddress, myTokenContractAddr string, myTokenDenom string) {
+	spentAmounts *uint64, feesAmounts *uint64, originalBal uint64, mySender sdk.AccAddress, myTokenContractAddr string, myTokenDenom string) {
 	err := input.GravityKeeper.RemoveFromOutgoingPoolAndRefund(ctx, id, mySender)
 	require.NoError(t, err)
-	*feesAndAmounts -= fee + amount // user should have regained the locked amounts from tx
-	currentBal := input.BankKeeper.GetBalance(ctx, mySender, myTokenDenom).Amount.Uint64()
-	require.Equal(t, currentBal, originalBal-*feesAndAmounts)
+
+	*spentAmounts -= amount // user should have regained the locked amounts from tx
+	*feesAmounts -= fee
+	currentBals := input.BankKeeper.GetAllBalances(ctx, mySender)
+	require.Equal(t, currentBals.AmountOf(myTokenDenom).Uint64(), originalBal-*spentAmounts)
+	require.Equal(t, currentBals.AmountOf(sdk.DefaultBondDenom).Uint64(), originalBal-*feesAmounts)
 	expectedKey := myTokenContractAddr + fmt.Sprint(fee) + fmt.Sprint(id)
 	input.GravityKeeper.IterateUnbatchedTransactions(ctx, []byte(types.OutgoingTXPoolKey), func(key []byte, tx *types.InternalOutgoingTransferTx) bool {
 		require.NotEqual(t, []byte(expectedKey), key)
 		found := id == tx.Id &&
-			fee == tx.Erc20Fee.Amount.Uint64() &&
+			fee == tx.Fee.Amount.Uint64() &&
 			amount == tx.Erc20Token.Amount.Uint64()
 		require.False(t, found)
 		return false
@@ -477,12 +461,9 @@ func TestRefundInconsistentTx(t *testing.T) {
 	//////// Refund an inconsistent tx ////////
 	amountToken, err := types.NewInternalERC20Token(sdk.NewInt(100), myTokenContractAddr.GetAddress())
 	require.NoError(t, err)
-	badTokenContractAddr, _ := types.NewEthAddress("0x429881672B9AE42b8EbA0E26cD9C73711b891Ca6") // different last char
-	badFeeToken, err := types.NewInternalERC20Token(sdk.NewInt(2), badTokenContractAddr.GetAddress())
-	require.NoError(t, err)
-
+	badFeeToken := sdk.NewInt64Coin("bad", 100) // the fee deno is wrong
 	// This way should fail
-	r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *myReceiver, amountToken.GravityCoin(), badFeeToken.GravityCoin())
+	r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *myReceiver, amountToken.GravityCoin(), badFeeToken)
 	require.Zero(t, r)
 	require.Error(t, err)
 	// But this unsafe override won't fail
@@ -491,7 +472,7 @@ func TestRefundInconsistentTx(t *testing.T) {
 		Sender:      mySender,
 		DestAddress: myReceiver,
 		Erc20Token:  amountToken,
-		Erc20Fee:    badFeeToken,
+		Fee:         &badFeeToken,
 	})
 	origBalances := input.BankKeeper.GetAllBalances(ctx, mySender)
 	require.NoError(t, err, "someone added validation to addUnbatchedTx")
@@ -534,21 +515,21 @@ func TestRefundTwice(t *testing.T) {
 	allVouchersToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(originalBal), myTokenContractAddr)
 	require.NoError(t, err)
 	allVouchers := sdk.Coins{allVouchersToken.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers)
+	allCoins := allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(originalBal)))
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allCoins)
 	require.NoError(t, err)
 
 	amountToken, err := types.NewInternalERC20Token(sdk.NewInt(100), myTokenContractAddr)
 	require.NoError(t, err)
-	feeToken, err := types.NewInternalERC20Token(sdk.NewInt(2), myTokenContractAddr)
-	require.NoError(t, err)
+	fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, 2)
 	origBalances := input.BankKeeper.GetAllBalances(ctx, mySender)
 
-	txId, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amountToken.GravityCoin(), feeToken.GravityCoin())
+	txId, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amountToken.GravityCoin(), fee)
 	require.NoError(t, err)
 	afterAddBalances := input.BankKeeper.GetAllBalances(ctx, mySender)
 
@@ -590,21 +571,23 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 	allVouchersToken1, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr1)
 	require.NoError(t, err)
 	allVouchers1 := sdk.Coins{allVouchersToken1.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers1)
+	allCoins1 := allVouchers1.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins1)
 	require.NoError(t, err)
 	allVouchersToken2, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr2)
 	require.NoError(t, err)
 	allVouchers2 := sdk.Coins{allVouchersToken2.GravityCoin()}
+	allCoins2 := allVouchers2.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
 	require.NoError(t, err)
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers2)
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins2)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender1)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allVouchers1)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allCoins1)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender2)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allVouchers2)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allCoins2)
 	require.NoError(t, err)
 
 	ids1 := make([]uint64, 4)
@@ -616,9 +599,7 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 		amountToken1, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(amounts[i]), myTokenContractAddr1)
 		require.NoError(t, err)
 		amount1 := amountToken1.GravityCoin()
-		feeToken1, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr1)
-		require.NoError(t, err)
-		fee1 := feeToken1.GravityCoin()
+		fee1 := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
 
 		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender1, *receiver, amount1, fee1)
 		require.NoError(t, err)
@@ -628,14 +609,12 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 			Sender:      mySender1.String(),
 			DestAddress: myReceiver,
 			Erc20Token:  amountToken1.ToExternal(),
-			Erc20Fee:    feeToken1.ToExternal(),
+			Fee:         fee1,
 		}
 		amountToken2, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(amounts[i]), myTokenContractAddr2)
 		require.NoError(t, err)
 		amount2 := amountToken2.GravityCoin()
-		feeToken2, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr2)
-		require.NoError(t, err)
-		fee2 := feeToken2.GravityCoin()
+		fee2 := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
 
 		r, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender2, *receiver, amount2, fee2)
 		require.NoError(t, err)
@@ -645,31 +624,30 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 			Sender:      mySender2.String(),
 			DestAddress: myReceiver,
 			Erc20Token:  amountToken2.ToExternal(),
-			Erc20Fee:    feeToken2.ToExternal(),
+			Fee:         fee2,
 		}
 	}
 
-	// GetUnbatchedTxByFeeAndId
-	token1Fee, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(fees[0]), myTokenContractAddr1)
-	require.NoError(t, err)
+	// GetUnbatchedTxErc20TokenAndId
+	token1Fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(fees[0]))
 	token1Amount, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(amounts[0]), myTokenContractAddr1)
 	require.NoError(t, err)
 	token1Id := ids1[0]
-	tx1, err1 := input.GravityKeeper.GetUnbatchedTxByFeeAndId(ctx, *token1Fee, token1Id)
+	tx1, err1 := input.GravityKeeper.GetUnbatchedTxErc20TokenAndId(ctx, myTokenContractAddr1, token1Fee.Amount, token1Id)
 	require.NoError(t, err1)
-	expTx1, err1 := types.NewInternalOutgoingTransferTx(token1Id, mySender1.String(), myReceiver, token1Amount.ToExternal(), token1Fee.ToExternal())
+	expTx1, err1 := types.NewInternalOutgoingTransferTx(token1Id, mySender1.String(), myReceiver, token1Amount.ToExternal(), token1Fee)
 	require.NoError(t, err1)
 	require.Equal(t, *expTx1, *tx1)
 
-	token2Fee, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(fees[3]), myTokenContractAddr2)
+	token2Fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(fees[3]))
 	require.NoError(t, err)
 	token2Amount, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(amounts[3]), myTokenContractAddr2)
 	require.NoError(t, err)
 
 	token2Id := ids2[3]
-	tx2, err2 := input.GravityKeeper.GetUnbatchedTxByFeeAndId(ctx, *token2Fee, token2Id)
+	tx2, err2 := input.GravityKeeper.GetUnbatchedTxErc20TokenAndId(ctx, myTokenContractAddr2, token2Fee.Amount, token2Id)
 	require.NoError(t, err2)
-	expTx2, err2 := types.NewInternalOutgoingTransferTx(token2Id, mySender2.String(), myReceiver, token2Amount.ToExternal(), token2Fee.ToExternal())
+	expTx2, err2 := types.NewInternalOutgoingTransferTx(token2Id, mySender2.String(), myReceiver, token2Amount.ToExternal(), token2Fee)
 	require.NoError(t, err2)
 	require.Equal(t, *expTx2, *tx2)
 
@@ -687,7 +665,7 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 	for _, v := range token1Txs {
 		expTx := idToTxMap[v.Id]
 		require.NotNil(t, expTx)
-		require.Equal(t, myTokenContractAddr1, v.Erc20Fee.Contract.GetAddress())
+		require.Equal(t, sdk.DefaultBondDenom, v.Fee.Denom)
 		require.Equal(t, myTokenContractAddr1, v.Erc20Token.Contract.GetAddress())
 		require.Equal(t, expTx.DestAddress, v.DestAddress.GetAddress())
 		require.Equal(t, expTx.Sender, v.Sender.String())
@@ -696,7 +674,7 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 	for _, v := range token2Txs {
 		expTx := idToTxMap[v.Id]
 		require.NotNil(t, expTx)
-		require.Equal(t, myTokenContractAddr2, v.Erc20Fee.Contract.GetAddress())
+		require.Equal(t, sdk.DefaultBondDenom, v.Fee.Denom)
 		require.Equal(t, myTokenContractAddr2, v.Erc20Token.Contract.GetAddress())
 		require.Equal(t, expTx.DestAddress, v.DestAddress.GetAddress())
 		require.Equal(t, expTx.Sender, v.Sender.String())
@@ -708,7 +686,7 @@ func TestGetUnbatchedTransactions(t *testing.T) {
 		require.NotNil(t, expTx)
 		require.Equal(t, expTx.DestAddress, v.DestAddress.GetAddress())
 		require.Equal(t, expTx.Sender, v.Sender.String())
-		require.Equal(t, expTx.Erc20Fee.Contract, v.Erc20Fee.Contract.GetAddress())
+		require.Equal(t, sdk.DefaultBondDenom, v.Fee.Denom)
 		require.Equal(t, expTx.Erc20Token.Contract, v.Erc20Token.Contract.GetAddress())
 	}
 }
@@ -736,21 +714,23 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 	token1, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr1)
 	require.NoError(t, err)
 	allVouchers1 := sdk.Coins{token1.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers1)
+	allCoins1 := allVouchers1.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 10000))
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins1)
 	require.NoError(t, err)
 
 	token2, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr2)
 	require.NoError(t, err)
 	allVouchers2 := sdk.Coins{token2.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers2)
+	allCoins2 := allVouchers2.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 10000))
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins2)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender1)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allVouchers1)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender1, allCoins1)
 	require.NoError(t, err)
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender2)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allVouchers2)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender2, allCoins2)
 	require.NoError(t, err)
 
 	ids1 := make([]uint64, 4)
@@ -761,9 +741,8 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 	for i, v := range fees {
 		amount1, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(amounts[i]), myTokenContractAddr1)
 		require.NoError(t, err)
-		fee1, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr1)
-		require.NoError(t, err)
-		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender1, *receiver, amount1.GravityCoin(), fee1.GravityCoin())
+		fee1 := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
+		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender1, *receiver, amount1.GravityCoin(), fee1)
 		require.NoError(t, err)
 		ids1[i] = r
 		idToTxMap[r] = &types.OutgoingTransferTx{
@@ -771,13 +750,12 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 			Sender:      mySender1.String(),
 			DestAddress: myReceiver,
 			Erc20Token:  amount1.ToExternal(),
-			Erc20Fee:    fee1.ToExternal(),
+			Fee:         fee1,
 		}
 		amount2, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(amounts[i]), myTokenContractAddr2)
 		require.NoError(t, err)
-		fee2, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr2)
-		require.NoError(t, err)
-		r, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender2, *receiver, amount2.GravityCoin(), fee2.GravityCoin())
+		fee2 := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
+		r, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender2, *receiver, amount2.GravityCoin(), fee2)
 		require.NoError(t, err)
 
 		ids2[i] = r
@@ -786,7 +764,7 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 			Sender:      mySender2.String(),
 			DestAddress: myReceiver,
 			Erc20Token:  amount2.ToExternal(),
-			Erc20Fee:    fee2.ToExternal(),
+			Fee:         fee2,
 		}
 	}
 	// IterateUnbatchedTransactionsByContract
@@ -795,7 +773,7 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 		require.NotNil(t, tx)
 		fTx := idToTxMap[tx.Id]
 		require.NotNil(t, fTx)
-		require.Equal(t, fTx.Erc20Fee.Contract, myTokenContractAddr1)
+		require.Equal(t, fTx.Fee.Denom, sdk.DefaultBondDenom)
 		require.Equal(t, fTx.Erc20Token.Contract, myTokenContractAddr1)
 		require.Equal(t, fTx.DestAddress, myReceiver)
 		require.Equal(t, mySender1.String(), fTx.Sender)
@@ -806,7 +784,7 @@ func TestIterateUnbatchedTransactions(t *testing.T) {
 		require.NotNil(t, tx)
 		fTx := idToTxMap[tx.Id]
 		require.NotNil(t, fTx)
-		require.Equal(t, fTx.Erc20Fee.Contract, myTokenContractAddr2)
+		require.Equal(t, fTx.Fee.Denom, sdk.DefaultBondDenom)
 		require.Equal(t, fTx.Erc20Token.Contract, myTokenContractAddr2)
 		require.Equal(t, fTx.DestAddress, myReceiver)
 		require.Equal(t, mySender2.String(), fTx.Sender)
@@ -850,13 +828,14 @@ func TestAddToOutgoingPoolExportGenesis(t *testing.T) {
 	allVouchersToken, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 	require.NoError(t, err)
 	allVouchers := sdk.Coins{allVouchersToken.GravityCoin()}
+	allCoins := allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 10000))
 
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers)
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allCoins)
 	require.NoError(t, err)
 
 	unbatchedTxMap := make(map[uint64]types.OutgoingTransferTx)
@@ -866,9 +845,7 @@ func TestAddToOutgoingPoolExportGenesis(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
 
 		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
@@ -878,7 +855,7 @@ func TestAddToOutgoingPoolExportGenesis(t *testing.T) {
 			Sender:      mySender.String(),
 			DestAddress: myReceiver,
 			Erc20Token:  amountToken.ToExternal(),
-			Erc20Fee:    feeToken.ToExternal(),
+			Fee:         fee,
 		}
 		foundTxsMap[r] = false
 

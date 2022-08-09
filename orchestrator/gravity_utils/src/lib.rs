@@ -7,7 +7,6 @@ pub mod connection_prep;
 pub mod error;
 pub mod get_with_retry;
 pub mod num_conversion;
-pub mod prices;
 pub mod types;
 
 pub use clarity;
