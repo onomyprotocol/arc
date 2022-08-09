@@ -22,35 +22,35 @@ const OutgoingTxBatchSize = 100
 // - emit an event
 func (k Keeper) BuildOutgoingTXBatch(
 	ctx sdk.Context,
-	contract types.EthAddress,
+	tokenContract types.EthAddress,
 	maxElements uint) (*types.InternalOutgoingTxBatch, error) {
 	if maxElements == 0 {
-		return nil, sdkerrors.Wrap(types.ErrInvalid, "max elements value")
+		return nil, sdkerrors.Wrap(types.ErrInvalid, "max elements, value can't be 0")
 	}
 	params := k.GetParams(ctx)
 	if !params.BridgeActive {
 		return nil, sdkerrors.Wrap(types.ErrInvalid, "bridge paused")
 	}
 
-	lastBatch := k.GetLastOutgoingBatchByTokenType(ctx, contract)
+	lastBatch := k.GetLastOutgoingBatchByTokenType(ctx, tokenContract)
 
 	// lastBatch may be nil if there are no existing batches, we only need
 	// to perform this check if a previous batch exists
 	if lastBatch != nil {
 		// this traverses the current tx pool for this token type and determines what
 		// fees a hypothetical batch would have if created
-		currentFees := k.GetBatchFeeByTokenType(ctx, contract, maxElements)
+		currentFees := k.GetBatchFeeByTokenType(ctx, tokenContract, maxElements)
 		if currentFees == nil {
 			return nil, sdkerrors.Wrap(types.ErrInvalid, "error getting fees from tx pool")
 		}
 
 		lastFees := lastBatch.ToExternal().GetFees()
-		if lastFees.GTE(currentFees.TotalFees) {
+		if _, isNegative := lastFees.SafeSub(currentFees.TotalFees); !isNegative {
 			return nil, sdkerrors.Wrap(types.ErrInvalid, "new batch would not be more profitable")
 		}
 	}
 
-	selectedTx, err := k.pickUnbatchedTX(ctx, contract, maxElements)
+	selectedTx, err := k.pickUnbatchedTX(ctx, tokenContract, maxElements)
 	if err != nil {
 		return nil, err
 	} else if len(selectedTx) == 0 {
@@ -58,7 +58,7 @@ func (k Keeper) BuildOutgoingTXBatch(
 	}
 
 	nextID := k.autoIncrementID(ctx, []byte(types.KeyLastOutgoingBatchID))
-	batch, err := types.NewInternalOutgingTxBatch(nextID, k.getBatchTimeoutHeight(ctx), selectedTx, contract, 0)
+	batch, err := types.NewInternalOutgingTxBatch(nextID, k.getBatchTimeoutHeight(ctx), selectedTx, tokenContract, 0)
 	if err != nil {
 		panic(sdkerrors.Wrap(err, "unable to create batch"))
 	}
@@ -105,7 +105,7 @@ func (k Keeper) getBatchTimeoutHeight(ctx sdk.Context) uint64 {
 // OutgoingTxBatchExecuted is run when the Cosmos chain detects that a batch has been executed on Ethereum
 // It frees all the transactions in the batch, then cancels all earlier batches, this function panics instead
 // of returning errors because any failure will cause a double spend.
-func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.EthAddress, nonce uint64) {
+func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.EthAddress, nonce uint64, rewardRecipient string) {
 	b := k.GetOutgoingTXBatch(ctx, tokenContract, nonce)
 	if b == nil {
 		panic(fmt.Sprintf("unknown batch nonce for outgoing tx batch %s %d", tokenContract, nonce))
@@ -115,7 +115,7 @@ func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.Eth
 	if isCosmosOriginated, _ := k.ERC20ToDenomLookup(ctx, contract); !isCosmosOriginated {
 		totalToBurn := sdk.NewInt(0)
 		for _, tx := range b.Transactions {
-			totalToBurn = totalToBurn.Add(tx.Erc20Token.Amount.Add(tx.Erc20Fee.Amount))
+			totalToBurn = totalToBurn.Add(tx.Erc20Token.Amount)
 		}
 		// burn vouchers to send them back to ETH
 		erc20, err := types.NewInternalERC20Token(totalToBurn, contract.GetAddress())
@@ -126,6 +126,15 @@ func (k Keeper) OutgoingTxBatchExecuted(ctx sdk.Context, tokenContract types.Eth
 		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnVouchers); err != nil {
 			panic(err)
 		}
+	}
+
+	totalFee := sdk.NewCoins()
+	for _, tx := range b.Transactions {
+		totalFee = totalFee.Add(*tx.Fee)
+	}
+
+	if err := k.SendCoinsToRecipientOrCommunityPool(ctx, rewardRecipient, totalFee); err != nil {
+		panic(err)
 	}
 
 	// Iterate through remaining batches
@@ -179,7 +188,7 @@ func (k Keeper) pickUnbatchedTX(
 	var selectedTx []*types.InternalOutgoingTransferTx
 	var err error
 	k.IterateUnbatchedTransactionsByContract(ctx, contractAddress, func(_ []byte, tx *types.InternalOutgoingTransferTx) bool {
-		if tx != nil && tx.Erc20Fee != nil {
+		if tx != nil && tx.Fee != nil {
 			// check the blacklist before picking this tx, this was already
 			// checked on MsgSendToEth, but we want to double check. For example
 			// a major erc20 throws on send to address X a MsgSendToEth is made with that destination
@@ -188,13 +197,13 @@ func (k Keeper) pickUnbatchedTX(
 			// very inefficient, IsOnBlacklist is O(blacklist-length) and should be made faster
 			if !k.IsOnBlacklist(ctx, *tx.DestAddress) {
 				selectedTx = append(selectedTx, tx)
-				err = k.removeUnbatchedTX(ctx, *tx.Erc20Fee, tx.Id)
+				err = k.removeUnbatchedTX(ctx, tx.Erc20Token.Contract.GetAddress(), tx.Fee.Amount, tx.Id)
 				if err != nil {
-					panic("Failed to remote tx from unbatched queue")
+					panic("Failed to remove tx from unbatched queue")
 				}
 
 				// double check that no duplicates exist in the index
-				oldTx, oldTxErr := k.GetUnbatchedTxByFeeAndId(ctx, *tx.Erc20Fee, tx.Id)
+				oldTx, oldTxErr := k.GetUnbatchedTxErc20TokenAndId(ctx, tx.Erc20Token.Contract.GetAddress(), tx.Fee.Amount, tx.Id)
 				if oldTx != nil || oldTxErr == nil {
 					panic("picked a duplicate transaction from the pool, duplicates should never exist!")
 				}
@@ -222,10 +231,6 @@ func (k Keeper) GetOutgoingTXBatch(ctx sdk.Context, tokenContract types.EthAddre
 	}
 	var b types.OutgoingTxBatch
 	k.cdc.MustUnmarshal(bz, &b)
-	for _, tx := range b.Transactions {
-		tx.Erc20Token.Contract = tokenContract.GetAddress()
-		tx.Erc20Fee.Contract = tokenContract.GetAddress()
-	}
 	ret, err := b.ToInternal()
 	if err != nil {
 		panic(sdkerrors.Wrap(err, "found invalid batch in store"))

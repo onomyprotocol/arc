@@ -3,7 +3,15 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, signHash, EmptyDenom,} from "../test-utils/pure";
+import {
+    EmptyCosmosAddress,
+    EmptyDenom,
+    examplePowers,
+    getSignerAddresses,
+    parseEvent,
+    signHash,
+} from "../test-utils/pure";
+import {BigNumber} from "ethers";
 
 chai.use(solidity);
 const {expect} = chai;
@@ -21,14 +29,19 @@ async function runTest(opts: {
     barelyEnoughPower?: boolean;
     malformedCurrentValset?: boolean;
     batchTimeout?: boolean;
+    withRewardRecipient?: boolean;
 }) {
     // Prep and deploy contract
     // ========================
     const signers = await ethers.getSigners();
     const gravityId = ethers.utils.formatBytes32String("foo");
+    const cosmosAddress = "cosmos1zkl8g9vd62x0ykvwq4mdcaehydvwc8ylh6panp"
     // This is the power distribution on the Cosmos hub as of 7/14/2020
     let powers = examplePowers();
     let validators = sortValidators(signers.slice(0, powers.length));
+
+    let rewardRecipient = ""
+
     const {
         gravity,
         testERC20,
@@ -48,18 +61,16 @@ async function runTest(opts: {
     // ===============================
     const numTxs = 100;
     const txDestinationsInt = new Array(numTxs);
-    const txFees = new Array(numTxs);
 
     const txAmounts = new Array(numTxs);
     for (let i = 0; i < numTxs; i++) {
-        txFees[i] = 1;
         txAmounts[i] = 1;
         txDestinationsInt[i] = signers[i + 5];
     }
     const txDestinations = await getSignerAddresses(txDestinationsInt);
     if (opts.malformedTxBatch) {
-        // Make the fees array the wrong size
-        txFees.pop();
+        // Make the txDestinations array the wrong size
+        txDestinations.pop();
     }
 
     let batchTimeout = ethers.provider.blockNumber + 1000;
@@ -80,7 +91,6 @@ async function runTest(opts: {
             "bytes32",
             "uint256[]",
             "address[]",
-            "uint256[]",
             "uint256",
             "address",
             "uint256",
@@ -90,7 +100,6 @@ async function runTest(opts: {
             methodName,
             txAmounts,
             txDestinations,
-            txFees,
             batchNonce,
             testERC20.address,
             batchTimeout,
@@ -145,6 +154,10 @@ async function runTest(opts: {
         sigs[11].v = 0;
     }
 
+    if (opts.withRewardRecipient) {
+        rewardRecipient = cosmosAddress
+    }
+
     let valset = {
         validators: await getSignerAddresses(validators),
         powers,
@@ -153,18 +166,25 @@ async function runTest(opts: {
         rewardDenom: EmptyDenom
     }
 
-    let batchSubmitTx = await gravity.submitBatch(
+    const batchSubmitEventArgs = await parseEvent(gravity, gravity.submitBatch(
         valset,
-
         sigs,
-
         txAmounts,
         txDestinations,
-        txFees,
         batchNonce,
         testERC20.address,
-        batchTimeout
-    );
+        batchTimeout,
+        rewardRecipient,
+    ), numTxs)
+
+    // check event content
+    expect(batchSubmitEventArgs).to.deep.equal({
+        _batchNonce: BigNumber.from(1),
+        _token: testERC20.address,
+        _eventNonce: BigNumber.from(3),
+        _rewardRecipient: rewardRecipient
+    })
+
 }
 
 describe("submitBatch tests", function () {
@@ -219,6 +239,10 @@ describe("submitBatch tests", function () {
     it("does not throw on barely enough signatures", async function () {
         await runTest({barelyEnoughPower: true});
     });
+
+    it("filled reward recipient in the event", async function () {
+        await runTest({withRewardRecipient: true});
+    });
 });
 
 // This test produces a hash for the contract which should match what is being used in the Go unit tests. It's here for
@@ -240,7 +264,6 @@ describe("submitBatch Go test hash", function () {
         // Prepare batch
         // ===============================
         const txAmounts = [1];
-        const txFees = [1];
         const txDestinations = await getSignerAddresses([signers[5]]);
         const batchNonce = 1;
         const batchTimeout = ethers.provider.blockNumber + 1000;
@@ -265,7 +288,6 @@ describe("submitBatch Go test hash", function () {
                 "bytes32",
                 "uint256[]",
                 "address[]",
-                "uint256[]",
                 "uint256",
                 "address",
                 "uint256",
@@ -275,7 +297,6 @@ describe("submitBatch Go test hash", function () {
                 batchMethodName,
                 txAmounts,
                 txDestinations,
-                txFees,
                 batchNonce,
                 testERC20.address,
                 batchTimeout,
@@ -288,7 +309,6 @@ describe("submitBatch Go test hash", function () {
             batchMethodName: batchMethodName,
             txAmounts: txAmounts,
             txDestinations: txDestinations,
-            txFees: txFees,
             batchNonce: batchNonce,
             batchTimeout: batchTimeout,
             tokenContract: testERC20.address,
@@ -309,15 +329,13 @@ describe("submitBatch Go test hash", function () {
 
         await gravity.submitBatch(
             valset,
-
             sigs,
-
             txAmounts,
             txDestinations,
-            txFees,
             batchNonce,
             testERC20.address,
-            batchTimeout
+            batchTimeout,
+            EmptyCosmosAddress
         );
     });
 });

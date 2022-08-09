@@ -2,8 +2,10 @@ use std::{cmp::min, time::Duration};
 
 use gravity_utils::{
     clarity::{
-        abi::encode_call, u256, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256,
+        abi::{encode_call, Token},
+        u256, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256,
     },
+    deep_space::address::Address as CosmosAddress,
     error::GravityError,
     types::*,
     u64_array_bigints,
@@ -30,6 +32,7 @@ pub async fn send_eth_transaction_batch(
     gravity_contract_address: EthAddress,
     gravity_id: String,
     our_eth_key: EthPrivateKey,
+    reward_recipient: CosmosAddress,
 ) -> Result<(), GravityError> {
     let new_batch_nonce = batch.nonce;
     let eth_address = our_eth_key.to_address();
@@ -61,7 +64,13 @@ pub async fn send_eth_transaction_batch(
         return Ok(());
     }
 
-    let payload = encode_batch_payload(current_valset, &batch, confirms, gravity_id)?;
+    let payload = encode_batch_payload(
+        current_valset,
+        &batch,
+        confirms,
+        gravity_id,
+        reward_recipient,
+    )?;
 
     let tx = web3
         .send_transaction(
@@ -96,6 +105,7 @@ pub async fn send_eth_transaction_batch(
 }
 
 /// Returns the cost in Eth of sending this batch
+#[allow(clippy::too_many_arguments)]
 pub async fn estimate_tx_batch_cost(
     current_valset: &Valset,
     batch: TransactionBatch,
@@ -104,6 +114,7 @@ pub async fn estimate_tx_batch_cost(
     gravity_contract_address: EthAddress,
     gravity_id: String,
     our_eth_key: EthPrivateKey,
+    reward_recipient: CosmosAddress,
 ) -> Result<GasCost, GravityError> {
     let our_eth_address = our_eth_key.to_address();
     let our_balance = web3.eth_get_balance(our_eth_address).await?;
@@ -118,7 +129,16 @@ pub async fn estimate_tx_batch_cost(
             gas_price: Some(gas_price.into()),
             gas: Some(gas_limit.into()),
             value: Some(u256!(0).into()),
-            data: Some(encode_batch_payload(current_valset, &batch, confirms, gravity_id)?.into()),
+            data: Some(
+                encode_batch_payload(
+                    current_valset,
+                    &batch,
+                    confirms,
+                    gravity_id,
+                    reward_recipient,
+                )?
+                .into(),
+            ),
         })
         .await?;
 
@@ -134,25 +154,26 @@ fn encode_batch_payload(
     batch: &TransactionBatch,
     confirms: &[BatchConfirmResponse],
     gravity_id: String,
+    reward_recipient: CosmosAddress,
 ) -> Result<Vec<u8>, GravityError> {
     let current_valset_token = encode_valset_struct(current_valset);
     let new_batch_nonce = batch.nonce;
     let hash = encode_tx_batch_confirm_hashed(gravity_id, batch);
     let sig_data = current_valset.order_sigs(&hash, confirms)?;
     let sig_arrays = to_arrays(sig_data);
-    let (amounts, destinations, fees) = batch.get_checkpoint_values();
+    let (amounts, destinations) = batch.get_checkpoint_values();
 
     let tokens = &[
         current_valset_token,
         sig_arrays.sigs,
         amounts,
         destinations,
-        fees,
         new_batch_nonce.into(),
         batch.token_contract.into(),
         batch.batch_timeout.into(),
+        Token::String(reward_recipient.to_string()),
     ];
-    let payload = encode_call("submitBatch((address[],uint256[],uint256,uint256,string),(uint8,bytes32,bytes32)[],uint256[],address[],uint256[],uint256,address,uint256)",
+    let payload = encode_call("submitBatch((address[],uint256[],uint256,uint256,string),(uint8,bytes32,bytes32)[],uint256[],address[],uint256,address,uint256,string)",
     tokens).unwrap();
     trace!("Tokens {:?}", tokens);
 

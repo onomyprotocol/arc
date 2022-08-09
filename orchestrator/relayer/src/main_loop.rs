@@ -73,6 +73,7 @@ pub async fn relayer_main_loop(
                     gravity_id.clone(),
                     TIMEOUT,
                     relayer_config,
+                    reward_recipient,
                 )
                 .await;
 
@@ -94,7 +95,6 @@ pub async fn relayer_main_loop(
                         &web3,
                         &mut grpc_client,
                         relayer_config.batch_request_mode,
-                        ethereum_key.to_address(),
                         cosmos_key,
                         cosmos_fee,
                     )

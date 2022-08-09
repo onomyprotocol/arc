@@ -56,6 +56,7 @@ import (
 	tmversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
 
+	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
 	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 )
 
@@ -225,6 +226,7 @@ var (
 		SlashFractionBadEthSignature: sdk.NewDecWithPrec(1, 2),
 		ValsetReward:                 sdk.Coin{Denom: "", Amount: sdk.ZeroInt()},
 		BridgeActive:                 true,
+		BatchFeeDenom:                sdk.DefaultBondDenom,
 	}
 )
 
@@ -473,6 +475,25 @@ func CreateTestEnv(t *testing.T) TestInput {
 		DefaultSendEnabled: true,
 	})
 
+	metadata := banktypes.Metadata{
+		Description: sdk.DefaultBondDenom,
+		DenomUnits: []*banktypes.DenomUnit{
+			{
+				Denom:    sdk.DefaultBondDenom,
+				Exponent: 0,
+			},
+			{
+				Denom:    "u" + sdk.DefaultBondDenom,
+				Exponent: 6,
+			},
+		},
+		Base:    sdk.DefaultBondDenom,
+		Display: sdk.DefaultBondDenom,
+		Name:    sdk.DefaultBondDenom,
+		Symbol:  sdk.DefaultBondDenom,
+	}
+	bankKeeper.SetDenomMetaData(ctx, metadata)
+
 	// distribution keeper can be nil here since it won't be used for the tests
 	stakingKeeper := stakingkeeper.NewKeeper(marshaler, keyStaking, accountKeeper, bankKeeper, getSubspace(paramsKeeper, stakingtypes.ModuleName))
 	stakingKeeper.SetParams(ctx, TestingStakeParams)
@@ -562,9 +583,7 @@ func CreateTestEnv(t *testing.T) TestInput {
 	k.setID(ctx, 0, []byte(types.KeyLastOutgoingBatchID))
 
 	k.SetParams(ctx, TestingGravityParams)
-	params := k.GetParams(ctx)
-
-	fmt.Println(params)
+	fmt.Println(k.GetParams(ctx))
 
 	return TestInput{
 		GravityKeeper:  k,
@@ -607,17 +626,6 @@ func MakeTestMarshaler() codec.Codec {
 	ModuleBasics.RegisterInterfaces(interfaceRegistry)
 	types.RegisterInterfaces(interfaceRegistry)
 	return codec.NewProtoCodec(interfaceRegistry)
-}
-
-// MintVouchersFromAir creates new gravity vouchers given erc20tokens
-func MintVouchersFromAir(t *testing.T, ctx sdk.Context, k Keeper, dest sdk.AccAddress, amount types.InternalERC20Token) sdk.Coin {
-	coin := amount.GravityCoin()
-	vouchers := sdk.Coins{coin}
-	err := k.bankKeeper.MintCoins(ctx, types.ModuleName, vouchers)
-	require.NoError(t, err)
-	err = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, dest, vouchers)
-	require.NoError(t, err)
-	return coin
 }
 
 func NewTestMsgCreateValidator(address sdk.ValAddress, pubKey ccrypto.PubKey, amt sdk.Int) *stakingtypes.MsgCreateValidator {

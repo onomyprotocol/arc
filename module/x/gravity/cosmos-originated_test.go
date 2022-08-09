@@ -108,22 +108,22 @@ func addDenomToERC20Relation(tv *testingVars, myNonce uint64) {
 
 func lockCoinsInModule(tv *testingVars) {
 	var (
-		userCosmosAddr, err           = sdk.AccAddressFromBech32("gravity1990z7dqsvh8gthw9pa5sn4wuy2xrsd80lcx6lv")
-		denom                         = "ugraviton"
-		startingCoinAmount  sdk.Int   = sdk.NewIntFromUint64(150)
-		sendAmount          sdk.Int   = sdk.NewIntFromUint64(50)
-		feeAmount           sdk.Int   = sdk.NewIntFromUint64(5)
-		startingCoins       sdk.Coins = sdk.Coins{sdk.NewCoin(denom, startingCoinAmount)}
-		sendingCoin         sdk.Coin  = sdk.NewCoin(denom, sendAmount)
-		feeCoin             sdk.Coin  = sdk.NewCoin(denom, feeAmount)
-		ethDestination                = "0x3c9289da00b02dC623d0D8D907619890301D26d4"
+		userCosmosAddr, err = sdk.AccAddressFromBech32("gravity1990z7dqsvh8gthw9pa5sn4wuy2xrsd80lcx6lv")
+		denom               = "ugraviton"
+		startingCoinAmount  = sdk.NewIntFromUint64(145)
+		sendAmount          = sdk.NewIntFromUint64(50)
+		feeAmount           = sdk.NewIntFromUint64(5)
+		startingCoins       = sdk.NewCoins(sdk.NewCoin(denom, startingCoinAmount), sdk.NewCoin(sdk.DefaultBondDenom, feeAmount))
+		sendingCoin         = sdk.NewCoin(denom, sendAmount)
+		feeCoin             = sdk.NewCoin(sdk.DefaultBondDenom, feeAmount)
+		ethDestination      = "0x3c9289da00b02dC623d0D8D907619890301D26d4"
 	)
 
 	// we start by depositing some funds into the users balance to send
 	require.NoError(tv.t, tv.input.BankKeeper.MintCoins(tv.ctx, types.ModuleName, startingCoins))
-	tv.input.BankKeeper.SendCoinsFromModuleToAccount(tv.ctx, types.ModuleName, userCosmosAddr, startingCoins)
+	require.NoError(tv.t, tv.input.BankKeeper.SendCoinsFromModuleToAccount(tv.ctx, types.ModuleName, userCosmosAddr, startingCoins))
 	balance1 := tv.input.BankKeeper.GetAllBalances(tv.ctx, userCosmosAddr)
-	assert.Equal(tv.t, sdk.Coins{sdk.NewCoin(denom, startingCoinAmount)}, balance1)
+	assert.Equal(tv.t, startingCoins, balance1)
 
 	// send some coins
 	msg := &types.MsgSendToEth{
@@ -138,12 +138,12 @@ func lockCoinsInModule(tv *testingVars) {
 
 	// Check that user balance has gone down
 	balance2 := tv.input.BankKeeper.GetAllBalances(tv.ctx, userCosmosAddr)
-	assert.Equal(tv.t, sdk.Coins{sdk.NewCoin(denom, startingCoinAmount.Sub(sendAmount).Sub(feeAmount))}, balance2)
+	assert.Equal(tv.t, startingCoins.Sub(sdk.NewCoins(sendingCoin, feeCoin)), balance2)
 
 	// Check that gravity balance has gone up
 	gravityAddr := tv.input.AccountKeeper.GetModuleAddress(types.ModuleName)
 	assert.Equal(tv.t,
-		sdk.Coins{sdk.NewCoin(denom, sendAmount.Add(feeAmount))},
+		sdk.NewCoins(sendingCoin, feeCoin),
 		tv.input.BankKeeper.GetAllBalances(tv.ctx, gravityAddr),
 	)
 }
@@ -191,8 +191,9 @@ func acceptDepositEvent(tv *testingVars, myNonce uint64) {
 	// Check that gravity balance has gone down
 	gravityAddr := tv.input.AccountKeeper.GetModuleAddress(types.ModuleName)
 	assert.Equal(tv.t,
-		sdk.Coins{sdk.NewCoin(tv.denom, sdk.NewIntFromUint64(55).Sub(myErc20.Amount))},
-		tv.input.BankKeeper.GetAllBalances(tv.ctx, gravityAddr),
+		// the 38 here is total sent tx amount, 5 - fee amount
+		sdk.NewCoins(sdk.NewCoin(tv.denom, sdk.NewIntFromUint64(38)), sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewIntFromUint64(5))).String(),
+		tv.input.BankKeeper.GetAllBalances(tv.ctx, gravityAddr).String(),
 	)
 }
 

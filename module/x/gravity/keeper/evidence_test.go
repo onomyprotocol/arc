@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,6 +24,7 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
 		token, err          = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 		allVouchers         = sdk.NewCoins(token.GravityCoin())
+		allCoins            = sdk.NewCoins(allVouchers...).Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 10000)) // coins to mint
 	)
 	require.NoError(t, err)
 	receiver, err := types.NewEthAddress(myReceiver)
@@ -32,10 +33,10 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 	require.NoError(t, err)
 
 	// mint some voucher first
-	require.NoError(t, input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers))
+	require.NoError(t, input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins))
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	require.NoError(t, input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers))
+	require.NoError(t, input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allCoins))
 
 	// CREATE BATCH
 
@@ -44,9 +45,7 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewIntFromUint64(v))
 
 		_, err = input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)

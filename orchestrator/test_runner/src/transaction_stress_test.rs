@@ -49,15 +49,15 @@ pub async fn transaction_stress_test(
     start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
 
     // Generate 100 user keys to send ETH and multiple types of tokens
-    let mut user_keys = Vec::new();
+    let mut users_keys = Vec::new();
     for _ in 0..NUM_USERS {
-        user_keys.push(get_user_key());
+        users_keys.push(get_user_key());
     }
     // the sending eth addresses need Ethereum to send ERC20 tokens to the bridge
-    let sending_eth_addresses: Vec<EthAddress> = user_keys.iter().map(|i| i.eth_address).collect();
+    let sending_eth_addresses: Vec<EthAddress> = users_keys.iter().map(|i| i.eth_address).collect();
     // the destination eth addresses need Ethereum to perform a contract call and get their erc20 balances
     let dest_eth_addresses: Vec<EthAddress> =
-        user_keys.iter().map(|i| i.eth_dest_address).collect();
+        users_keys.iter().map(|i| i.eth_dest_address).collect();
     let mut eth_destinations = Vec::new();
     eth_destinations.extend(sending_eth_addresses.clone());
     eth_destinations.extend(dest_eth_addresses);
@@ -72,7 +72,7 @@ pub async fn transaction_stress_test(
     web30.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
     for token in erc20_addresses.iter() {
         let mut sends = Vec::new();
-        for keys in user_keys.iter() {
+        for keys in users_keys.iter() {
             let fut = send_to_cosmos(
                 *token,
                 gravity_address,
@@ -107,7 +107,7 @@ pub async fn transaction_stress_test(
         loop {
             let mut good = true;
 
-            for keys in user_keys.iter() {
+            for keys in users_keys.iter() {
                 let c_addr = keys.cosmos_address;
                 let balances = contact.get_balances(c_addr).await.unwrap();
 
@@ -140,12 +140,12 @@ pub async fn transaction_stress_test(
     {
         panic!(
             "Failed to perform all {} deposits to Cosmos!",
-            user_keys.len() * erc20_addresses.len()
+            users_keys.len() * erc20_addresses.len()
         );
     } else {
         info!(
             "All {} deposits bridged to Cosmos successfully!",
-            user_keys.len() * erc20_addresses.len()
+            users_keys.len() * erc20_addresses.len()
         );
     }
 
@@ -154,10 +154,10 @@ pub async fn transaction_stress_test(
     let mut denoms = HashSet::new();
     for token in erc20_addresses.iter() {
         let mut futs = Vec::new();
-        for keys in user_keys.iter() {
-            let c_addr = keys.cosmos_address;
-            let c_key = keys.cosmos_key;
-            let e_dest_addr = keys.eth_dest_address;
+        for user_keys in users_keys.iter() {
+            let c_addr = user_keys.cosmos_address;
+            let c_key = user_keys.cosmos_key;
+            let e_dest_addr = user_keys.eth_dest_address;
             let balances = contact.get_balances(c_addr).await.unwrap();
             // this way I don't have to hardcode a denom and we can change the way denoms are formed
             // without changing this test.
@@ -170,16 +170,24 @@ pub async fn transaction_stress_test(
             }
             let mut send_coin = send_coin.unwrap();
             send_coin.amount = send_amount;
-            let send_fee = Coin {
-                denom: send_coin.denom.clone(),
-                amount: u256!(1),
-            };
+
+            let bridge_fee = get_fee();
+            let cosmos_tx_fee = get_fee();
+            // send some coins to pay fees
+            send_cosmos_coins(
+                contact,
+                keys[0].validator_key,
+                vec![user_keys.cosmos_address],
+                vec![bridge_fee.clone(), cosmos_tx_fee.clone()],
+            )
+            .await;
+
             let res = send_to_eth(
                 c_key,
                 e_dest_addr,
                 send_coin,
-                send_fee.clone(),
-                send_fee,
+                bridge_fee,
+                cosmos_tx_fee,
                 contact,
             );
             futs.push(res);
@@ -198,7 +206,7 @@ pub async fn transaction_stress_test(
     // randomly select a user to cancel their transaction, as part of this test
     // we make sure that this user withdraws absolutely zero tokens
     let mut rng = rand::thread_rng();
-    let user_who_cancels = user_keys.choose(&mut rng).unwrap();
+    let user_who_cancels = users_keys.choose(&mut rng).unwrap();
     let pending = get_pending_send_to_eth(&mut grpc_client, user_who_cancels.cosmos_address)
         .await
         .unwrap();
@@ -236,7 +244,7 @@ pub async fn transaction_stress_test(
 
     // this user will have someone else attempt to cancel their transaction
     let mut victim = None;
-    for key in user_keys.iter() {
+    for key in users_keys.iter() {
         if key != user_who_cancels {
             victim = Some(key);
             break;
@@ -270,7 +278,7 @@ pub async fn transaction_stress_test(
             let mut good = true;
             let mut found_canceled = false;
 
-            for keys in user_keys.iter() {
+            for keys in users_keys.iter() {
                 let e_dest_addr = keys.eth_dest_address;
                 for token in erc20_addresses.iter() {
                     let bal = get_erc20_balance_safe(*token, web30, e_dest_addr)

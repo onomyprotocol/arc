@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +19,6 @@ func TestBatchAndTxImportExport(t *testing.T) {
 	ctx := input.Context
 	batchSize := 100
 	accAddresses := []string{ // Warning: this must match the length of ctrAddresses
-
 		"gravity1dg55rtevlfxh46w88yjpdd08sqhh5cc3z8yqu6",
 		"gravity164knshrzuuurf05qxf3q5ewpfnwzl4gj3t84vv",
 		"gravity193fw83ynn76328pty4yl7473vg9x86aly623wk",
@@ -69,6 +68,7 @@ func TestBatchAndTxImportExport(t *testing.T) {
 		token, err := types.NewInternalERC20Token(sdk.NewInt(99999999), v.GetAddress())
 		tokens[i] = token
 		allVouchers := sdk.NewCoins(token.GravityCoin())
+		allVouchers = allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 100000)) // fee
 		vouchers[i] = &allVouchers
 		require.NoError(t, err)
 
@@ -92,23 +92,22 @@ func TestBatchAndTxImportExport(t *testing.T) {
 		// Pick fee, amount, sender, receiver, and contract for the ith transaction
 		// Sender and contract will always match up (they must since sender i controls the whole balance of the ith token)
 		// Receivers should get a balance of many token types since i % len(receivers) is usually different than i % len(contracts)
-		fee := fees[i%len(fees)] // fee for this transaction
+
 		amount := amounts[i%len(amounts)]
 		sender := senders[i%len(senders)]
 		receiver := receivers[i%len(receivers)]
 		contract := contracts[i%len(contracts)]
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(amount)), contract.GetAddress())
 		require.NoError(t, err)
-		feeToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(fee)), contract.GetAddress())
-		require.NoError(t, err)
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(fees[i%len(fees)]))
 
 		// add transaction to the pool
-		id, err := input.GravityKeeper.AddToOutgoingPool(ctx, *sender, *receiver, amountToken.GravityCoin(), feeToken.GravityCoin())
+		id, err := input.GravityKeeper.AddToOutgoingPool(ctx, *sender, *receiver, amountToken.GravityCoin(), fee)
 		require.NoError(t, err)
 		ctx.Logger().Info(fmt.Sprintf("Created transaction %v with amount %v and fee %v of contract %v from %v to %v", i, amount, fee, contract, sender, receiver))
 
 		// Record the transaction for later testing
-		tx, err := types.NewInternalOutgoingTransferTx(id, sender.String(), receiver.GetAddress(), amountToken.ToExternal(), feeToken.ToExternal())
+		tx, err := types.NewInternalOutgoingTransferTx(id, sender.String(), receiver.GetAddress(), amountToken.ToExternal(), fee)
 		require.NoError(t, err)
 		txs[i] = tx
 	}
@@ -156,7 +155,7 @@ func checkAllTransactionsExist(t *testing.T, keeper Keeper, ctx sdk.Context, txs
 	// Actually check that the txs all exist, iterate on txs in case some got lost in the import/export step
 	for i, exp := range txs {
 		require.Equal(t, exp.Id, gotTxs[i].Id)
-		require.Equal(t, exp.Erc20Fee, gotTxs[i].Erc20Fee)
+		require.Equal(t, exp.Fee, gotTxs[i].Fee)
 		require.Equal(t, exp.Erc20Token, gotTxs[i].Erc20Token)
 		require.Equal(t, exp.DestAddress.GetAddress(), gotTxs[i].DestAddress.GetAddress())
 		require.Equal(t, exp.Sender.String(), gotTxs[i].Sender.String())

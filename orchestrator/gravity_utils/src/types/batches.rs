@@ -1,18 +1,11 @@
 use std::convert::TryFrom;
 
-use clarity::{abi::Token, u256, Address as EthAddress, Signature as EthSignature};
-use deep_space::Address as CosmosAddress;
-use log::LevelFilter;
+use clarity::{abi::Token, Address as EthAddress, Signature as EthSignature};
+use deep_space::{Address as CosmosAddress, Coin};
 use serde::{Deserialize, Serialize};
-use tokio::join;
-use web30::client::Web3;
 
 use super::*;
-use crate::{
-    error::GravityError,
-    num_conversion::print_eth,
-    prices::{get_dai_price, get_weth_price},
-};
+use crate::error::GravityError;
 
 /// This represents an individual transaction being bridged over to Ethereum
 /// parallel is the OutgoingTransferTx in x/gravity/types/batch.go
@@ -26,9 +19,8 @@ pub struct BatchTransaction {
     /// The fee that is being paid, must be of the same
     /// ERC20 type as erc20_fee
     pub erc20_token: Erc20Token,
-    /// The fee that is being paid, must be of the same
-    /// ERC20 type as erc20_token
-    pub erc20_fee: Erc20Token,
+    /// The fee for the tx
+    pub fee: Coin,
 }
 
 /// The parsed version of a transaction batch, representing
@@ -42,103 +34,24 @@ pub struct TransactionBatch {
     pub batch_timeout: u64,
     /// transactions contained in this batch
     pub transactions: Vec<BatchTransaction>,
-    /// the total of the erc20_fee values in transactions
-    pub total_fee: Erc20Token,
-    /// the ERC20 token contract shared by all transactions
-    /// and fees in this batch
+    /// the total of the fee values in transactions
+    pub total_fee: Coin,
+    /// the ERC20 token contract shared by all transactions in this batch
     pub token_contract: EthAddress,
 }
 
 impl TransactionBatch {
     /// extracts the amounts, destinations and fees as submitted to the Ethereum contract
     /// and used for signatures
-    pub fn get_checkpoint_values(&self) -> (Token, Token, Token) {
+    pub fn get_checkpoint_values(&self) -> (Token, Token) {
         let mut amounts = Vec::new();
         let mut destinations = Vec::new();
-        let mut fees = Vec::new();
         for item in self.transactions.iter() {
             amounts.push(Token::Uint(item.erc20_token.amount));
-            fees.push(Token::Uint(item.erc20_fee.amount));
             destinations.push(item.destination)
         }
         assert_eq!(amounts.len(), destinations.len());
-        assert_eq!(fees.len(), destinations.len());
-        (
-            Token::Dynamic(amounts),
-            destinations.into(),
-            Token::Dynamic(fees),
-        )
-    }
-
-    /// this function displays info about this batch including metadata
-    /// such as the name of the ERC20, it's current value etc
-    pub async fn display_with_eth_info(&self, pubkey: EthAddress, web30: &Web3) {
-        let level = log::max_level();
-        // do not run all these queries if logging is set below info
-        if LevelFilter::Info > level {
-            return;
-        }
-
-        let token = self.token_contract;
-        let fee_total = self.total_fee.amount;
-        let mut tx_total = u256!(0);
-        for tx in self.transactions.clone() {
-            tx_total = tx_total.checked_add(tx.erc20_token.amount).unwrap();
-        }
-        let fee_value_weth = get_weth_price(token, fee_total, pubkey, web30);
-        let fee_value_dai = get_dai_price(token, fee_total, pubkey, web30);
-        let tx_value_weth = get_weth_price(token, tx_total, pubkey, web30);
-        let tx_value_dai = get_dai_price(token, tx_total, pubkey, web30);
-        let token_symbol = web30.get_erc20_symbol(token, pubkey);
-        let current_block = web30.eth_block_number();
-        if let (
-            Ok(fee_value_weth),
-            Ok(fee_value_dai),
-            Ok(tx_value_weth),
-            Ok(tx_value_dai),
-            Ok(token_symbol),
-            Ok(current_block),
-        ) = join!(
-            fee_value_weth,
-            fee_value_dai,
-            tx_value_weth,
-            tx_value_dai,
-            token_symbol,
-            current_block,
-        ) {
-            info!("Batch Info:");
-            info!("Token: {}  Contract Address: {}", token_symbol, token);
-            info!(
-                "Contains {} transactions, total value {} DAI {} ETH",
-                self.transactions.len(),
-                print_eth(tx_value_dai),
-                print_eth(tx_value_weth)
-            );
-            info!(
-                "Total fee value {} DAI, {} ETH",
-                print_eth(fee_value_dai),
-                print_eth(fee_value_weth)
-            );
-            if current_block < Uint256::from_u64(self.batch_timeout) {
-                let batch_timeout = Uint256::from_u64(self.batch_timeout);
-                info!(
-                    "Timeout in {} blocks",
-                    batch_timeout.checked_sub(current_block).unwrap()
-                )
-            } else {
-                info!("Batch is timed out and can't be submitted")
-            }
-        } else {
-            info!("Batch Info:");
-            info!("Contract Address: {}", token);
-            info!(
-                "Contains {} transactions, total value {}",
-                self.transactions.len(),
-                tx_total,
-            );
-            info!("Total fee value {}", fee_total);
-            info!("Timeout block is {}", self.batch_timeout);
-        }
+        (Token::Dynamic(amounts), destinations.into())
     }
 }
 
@@ -167,16 +80,16 @@ impl TryFrom<gravity_proto::gravity::OutgoingTxBatch> for TransactionBatch {
         input: gravity_proto::gravity::OutgoingTxBatch,
     ) -> Result<TransactionBatch, GravityError> {
         let mut transactions = Vec::new();
-        let mut running_total_fee: Option<Erc20Token> = None;
+        let mut running_total_fee: Option<Coin> = None;
         for tx in input.transactions {
             let tx = BatchTransaction::try_from(tx)?;
             if let Some(total_fee) = running_total_fee {
-                running_total_fee = Some(Erc20Token {
-                    token_contract_address: total_fee.token_contract_address,
-                    amount: total_fee.amount.checked_add(tx.erc20_fee.amount).unwrap(),
+                running_total_fee = Some(Coin {
+                    denom: total_fee.denom,
+                    amount: total_fee.amount.checked_add(tx.fee.amount).unwrap(),
                 });
             } else {
-                running_total_fee = Some(tx.erc20_fee)
+                running_total_fee = Some(tx.fee.clone())
             }
             transactions.push(tx);
         }
@@ -185,7 +98,7 @@ impl TryFrom<gravity_proto::gravity::OutgoingTxBatch> for TransactionBatch {
                 batch_timeout: input.batch_timeout,
                 nonce: input.batch_nonce,
                 transactions,
-                token_contract: total_fee.token_contract_address,
+                token_contract: input.token_contract.parse()?,
                 total_fee,
             })
         } else {
@@ -216,13 +129,9 @@ impl TryFrom<gravity_proto::gravity::OutgoingTransferTx> for BatchTransaction {
     fn try_from(
         input: gravity_proto::gravity::OutgoingTransferTx,
     ) -> Result<BatchTransaction, GravityError> {
-        if input.erc20_fee.is_none()
-            || input.erc20_token.is_none()
-            || input.erc20_fee.clone().unwrap().contract
-                != input.erc20_token.clone().unwrap().contract
-        {
+        if input.fee.is_none() || input.erc20_token.is_none() {
             return Err(GravityError::ValidationError(
-                "Can not have tx with null erc20_token!".to_string(),
+                "Can not have tx with null erc20_token or fee denom!".to_string(),
             ));
         }
         Ok(BatchTransaction {
@@ -230,7 +139,7 @@ impl TryFrom<gravity_proto::gravity::OutgoingTransferTx> for BatchTransaction {
             sender: input.sender.parse()?,
             destination: input.dest_address.parse()?,
             erc20_token: Erc20Token::try_from(input.erc20_token.unwrap())?,
-            erc20_fee: Erc20Token::try_from(input.erc20_fee.unwrap())?,
+            fee: input.fee.unwrap().into(),
         })
     }
 }
@@ -243,7 +152,7 @@ impl Into<gravity_proto::gravity::OutgoingTransferTx> for &BatchTransaction {
             sender: self.sender.to_string(),
             dest_address: self.destination.to_string(),
             erc20_token: Some(self.erc20_token.into()),
-            erc20_fee: Some(self.erc20_fee.into()),
+            fee: Some(self.fee.clone().into()),
         }
     }
 }

@@ -37,13 +37,12 @@ pub fn encode_valset_confirm_hashed(gravity_id: String, valset: &Valset) -> Vec<
 /// Note: This is the message, you need to run Keccak256::digest() in order to get the 32byte
 /// digest that is normally signed or may be used as a 'hash of the message'
 pub fn encode_tx_batch_confirm(gravity_id: String, batch: &TransactionBatch) -> Vec<u8> {
-    let (amounts, destinations, fees) = batch.get_checkpoint_values();
+    let (amounts, destinations) = batch.get_checkpoint_values();
     encode_tokens(&[
         Token::FixedString(gravity_id),
         Token::FixedString("transactionBatch".to_string()),
         amounts,
         destinations,
-        fees,
         batch.nonce.into(),
         batch.token_contract.into(),
         batch.batch_timeout.into(),
@@ -102,6 +101,7 @@ mod test {
             utils::{bytes_to_hex_str, hex_str_to_bytes},
             PrivateKey as EthPrivateKey,
         },
+        deep_space::Coin,
         types::{BatchTransaction, Erc20Token, LogicCall, TransactionBatch, ValsetMember},
         u64_array_bigints,
     };
@@ -194,7 +194,7 @@ mod test {
     #[test]
     fn test_batch_signature() {
         let correct_hash: Vec<u8> =
-            hex_str_to_bytes("0xa3a7ee0a363b8ad2514e7ee8f110d7449c0d88f3b0913c28c1751e6e0079a9b2")
+            hex_str_to_bytes("0x81672af5f562cfe8f1649b06c3f04572b702396343e9aa178ac5a9ce87bbafb5")
                 .unwrap();
         let erc20_addr = "0x835973768750b3ED2D5c3EF5AdcD5eDb44d12aD4"
             .parse()
@@ -208,6 +208,11 @@ mod test {
             token_contract_address: erc20_addr,
         };
 
+        let coin = Coin {
+            amount: u256!(1),
+            denom: "stake".to_string(),
+        };
+
         let batch = TransactionBatch {
             batch_timeout: 2111u64,
             nonce: 1u64,
@@ -217,10 +222,10 @@ mod test {
                     .parse()
                     .unwrap(),
                 sender: sender_addr,
-                erc20_fee: token,
+                fee: coin.clone(),
                 erc20_token: token,
             }],
-            total_fee: token,
+            total_fee: coin,
             token_contract: erc20_addr,
         };
 
@@ -255,6 +260,11 @@ mod test {
             token_contract_address: erc20_addr,
         };
 
+        let coin = Coin {
+            amount: u256!(1),
+            denom: "stake".to_string(),
+        };
+
         let batch = TransactionBatch {
             batch_timeout: 4427201u64,
             nonce: 15u64,
@@ -264,10 +274,10 @@ mod test {
                     .parse()
                     .unwrap(),
                 sender: sender_addr,
-                erc20_fee: token,
+                fee: coin.clone(),
                 erc20_token: token,
             }],
-            total_fee: token,
+            total_fee: coin,
             token_contract: erc20_addr,
         };
 

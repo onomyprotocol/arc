@@ -3,12 +3,11 @@ import {ethers} from "hardhat";
 import {solidity} from "ethereum-waffle";
 
 import {deployContracts, sortValidators} from "../test-utils";
-import {examplePowers, getSignerAddresses, makeCheckpoint, signHash, EmptyDenom,} from "../test-utils/pure";
-import {MintedForDeployer} from "./deployERC20";
+import {EmptyDenom, examplePowers, getSignerAddresses, makeCheckpoint, parseEvent, signHash,} from "../test-utils/pure";
+import {BigNumber} from "ethers";
 
 chai.use(solidity);
 const {expect} = chai;
-
 
 describe("Gravity happy path valset update + batch submit", function () {
     it("Happy path", async function () {
@@ -19,6 +18,7 @@ describe("Gravity happy path valset update + batch submit", function () {
         const signers = await ethers.getSigners();
         const gravityId = ethers.utils.formatBytes32String("foo");
         let validators = sortValidators(signers.slice(0, examplePowers().length))
+        const cosmosAddress = "cosmos1zkl8g9vd62x0ykvwq4mdcaehydvwc8ylh6panp"
 
         const valset0 = {
             // This is the power distribution on the Cosmos hub as of 7/14/2020
@@ -106,12 +106,9 @@ describe("Gravity happy path valset update + batch submit", function () {
         // Transferring into ERC20 from Cosmos
         const numTxs = 100;
         const txDestinationsInt = new Array(numTxs);
-        const txFees = new Array(numTxs);
-        let totalFees = 0;
+
         const txAmounts = new Array(numTxs);
         for (let i = 0; i < numTxs; i++) {
-            txFees[i] = 1;
-            totalFees += 1;
             txAmounts[i] = 1;
             txDestinationsInt[i] = signers[i + 5];
         }
@@ -131,7 +128,6 @@ describe("Gravity happy path valset update + batch submit", function () {
                 "bytes32",
                 "uint256[]",
                 "address[]",
-                "uint256[]",
                 "uint256",
                 "address",
                 "uint256"
@@ -141,7 +137,6 @@ describe("Gravity happy path valset update + batch submit", function () {
                 methodName,
                 txAmounts,
                 txDestinations,
-                txFees,
                 batchNonce,
                 testERC20.address,
                 batchTimeout
@@ -152,25 +147,28 @@ describe("Gravity happy path valset update + batch submit", function () {
 
         let sigs = await signHash(valset1.validators, digest);
 
-        let batchSubmitTx = await gravity.submitBatch(
+        const batchSubmitEventArgs = await parseEvent(gravity, gravity.submitBatch(
             valset1_str,
-
             sigs,
-
             txAmounts,
             txDestinations,
-            txFees,
             batchNonce,
             testERC20.address,
-            batchTimeout
-        );
+            batchTimeout,
+            cosmosAddress,
+        ), numTxs)
+
+        // check event content
+        expect(batchSubmitEventArgs).to.deep.equal({
+            _batchNonce: BigNumber.from(1),
+            _token: testERC20.address,
+            _eventNonce: BigNumber.from(4),
+            _rewardRecipient: cosmosAddress
+        })
 
         // check that the transfer was successful
         expect((await testERC20.functions.balanceOf(await signers[6].getAddress()))[0].toBigInt())
             .to.equal(BigInt(1));
 
-        // check that the relayer was paid
-        expect((await testERC20.functions.balanceOf(await batchSubmitTx.from))[0].toBigInt())
-            .to.equal(MintedForDeployer + BigInt(9000 + totalFees));
     });
 });

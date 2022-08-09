@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"sort"
 
-	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
-	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/tendermint/tendermint/libs/log"
@@ -388,4 +388,32 @@ func (k Keeper) IsOnBlacklist(ctx sdk.Context, addr types.EthAddress) bool {
 // becomes impossible to execute.
 func (k Keeper) InvalidSendToEthAddress(ctx sdk.Context, addr types.EthAddress, _erc20Addr types.EthAddress) bool {
 	return k.IsOnBlacklist(ctx, addr) || addr == types.ZeroAddress()
+}
+
+// SendCoinsToRecipientOrCommunityPool sends coins to rewardRecipient if valid otherwise to community pool.
+func (k Keeper) SendCoinsToRecipientOrCommunityPool(ctx sdk.Context, rewardRecipient string, coins sdk.Coins) error {
+	recipient, err := sdk.AccAddressFromBech32(rewardRecipient)
+	if err != nil {
+		if err := k.SendToCommunityPool(ctx, coins); err != nil {
+			return sdkerrors.Wrapf(err, "unable to send coins to community pool for valset reward, coins: %v",
+				coins)
+		}
+		return nil
+	}
+	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, coins); err != nil {
+		return sdkerrors.Wrapf(err, "unable to send coins to recipient for valset reward, coins: %v, %s",
+			coins, recipient.String())
+	}
+	return nil
+}
+
+// SendToCommunityPool handles sending deposits to the community pool.
+func (k Keeper) SendToCommunityPool(ctx sdk.Context, coins sdk.Coins) error {
+	if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, distypes.ModuleName, coins); err != nil {
+		return sdkerrors.Wrap(err, "transfer to community pool failed")
+	}
+	feePool := (*k.DistKeeper).GetFeePool(ctx)
+	feePool.CommunityPool = feePool.CommunityPool.Add(sdk.NewDecCoinsFromCoins(coins...)...)
+	(*k.DistKeeper).SetFeePool(ctx, feePool)
+	return nil
 }

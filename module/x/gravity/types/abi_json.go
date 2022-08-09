@@ -37,7 +37,6 @@ func init() {
 			{ "internalType": "bytes32",   "name": "_methodName",    "type": "bytes32" },
 			{ "internalType": "uint256[]", "name": "_amounts",       "type": "uint256[]" },
 			{ "internalType": "address[]", "name": "_destinations",  "type": "address[]" },
-			{ "internalType": "uint256[]", "name": "_fees",          "type": "uint256[]" },
 			{ "internalType": "uint256",   "name": "_batchNonce",    "type": "uint256" },
 			{ "internalType": "address",   "name": "_tokenContract", "type": "address" },
 			{ "internalType": "uint256",   "name": "_batchTimeout",  "type": "uint256" }

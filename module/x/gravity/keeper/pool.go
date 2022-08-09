@@ -13,8 +13,7 @@ import (
 )
 
 // AddToOutgoingPool creates a transaction and adds it to the pool, returns the id of the unbatched transaction
-// - checks a counterpart denominator exists for the given voucher type
-// - burns the voucher for transfer amount and fees
+// - locks amount and fees in gravity module
 // - persists an OutgoingTx
 // - adds the TX to the `available` TX pool
 func (k Keeper) AddToOutgoingPool(
@@ -24,34 +23,42 @@ func (k Keeper) AddToOutgoingPool(
 	amount sdk.Coin,
 	fee sdk.Coin,
 ) (uint64, error) {
-	if ctx.IsZero() || sdk.VerifyAddressFormat(sender) != nil || counterpartReceiver.ValidateBasic() != nil ||
-		!amount.IsValid() || !fee.IsValid() || fee.Denom != amount.Denom {
-		return 0, sdkerrors.Wrap(types.ErrInvalid, "arguments")
+	if ctx.IsZero() {
+		return 0, sdkerrors.Wrap(types.ErrInvalid, "ctx")
 	}
-	totalAmount := amount.Add(fee)
-	totalInVouchers := sdk.Coins{totalAmount}
+	if sdk.VerifyAddressFormat(sender) != nil {
+		return 0, sdkerrors.Wrap(types.ErrInvalid, "sender")
+	}
+	if counterpartReceiver.ValidateBasic() != nil {
+		return 0, sdkerrors.Wrap(types.ErrInvalid, "counterpartReceiver")
+	}
+	if !amount.IsValid() {
+		return 0, sdkerrors.Wrap(types.ErrInvalid, "amount")
+	}
+	if !fee.IsValid() {
+		return 0, sdkerrors.Wrap(types.ErrInvalid, "fee")
+	}
 
-	// If the coin is a gravity voucher, burn the coins. If not, check if there is a deployed ERC20 contract representing it.
-	// If there is, lock the coins.
-
-	_, tokenContract, err := k.DenomToERC20Lookup(ctx, totalAmount.Denom)
-	if err != nil {
-		return 0, err
+	// FIXME try to remove and run tests
+	batchFeeDenom := k.GetParams(ctx).BatchFeeDenom
+	if batchFeeDenom != "" && fee.Denom != batchFeeDenom {
+		return 0, sdkerrors.Wrap(types.ErrInvalid, fmt.Sprintf("It's allowed to pay fee in %q denom only", batchFeeDenom))
 	}
 
 	// lock coins in module
-	if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, sender, types.ModuleName, totalInVouchers); err != nil {
+	totalLocked := sdk.NewCoins(amount).Add(fee)
+	if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, sender, types.ModuleName, totalLocked); err != nil {
 		return 0, err
 	}
 
 	// get next tx id from keeper
 	nextID := k.autoIncrementID(ctx, []byte(types.KeyLastTXPoolID))
 
-	erc20Fee, err := types.NewInternalERC20Token(fee.Amount, tokenContract.GetAddress())
+	_, tokenContract, err := k.DenomToERC20Lookup(ctx, amount.Denom)
 	if err != nil {
-		return 0, sdkerrors.Wrapf(err, "invalid Erc20Fee from amount %d and contract %v",
-			fee.Amount, tokenContract)
+		return 0, err
 	}
+
 	erc20Token, err := types.NewInternalERC20Token(amount.Amount, tokenContract.GetAddress())
 	if err != nil {
 		return 0, sdkerrors.Wrapf(err, "invalid ERC20Token from amount %d and contract %v",
@@ -65,7 +72,7 @@ func (k Keeper) AddToOutgoingPool(
 		Sender:      sender.String(),
 		DestAddress: counterpartReceiver.GetAddress(),
 		Erc20Token:  erc20Token.ToExternal(),
-		Erc20Fee:    erc20Fee.ToExternal(),
+		Fee:         fee,
 	}.ToInternal()
 	if err != nil { // This should never happen since all the components are validated
 		panic(sdkerrors.Wrap(err, "unable to create InternalOutgoingTransferTx"))
@@ -76,9 +83,6 @@ func (k Keeper) AddToOutgoingPool(
 	if err != nil {
 		panic(err)
 	}
-
-	// todo: add second index for sender so that we can easily query: give pending Tx by sender
-	// todo: what about a second index for receiver?
 
 	poolEvent := sdk.NewEvent(
 		types.EventTypeBridgeWithdrawalReceived,
@@ -113,30 +117,22 @@ func (k Keeper) RemoveFromOutgoingPoolAndRefund(ctx sdk.Context, txId uint64, se
 		return sdkerrors.Wrapf(types.ErrInvalid, "Sender %s did not send Id %d", sender, txId)
 	}
 
-	// An inconsistent entry should never enter the store, but this is the ideal place to exploit
-	// it such a bug if it did ever occur, so we should double check to be really sure
-	if tx.Erc20Fee.Contract != tx.Erc20Token.Contract {
-		return sdkerrors.Wrapf(types.ErrInvalid, "Inconsistent tokens to cancel!: %s %s", tx.Erc20Fee.Contract, tx.Erc20Token.Contract)
-	}
-
 	// delete this tx from the pool
-	err = k.removeUnbatchedTX(ctx, *tx.Erc20Fee, txId)
+	err = k.removeUnbatchedTX(ctx, tx.Erc20Token.Contract.GetAddress(), tx.Fee.Amount, txId)
 	if err != nil {
 		return sdkerrors.Wrapf(types.ErrInvalid, "txId %d not in unbatched index! Must be in a batch!", txId)
 	}
 	// Make sure the tx was removed
-	oldTx, oldTxErr := k.GetUnbatchedTxByFeeAndId(ctx, *tx.Erc20Fee, tx.Id)
+	oldTx, oldTxErr := k.GetUnbatchedTxErc20TokenAndId(ctx, tx.Erc20Token.Contract.GetAddress(), tx.Fee.Amount, tx.Id)
 	if oldTx != nil || oldTxErr == nil {
 		return sdkerrors.Wrapf(types.ErrInvalid, "tx with id %d was not fully removed from the pool, a duplicate must exist", txId)
 	}
 
 	// Calculate refund
-	totalToRefund := tx.Erc20Token.GravityCoin()
-	totalToRefund.Amount = totalToRefund.Amount.Add(tx.Erc20Fee.Amount)
-	totalToRefundCoins := sdk.NewCoins(totalToRefund)
+	totalToRefund := sdk.NewCoins(tx.Erc20Token.GravityCoin()).Add(*tx.Fee)
 
 	// Perform refund
-	if err = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, sender, totalToRefundCoins); err != nil {
+	if err = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, sender, totalToRefund); err != nil {
 		return sdkerrors.Wrap(err, "transfer vouchers")
 	}
 
@@ -155,7 +151,7 @@ func (k Keeper) RemoveFromOutgoingPoolAndRefund(ctx sdk.Context, txId uint64, se
 // WARNING: Do not make this function public
 func (k Keeper) addUnbatchedTX(ctx sdk.Context, val *types.InternalOutgoingTransferTx) error {
 	store := ctx.KVStore(k.storeKey)
-	idxKey := []byte(types.GetOutgoingTxPoolKey(*val.Erc20Fee, val.Id))
+	idxKey := []byte(types.GetOutgoingTxPoolKey(val.Erc20Token.Contract.GetAddress(), val.Fee.Amount, val.Id))
 	if store.Has(idxKey) {
 		return sdkerrors.Wrap(types.ErrDuplicate, "transaction already in pool")
 	}
@@ -173,9 +169,9 @@ func (k Keeper) addUnbatchedTX(ctx sdk.Context, val *types.InternalOutgoingTrans
 
 // removeUnbatchedTXIndex removes the tx from the pool
 // WARNING: Do not make this function public
-func (k Keeper) removeUnbatchedTX(ctx sdk.Context, fee types.InternalERC20Token, txID uint64) error {
+func (k Keeper) removeUnbatchedTX(ctx sdk.Context, erc20Address string, feeAmount sdk.Int, txID uint64) error {
 	store := ctx.KVStore(k.storeKey)
-	idxKey := []byte(types.GetOutgoingTxPoolKey(fee, txID))
+	idxKey := []byte(types.GetOutgoingTxPoolKey(erc20Address, feeAmount, txID))
 	if !store.Has(idxKey) {
 		return sdkerrors.Wrap(types.ErrUnknown, "pool transaction")
 	}
@@ -183,10 +179,10 @@ func (k Keeper) removeUnbatchedTX(ctx sdk.Context, fee types.InternalERC20Token,
 	return nil
 }
 
-// GetUnbatchedTxByFeeAndId grabs a tx from the pool given its fee and txID
-func (k Keeper) GetUnbatchedTxByFeeAndId(ctx sdk.Context, fee types.InternalERC20Token, txID uint64) (*types.InternalOutgoingTransferTx, error) {
+// GetUnbatchedTxErc20TokenAndId grabs a tx from the pool given its fee and txID
+func (k Keeper) GetUnbatchedTxErc20TokenAndId(ctx sdk.Context, erc20Address string, feeAmount sdk.Int, txID uint64) (*types.InternalOutgoingTransferTx, error) {
 	store := ctx.KVStore(k.storeKey)
-	bz := store.Get([]byte(types.GetOutgoingTxPoolKey(fee, txID)))
+	bz := store.Get([]byte(types.GetOutgoingTxPoolKey(erc20Address, feeAmount, txID)))
 	if bz == nil {
 		return nil, sdkerrors.Wrap(types.ErrUnknown, "pool transaction")
 	}
@@ -203,7 +199,7 @@ func (k Keeper) GetUnbatchedTxByFeeAndId(ctx sdk.Context, fee types.InternalERC2
 }
 
 // GetUnbatchedTxById grabs a tx from the pool given only the txID
-// note that due to the way unbatched txs are indexed, the GetUnbatchedTxByFeeAndId method is much faster
+// note that due to the way unbatched txs are indexed, the GetUnbatchedTxErc20TokenAndId method is much faster
 func (k Keeper) GetUnbatchedTxById(ctx sdk.Context, txID uint64) (*types.InternalOutgoingTransferTx, error) {
 	var r *types.InternalOutgoingTransferTx = nil
 	k.IterateUnbatchedTransactions(ctx, []byte(types.OutgoingTXPoolKey), func(_ []byte, tx *types.InternalOutgoingTransferTx) bool {
@@ -271,23 +267,22 @@ func (k Keeper) IterateUnbatchedTransactions(ctx sdk.Context, prefixKey []byte, 
 // when to request batches and also used by the batch creation process to decide not to create
 // a new batch (fees must be increasing)
 func (k Keeper) GetBatchFeeByTokenType(ctx sdk.Context, tokenContractAddr types.EthAddress, maxElements uint) *types.BatchFees {
-	batchFee := types.BatchFees{Token: tokenContractAddr.GetAddress(), TotalFees: sdk.NewInt(0), TxCount: 0}
+	batchFee := types.BatchFees{
+		Token:     tokenContractAddr.GetAddress(),
+		TotalFees: sdk.NewCoins(),
+		TxCount:   0,
+	}
 
 	k.IterateUnbatchedTransactions(ctx, []byte(types.GetOutgoingTxPoolContractPrefix(tokenContractAddr)), func(_ []byte, tx *types.InternalOutgoingTransferTx) bool {
-		if !k.IsOnBlacklist(ctx, *tx.DestAddress) {
-			fee := tx.Erc20Fee
-			if fee.Contract.GetAddress() != tokenContractAddr.GetAddress() {
-				panic(fmt.Errorf("unexpected fee contract %s when getting batch fees for contract %s", fee.Contract, tokenContractAddr))
-			}
-			batchFee.TotalFees = batchFee.TotalFees.Add(fee.Amount)
-			batchFee.TxCount += 1
-			return batchFee.TxCount == uint64(maxElements)
-		} else {
-			// if the tx was on the blacklist we return false
-			// to continue to the next loop iteration
+		if k.IsOnBlacklist(ctx, *tx.DestAddress) {
 			return false
 		}
+		batchFee.TotalFees = batchFee.TotalFees.Add(*tx.Fee)
+		batchFee.TxCount += 1
+
+		return batchFee.TxCount == uint64(maxElements)
 	})
+
 	return &batchFee
 }
 
@@ -314,22 +309,22 @@ func (k Keeper) GetAllBatchFees(ctx sdk.Context, maxElements uint) (batchFees []
 // fee contract address -> fee amount -> transaction nonce
 func (k Keeper) createBatchFees(ctx sdk.Context, maxElements uint) map[string]types.BatchFees {
 	batchFeesMap := make(map[string]types.BatchFees)
-
 	k.IterateUnbatchedTransactions(ctx, []byte(types.OutgoingTXPoolKey), func(_ []byte, tx *types.InternalOutgoingTransferTx) bool {
-		feeAddrStr := tx.Erc20Fee.Contract.GetAddress()
+		token := tx.Erc20Token.Contract.GetAddress()
+		batchFee, ok := batchFeesMap[token]
+		if !ok {
+			batchFee = types.BatchFees{
+				Token:     token,
+				TotalFees: sdk.NewCoins(),
+				TxCount:   0,
+			}
+		}
 
-		if fees, ok := batchFeesMap[feeAddrStr]; ok {
-			if fees.TxCount < uint64(maxElements) {
-				fees.TotalFees = batchFeesMap[feeAddrStr].TotalFees.Add(tx.Erc20Fee.Amount)
-				fees.TxCount = fees.TxCount + 1
-				batchFeesMap[feeAddrStr] = fees
-			}
-		} else {
-			batchFeesMap[feeAddrStr] = types.BatchFees{
-				Token:     feeAddrStr,
-				TotalFees: tx.Erc20Fee.Amount,
-				TxCount:   1,
-			}
+		// we should iterate the entire store in order to get all possible fee denoms
+		if batchFee.TxCount < uint64(maxElements) {
+			batchFee.TotalFees = batchFee.TotalFees.Add(*tx.Fee)
+			batchFee.TxCount += 1
+			batchFeesMap[token] = batchFee
 		}
 
 		return false

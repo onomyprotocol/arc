@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Duration,
+};
 
 use ethereum_gravity::message_signatures::{
     encode_logic_call_confirm, encode_tx_batch_confirm, encode_valset_confirm,
@@ -13,7 +16,7 @@ use gravity_proto::{
     },
 };
 use gravity_utils::{
-    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Signature},
+    clarity::{Address as EthAddress, PrivateKey as EthPrivateKey, Signature, Uint256},
     deep_space::{
         address::Address, coin::Coin, error::CosmosGrpcError, private_key::PrivateKey,
         utils::bytes_to_hex_str, Contact, Msg,
@@ -246,6 +249,7 @@ pub async fn send_ethereum_claims(
             token_contract: withdraw.erc20.to_string(),
             batch_nonce: withdraw.batch_nonce,
             orchestrator: our_address.to_string(),
+            reward_recipient: withdraw.reward_recipient.to_string(),
         };
         let msg = Msg::new("/gravity.v1.MsgBatchSendToEthClaim", claim);
         ordered_msgs.insert(withdraw.event_nonce, msg);
@@ -306,42 +310,14 @@ pub async fn send_to_eth(
     destination: EthAddress,
     amount: Coin,
     bridge_fee: Coin,
-    fee: Coin,
+    tx_fee: Coin,
     contact: &Contact,
 ) -> Result<TxResponse, CosmosGrpcError> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
-    if amount.denom != bridge_fee.denom {
-        return Err(CosmosGrpcError::BadInput(format!(
-            "{} {} is an invalid denom set for SendToEth you must pay fees in the same token your sending",
-            amount.denom, bridge_fee.denom,
-        )));
-    }
-    let balances = contact.get_balances(our_address).await.unwrap();
-    let mut found = false;
-    for balance in balances {
-        if balance.denom == amount.denom {
-            let total_amount = amount
-                .amount
-                .checked_add(fee.amount.shl1().ok_or_else(|| {
-                    CosmosGrpcError::BadInput("overflow of `U256::shl1`".to_owned())
-                })?)
-                .ok_or_else(|| {
-                    CosmosGrpcError::BadInput("overflow of `U256::checked_add`".to_owned())
-                })?;
-            if balance.amount < total_amount {
-                return Err(CosmosGrpcError::BadInput(format!(
-                    "Insufficient balance of {} to send {}",
-                    amount.denom, total_amount,
-                )));
-            }
-            found = true;
-        }
-    }
-    if !found {
-        return Err(CosmosGrpcError::BadInput(format!(
-            "No balance of {} to send",
-            amount.denom,
-        )));
+
+    let coins = &vec![amount.clone(), bridge_fee.clone(), tx_fee.clone()];
+    if let Err(e) = validate_balance_sufficiency(contact, our_address, coins.to_vec()).await {
+        return Err(e);
     }
 
     let msg_send_to_eth = MsgSendToEth {
@@ -356,11 +332,46 @@ pub async fn send_to_eth(
         .send_message(
             &[msg],
             Some(MEMO.to_string()),
-            &[fee],
+            &[tx_fee],
             Some(TIMEOUT),
             private_key,
         )
         .await
+}
+
+async fn validate_balance_sufficiency(
+    contact: &Contact,
+    user_address: Address,
+    coins: Vec<Coin>,
+) -> Result<(), CosmosGrpcError> {
+    let mut balances_map: HashMap<String, Uint256> = HashMap::new();
+    let balances = contact.get_balances(user_address).await.unwrap();
+    for balance in balances {
+        balances_map.insert(balance.denom, balance.amount);
+    }
+    for coin in coins {
+        let denom = coin.clone().denom;
+        let denom_amount = balances_map.get(&denom);
+        if denom_amount.is_none() {
+            return Err(CosmosGrpcError::BadInput(format!(
+                "No balance of {} denom",
+                denom,
+            )));
+        }
+
+        if *denom_amount.unwrap() < coin.amount {
+            return Err(CosmosGrpcError::BadInput(format!(
+                "Insufficient balance {} denom",
+                denom,
+            )));
+        } else {
+        }
+
+        let sub_amount = denom_amount.unwrap().checked_sub(coin.amount).unwrap();
+        balances_map.insert(denom, sub_amount);
+    }
+
+    Ok(())
 }
 
 pub async fn send_request_batch(

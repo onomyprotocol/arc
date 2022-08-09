@@ -137,9 +137,11 @@ message Params {
   // from Ethereum to the bridge
   repeated string ethereum_blacklist = 19;
   // the pair of eth token and denom to automatically swap once the erc20 token is bridged.
-  ERC20ToDenom erc20_to_denom_permanent_swap = 50[
+  ERC20ToDenom erc20_to_denom_permanent_swap = 20[
     (gogoproto.nullable)   = false
   ];
+  // the denom which must be use to pay fee for the send to cosmos / batch transactions.
+  string batch_fee_denom = 21;
 }
 
 // GenesisState struct, containing all persistant data required by the Gravity module

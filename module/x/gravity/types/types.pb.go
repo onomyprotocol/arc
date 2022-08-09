@@ -88,7 +88,7 @@ type Valset struct {
 	Members      []BridgeValidator                      `protobuf:"bytes,2,rep,name=members,proto3" json:"members"`
 	Height       uint64                                 `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
 	RewardAmount github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,4,opt,name=reward_amount,json=rewardAmount,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"reward_amount"`
-	// the reward token in it's Ethereum hex address representation
+	// the cosmos native reward token/denom
 	RewardDenom string `protobuf:"bytes,5,opt,name=reward_denom,json=rewardDenom,proto3" json:"reward_denom,omitempty"`
 }
 

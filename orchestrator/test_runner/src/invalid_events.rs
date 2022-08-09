@@ -16,12 +16,13 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tonic::transport::Channel;
 
 use crate::{
-    happy_path::test_erc20_deposit_panic,
+    convert_to_erc20_denom,
     happy_path_v2::deploy_cosmos_representing_erc20_and_check_adoption,
     utils::{
         create_default_test_config, footoken_metadata, get_event_nonce_safe, get_user_key,
         start_orchestrators, ValidatorKeys,
     },
+    validator_out::test_erc20_deposit_panic,
     MINER_ADDRESS, MINER_PRIVATE_KEY, ONE_ETH, TOTAL_TIMEOUT,
 };
 
@@ -34,7 +35,7 @@ pub async fn invalid_events(
     grpc_client: GravityQueryClient<Channel>,
 ) {
     let mut grpc_client = grpc_client;
-    let erc20_denom = format!("gravity{}", erc20_address);
+    let erc20_denom = convert_to_erc20_denom(erc20_address);
 
     // figure out how many of a given erc20 we already have on startup so that we can
     // keep track of incrementation. This makes it possible to run this test again without

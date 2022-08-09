@@ -9,11 +9,9 @@ use cosmos_gravity::{
 };
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{u256, Address as EthAddress, Uint256},
+    clarity::Address as EthAddress,
     deep_space::{Coin, Contact, PrivateKey},
-    prices::get_weth_price,
     types::BatchRequestMode,
-    u64_array_bigints,
     web30::client::Web3,
 };
 use tonic::transport::Channel;
@@ -23,7 +21,6 @@ pub async fn request_batches(
     web30: &Web3,
     grpc_client: &mut GravityQueryClient<Channel>,
     batch_request_mode: BatchRequestMode,
-    eth_address: EthAddress,
     private_key: PrivateKey,
     request_fee: Coin,
 ) {
@@ -34,18 +31,12 @@ pub async fn request_batches(
     } else {
         Some(request_fee)
     };
-    // TODO: this is a heuristic that needs to be dialed in
-    // it's not easy to really estimate the actual cost of a batch
-    // before we have an eth tx to simulate it with, so we're just
-    // assuming a base batch starts at 200k gas
-    const BATCH_GAS: Uint256 = u256!(200_000);
     // get the gas price once
     let eth_gas_price = web30.eth_gas_price().await;
     if let Err(e) = eth_gas_price {
         warn!("Could not get gas price for auto batch request {:?}", e);
         return;
     }
-    let eth_gas_price = eth_gas_price.unwrap();
 
     let batch_fees = get_pending_batch_fees(grpc_client).await;
     if let Err(e) = batch_fees {
@@ -55,7 +46,6 @@ pub async fn request_batches(
     let batch_fees = batch_fees.unwrap();
 
     for fee in batch_fees.batch_fees {
-        let total_fee = Uint256::from_dec_or_hex_str_restricted(&fee.total_fees).unwrap();
         let token: EthAddress = fee.token.parse().unwrap();
         let denom = get_erc20_to_denom(grpc_client, token).await;
         if let Err(e) = denom {
@@ -68,28 +58,6 @@ pub async fn request_batches(
         let denom = denom.unwrap().denom;
 
         match batch_request_mode {
-            BatchRequestMode::ProfitableOnly => {
-                let weth_cost_estimate = eth_gas_price.checked_mul(BATCH_GAS).unwrap();
-                match get_weth_price(token, total_fee, eth_address, web30).await {
-                    Ok(price) => {
-                        if price > weth_cost_estimate {
-                            let res = send_request_batch(
-                                private_key,
-                                denom,
-                                request_fee.clone(),
-                                contact,
-                            )
-                            .await;
-                            if let Err(e) = res {
-                                warn!("Failed to request batch with {:?}", e);
-                            }
-                        } else {
-                            trace!("Did not request unprofitable batch");
-                        }
-                    }
-                    Err(e) => warn!("Failed to get price for token {} with {:?}", fee.token, e),
-                }
-            }
             BatchRequestMode::EveryBatch => {
                 info!("Requesting batch for {}", fee.token);
                 let res =

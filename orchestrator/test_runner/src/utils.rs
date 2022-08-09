@@ -1,4 +1,4 @@
-use std::{panic, time::Duration};
+use std::{collections::HashMap, panic, time::Duration};
 
 use cosmos_gravity::{proposals::submit_parameter_change_proposal, query::get_gravity_params};
 use ethereum_gravity::utils::get_event_nonce;
@@ -30,6 +30,11 @@ use crate::{
     get_deposit, get_fee, ADDRESS_PREFIX, COSMOS_NODE_GRPC, ETH_NODE, MINER_ADDRESS,
     MINER_PRIVATE_KEY, ONE_ETH, ONE_HUNDRED_ETH, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
 };
+
+/// returns the cosmos denom based oon ERC20 address
+pub fn convert_to_erc20_denom(erc20_address: EthAddress) -> String {
+    format!("gravity{}", erc20_address)
+}
 
 /// returns the required denom metadata for deployed the Footoken
 /// token defined in our test environment
@@ -222,6 +227,98 @@ pub async fn get_erc20_balance_safe(
     }
 }
 
+pub async fn send_cosmos_coins(
+    contact: &Contact,
+    from_key: CosmosPrivateKey,
+    to_addresses: Vec<CosmosAddress>,
+    coins: Vec<Coin>,
+) {
+    for coin in coins {
+        for to_address in &to_addresses {
+            contact
+                .send_coins(
+                    coin.clone(),
+                    Some(get_fee()),
+                    *to_address,
+                    Some(TOTAL_TIMEOUT),
+                    from_key,
+                )
+                .await
+                .unwrap();
+
+            let balance = contact
+                .get_balance(*to_address, coin.clone().denom)
+                .await
+                .unwrap();
+            if balance.is_none() {
+                panic!("Failed to send {} to the user address", coin);
+            }
+        }
+    }
+}
+
+/// utility function to get the validators cosmos balance of the provided denom
+pub async fn get_validators_cosmos_balances(
+    contact: &Contact,
+    keys: &[ValidatorKeys],
+    denom: String,
+) -> HashMap<CosmosAddress, Uint256> {
+    let mut denom_balances: HashMap<CosmosAddress, Uint256> = HashMap::new();
+    for key in keys.iter() {
+        let orch_address = key.orch_key.to_address(&contact.get_prefix()).unwrap();
+        let balance = contact
+            .get_balance(orch_address, denom.clone())
+            .await
+            .unwrap();
+        if balance.is_none() {
+            continue;
+        }
+        denom_balances.insert(orch_address, balance.unwrap().amount);
+    }
+    denom_balances
+}
+
+/// the function checks the coin deposit based on the current validators state and prev_balances
+/// if it finds the increase it exists
+pub async fn await_validators_first_cosmos_deposit(
+    contact: &Contact,
+    keys: Vec<ValidatorKeys>,
+    coin: Coin,
+    prev_balances: HashMap<CosmosAddress, Uint256>,
+) {
+    loop {
+        let mut found = false;
+        for key in keys.iter() {
+            let orch_address = key.orch_key.to_address(&contact.get_prefix()).unwrap();
+            let balance = contact
+                .get_balance(orch_address, coin.denom.to_string())
+                .await
+                .unwrap();
+            if balance.is_none() {
+                continue;
+            }
+
+            let balance = balance.unwrap().amount;
+            let initial_balance = prev_balances.get(&orch_address);
+            if initial_balance.is_none() {
+                continue;
+            }
+            let initial_balance = *initial_balance.unwrap();
+            if initial_balance.checked_add(coin.amount).unwrap() == balance {
+                info!("Found increased balance of the, orch {}, initial balance: {}, increase: {}, new balance :{}!",
+                                orch_address, initial_balance, coin.amount, balance);
+                found = true;
+            }
+        }
+
+        if found {
+            break;
+        }
+
+        sleep(Duration::from_secs(5)).await;
+    }
+}
+
 pub fn get_user_key() -> BridgeUserKey {
     let mut rng = rand::thread_rng();
     let secret: [u8; 32] = rng.gen();
@@ -245,6 +342,7 @@ pub fn get_user_key() -> BridgeUserKey {
         eth_dest_key,
     }
 }
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct BridgeUserKey {
     // the starting addresses that get Eth balances to send across the bridge

@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"testing"
-	"time"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
+	"time"
 
 	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
 	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
@@ -479,7 +478,7 @@ func TestLastPendingBatchRequest(t *testing.T) {
 	}{
 		"find batch": {
 			expResp: types.QueryLastPendingBatchRequestByAddrResponse{Batch: []types.OutgoingTxBatch{
-				types.OutgoingTxBatch{
+				{
 					BatchNonce:   1,
 					BatchTimeout: 0,
 					Transactions: []types.OutgoingTransferTx{
@@ -491,10 +490,7 @@ func TestLastPendingBatchRequest(t *testing.T) {
 								Amount:   sdk.NewInt(101),
 								Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 							},
-							Erc20Fee: types.ERC20Token{
-								Amount:   sdk.NewInt(3),
-								Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-							},
+							Fee: sdk.NewInt64Coin(sdk.DefaultBondDenom, 3),
 						},
 						{
 							Id:          3,
@@ -504,10 +500,7 @@ func TestLastPendingBatchRequest(t *testing.T) {
 								Amount:   sdk.NewInt(102),
 								Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 							},
-							Erc20Fee: types.ERC20Token{
-								Amount:   sdk.NewInt(2),
-								Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-							},
+							Fee: sdk.NewInt64Coin(sdk.DefaultBondDenom, 2),
 						},
 					},
 					TokenContract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
@@ -550,12 +543,13 @@ func createTestBatch(t *testing.T, input TestInput, maxTxElements uint) {
 	token, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 	require.NoError(t, err)
 	allVouchers := sdk.Coins{token.GravityCoin()}
-	err = input.BankKeeper.MintCoins(input.Context, types.ModuleName, allVouchers)
+	allCoins := allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
+	err = input.BankKeeper.MintCoins(input.Context, types.ModuleName, allCoins)
 	require.NoError(t, err)
 
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(input.Context, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(input.Context, types.ModuleName, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(input.Context, types.ModuleName, mySender, allCoins)
 	require.NoError(t, err)
 
 	// add some TX to the pool
@@ -563,9 +557,7 @@ func createTestBatch(t *testing.T, input TestInput, maxTxElements uint) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
 		_, err = input.GravityKeeper.AddToOutgoingPool(input.Context, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
 		// Should create:
@@ -761,10 +753,7 @@ func TestQueryBatch(t *testing.T) {
 			BatchTimeout: 0,
 			Transactions: []types.OutgoingTransferTx{
 				{
-					Erc20Fee: types.ERC20Token{
-						Amount:   sdk.NewInt(3),
-						Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-					},
+					Fee:         sdk.NewInt64Coin(sdk.DefaultBondDenom, 3),
 					DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 					Erc20Token: types.ERC20Token{
 						Amount:   sdk.NewInt(101),
@@ -774,10 +763,7 @@ func TestQueryBatch(t *testing.T) {
 					Id:     2,
 				},
 				{
-					Erc20Fee: types.ERC20Token{
-						Amount:   sdk.NewInt(2),
-						Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-					},
+					Fee:         sdk.NewInt64Coin(sdk.DefaultBondDenom, 2),
 					DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 					Erc20Token: types.ERC20Token{
 						Amount:   sdk.NewInt(102),
@@ -814,10 +800,7 @@ func TestLastBatchesRequest(t *testing.T) {
 				BatchTimeout: 0,
 				Transactions: []types.OutgoingTransferTx{
 					{
-						Erc20Fee: types.ERC20Token{
-							Amount:   sdk.NewInt(3),
-							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-						},
+						Fee:         sdk.NewInt64Coin(sdk.DefaultBondDenom, 3),
 						DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 						Erc20Token: types.ERC20Token{
 							Amount:   sdk.NewInt(101),
@@ -827,10 +810,7 @@ func TestLastBatchesRequest(t *testing.T) {
 						Id:     6,
 					},
 					{
-						Erc20Fee: types.ERC20Token{
-							Amount:   sdk.NewInt(2),
-							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-						},
+						Fee:         sdk.NewInt64Coin(sdk.DefaultBondDenom, 2),
 						DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 						Erc20Token: types.ERC20Token{
 							Amount:   sdk.NewInt(102),
@@ -840,10 +820,7 @@ func TestLastBatchesRequest(t *testing.T) {
 						Id:     7,
 					},
 					{
-						Erc20Fee: types.ERC20Token{
-							Amount:   sdk.NewInt(2),
-							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-						},
+						Fee:         sdk.NewInt64Coin(sdk.DefaultBondDenom, 2),
 						DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 						Erc20Token: types.ERC20Token{
 							Amount:   sdk.NewInt(100),
@@ -861,10 +838,7 @@ func TestLastBatchesRequest(t *testing.T) {
 				BatchTimeout: 0,
 				Transactions: []types.OutgoingTransferTx{
 					{
-						Erc20Fee: types.ERC20Token{
-							Amount:   sdk.NewInt(3),
-							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-						},
+						Fee:         sdk.NewInt64Coin(sdk.DefaultBondDenom, 3),
 						DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 						Erc20Token: types.ERC20Token{
 							Amount:   sdk.NewInt(101),
@@ -874,10 +848,7 @@ func TestLastBatchesRequest(t *testing.T) {
 						Id:     2,
 					},
 					{
-						Erc20Fee: types.ERC20Token{
-							Amount:   sdk.NewInt(2),
-							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-						},
+						Fee:         sdk.NewInt64Coin(sdk.DefaultBondDenom, 2),
 						DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 						Erc20Token: types.ERC20Token{
 							Amount:   sdk.NewInt(102),
@@ -998,6 +969,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
 		token, err2         = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 		allVouchers         = sdk.NewCoins(token.GravityCoin())
+		allCoins            = allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999))
 	)
 	require.NoError(t, err1)
 	require.NoError(t, err2)
@@ -1007,10 +979,10 @@ func TestQueryPendingSendToEth(t *testing.T) {
 	require.NoError(t, err)
 
 	// mint some voucher first
-	require.NoError(t, input.BankKeeper.MintCoins(sdkCtx, types.ModuleName, allVouchers))
+	require.NoError(t, input.BankKeeper.MintCoins(sdkCtx, types.ModuleName, allCoins))
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(sdkCtx, mySender)
-	require.NoError(t, input.BankKeeper.SendCoinsFromModuleToAccount(sdkCtx, types.ModuleName, mySender, allVouchers))
+	require.NoError(t, input.BankKeeper.SendCoinsFromModuleToAccount(sdkCtx, types.ModuleName, mySender, allCoins))
 
 	// CREATE FIRST BATCH
 	// ==================
@@ -1020,9 +992,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(v))
 		_, err = input.GravityKeeper.AddToOutgoingPool(sdkCtx, mySender, *receiver, amount, fee)
 		require.NoError(t, err)
 		// Should create:
@@ -1052,10 +1022,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 				Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
 				Amount:   sdk.NewInt(101),
 			},
-			Erc20Fee: types.ERC20Token{
-				Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
-				Amount:   sdk.NewInt(3),
-			},
+			Fee: sdk.NewInt64Coin(sdk.DefaultBondDenom, 3),
 		},
 		{
 			Id:          3,
@@ -1065,10 +1032,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 				Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
 				Amount:   sdk.NewInt(102),
 			},
-			Erc20Fee: types.ERC20Token{
-				Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
-				Amount:   sdk.NewInt(2),
-			},
+			Fee: sdk.NewInt64Coin(sdk.DefaultBondDenom, 2),
 		},
 	},
 
@@ -1081,10 +1045,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 					Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
 					Amount:   sdk.NewInt(100),
 				},
-				Erc20Fee: types.ERC20Token{
-					Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
-					Amount:   sdk.NewInt(2),
-				},
+				Fee: sdk.NewInt64Coin(sdk.DefaultBondDenom, 2),
 			},
 			{
 				Id:          4,
@@ -1094,10 +1055,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 					Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
 					Amount:   sdk.NewInt(103),
 				},
-				Erc20Fee: types.ERC20Token{
-					Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
-					Amount:   sdk.NewInt(1),
-				},
+				Fee: sdk.NewInt64Coin(sdk.DefaultBondDenom, 1),
 			},
 		},
 	}

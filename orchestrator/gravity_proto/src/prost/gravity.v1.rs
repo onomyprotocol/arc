@@ -55,17 +55,17 @@ pub struct IdSet {
     #[prost(uint64, repeated, tag="1")]
     pub ids: ::prost::alloc::vec::Vec<u64>,
 }
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BatchFees {
     #[prost(string, tag="1")]
     pub token: ::prost::alloc::string::String,
-    #[prost(string, tag="2")]
-    pub total_fees: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub total_fees: ::prost::alloc::vec::Vec<cosmos_sdk_proto::cosmos::base::v1beta1::Coin>,
     #[prost(uint64, tag="3")]
     pub tx_count: u64,
 }
 /// OutgoingTxBatch represents a batch of transactions going from gravity to ETH
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OutgoingTxBatch {
     #[prost(uint64, tag="1")]
     pub batch_nonce: u64,
@@ -79,7 +79,7 @@ pub struct OutgoingTxBatch {
     pub block: u64,
 }
 /// OutgoingTransferTx represents an individual send from gravity to ETH
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OutgoingTransferTx {
     #[prost(uint64, tag="1")]
     pub id: u64,
@@ -90,7 +90,7 @@ pub struct OutgoingTransferTx {
     #[prost(message, optional, tag="4")]
     pub erc20_token: ::core::option::Option<Erc20Token>,
     #[prost(message, optional, tag="5")]
-    pub erc20_fee: ::core::option::Option<Erc20Token>,
+    pub fee: ::core::option::Option<cosmos_sdk_proto::cosmos::base::v1beta1::Coin>,
 }
 /// OutgoingLogicCall represents an individual logic call from gravity to ETH
 #[derive(Clone, PartialEq, Eq, ::prost::Message)]
@@ -159,7 +159,7 @@ pub struct Erc20ToDenom {
     pub denom: ::prost::alloc::string::String,
 }
 /// UnhaltBridgeProposal defines a custom governance proposal useful for restoring
-/// the bridge after a oracle disagreement. Once this proposal is passed bridge state will roll back events
+/// the bridge after a oracle disagreement. Once this proposal is passed bridge state will roll back events 
 /// to the nonce provided in target_nonce if and only if those events have not yet been observed (executed on the Cosmos chain). This allows for easy
 /// handling of cases where for example an Ethereum hardfork has occured and more than 1/3 of the vlaidtor set
 /// disagrees with the rest. Normally this would require a chain halt, manual genesis editing and restar to resolve
@@ -396,6 +396,8 @@ pub struct MsgBatchSendToEthClaim {
     pub token_contract: ::prost::alloc::string::String,
     #[prost(string, tag="5")]
     pub orchestrator: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub reward_recipient: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct MsgBatchSendToEthClaimResponse {
@@ -482,7 +484,7 @@ pub struct MsgCancelSendToEthResponse {
 }
 /// This call allows anyone to submit evidence that a
 /// validator has signed a valset, batch, or logic call that never
-/// existed on the Cosmos chain.
+/// existed on the Cosmos chain. 
 /// Subject contains the batch, valset, or logic call.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MsgSubmitBadSignatureEvidence {
@@ -626,8 +628,11 @@ pub struct Params {
     #[prost(string, repeated, tag="19")]
     pub ethereum_blacklist: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// the pair of eth token and denom to automatically swap once the erc20 token is bridged.
-    #[prost(message, optional, tag="50")]
+    #[prost(message, optional, tag="20")]
     pub erc20_to_denom_permanent_swap: ::core::option::Option<Erc20ToDenom>,
+    /// the denom which must be use to pay fee for the send to cosmos / batch transactions.
+    #[prost(string, tag="21")]
+    pub batch_fee_denom: ::prost::alloc::string::String,
 }
 /// GenesisState struct, containing all persistant data required by the Gravity module
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -755,7 +760,7 @@ pub struct QueryLastPendingValsetRequestByAddrResponse {
 #[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct QueryBatchFeeRequest {
 }
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryBatchFeeResponse {
     #[prost(message, repeated, tag="1")]
     pub batch_fees: ::prost::alloc::vec::Vec<BatchFees>,
@@ -765,7 +770,7 @@ pub struct QueryLastPendingBatchRequestByAddrRequest {
     #[prost(string, tag="1")]
     pub address: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryLastPendingBatchRequestByAddrResponse {
     #[prost(message, repeated, tag="1")]
     pub batch: ::prost::alloc::vec::Vec<OutgoingTxBatch>,
@@ -783,7 +788,7 @@ pub struct QueryLastPendingLogicCallByAddrResponse {
 #[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct QueryOutgoingTxBatchesRequest {
 }
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryOutgoingTxBatchesResponse {
     #[prost(message, repeated, tag="1")]
     pub batches: ::prost::alloc::vec::Vec<OutgoingTxBatch>,
@@ -803,7 +808,7 @@ pub struct QueryBatchRequestByNonceRequest {
     #[prost(string, tag="2")]
     pub contract_address: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryBatchRequestByNonceResponse {
     #[prost(message, optional, tag="1")]
     pub batch: ::core::option::Option<OutgoingTxBatch>,
@@ -917,7 +922,7 @@ pub struct QueryPendingSendToEth {
     #[prost(string, tag="1")]
     pub sender_address: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, Eq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryPendingSendToEthResponse {
     #[prost(message, repeated, tag="1")]
     pub transfers_in_batches: ::prost::alloc::vec::Vec<OutgoingTransferTx>,

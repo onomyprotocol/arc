@@ -100,7 +100,8 @@ contract Gravity is ReentrancyGuard {
 	event TransactionBatchExecutedEvent(
 		uint256 indexed _batchNonce,
 		address indexed _token,
-		uint256 _eventNonce
+		uint256 _eventNonce,
+	    string _rewardRecipient
 	);
 	event SendToCosmosEvent(
 		address indexed _tokenContract,
@@ -375,12 +376,13 @@ contract Gravity is ReentrancyGuard {
 		// The batch of transactions
 		uint256[] calldata _amounts,
 		address[] calldata _destinations,
-		uint256[] calldata _fees,
 		uint256 _batchNonce,
 		address _tokenContract,
 		// a block height beyond which this batch is not valid
 		// used to provide a fee-free timeout
-		uint256 _batchTimeout
+		uint256 _batchTimeout,
+		// The cosmos originated address of the reward recipient, might be empty
+		string calldata rewardRecipient
 	) external nonReentrant {
 		// CHECKS scoped to reduce stack depth
 		{
@@ -416,7 +418,7 @@ contract Gravity is ReentrancyGuard {
 			}
 
 			// Check that the transaction batch is well-formed
-			if (_amounts.length != _destinations.length || _amounts.length != _fees.length) {
+			if (_amounts.length != _destinations.length) {
 				revert MalformedBatch();
 			}
 
@@ -432,7 +434,6 @@ contract Gravity is ReentrancyGuard {
 						0x7472616e73616374696f6e426174636800000000000000000000000000000000,
 						_amounts,
 						_destinations,
-						_fees,
 						_batchNonce,
 						_tokenContract,
 						_batchTimeout
@@ -448,21 +449,16 @@ contract Gravity is ReentrancyGuard {
 
 			{
 				// Send transaction amounts to destinations
-				uint256 totalFee;
 				for (uint256 i = 0; i < _amounts.length; i++) {
 					IERC20(_tokenContract).safeTransfer(_destinations[i], _amounts[i]);
-					totalFee = totalFee + _fees[i];
 				}
-
-				// Send transaction fees to msg.sender
-				IERC20(_tokenContract).safeTransfer(msg.sender, totalFee);
 			}
 		}
 
 		// LOGS scoped to reduce stack depth
 		{
 			state_lastEventNonce = state_lastEventNonce + 1;
-			emit TransactionBatchExecutedEvent(_batchNonce, _tokenContract, state_lastEventNonce);
+			emit TransactionBatchExecutedEvent(_batchNonce, _tokenContract, state_lastEventNonce, rewardRecipient);
 		}
 	}
 

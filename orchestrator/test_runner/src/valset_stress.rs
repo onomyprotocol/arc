@@ -3,8 +3,8 @@ use gravity_utils::{clarity::Address as EthAddress, deep_space::Contact, web30::
 use tonic::transport::Channel;
 
 use crate::{
-    happy_path::test_valset_update,
     utils::{create_default_test_config, start_orchestrators, ValidatorKeys},
+    validator_out::test_valset_update,
 };
 
 pub async fn validator_set_stress_test(

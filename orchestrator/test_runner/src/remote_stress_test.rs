@@ -5,7 +5,7 @@ use ethereum_gravity::send_to_cosmos::send_to_cosmos;
 use futures::future::join_all;
 use gravity_utils::{
     clarity::{u256, Address as EthAddress, Uint256},
-    deep_space::{coin::Coin, Contact},
+    deep_space::Contact,
     num_conversion::print_eth,
     u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
@@ -13,7 +13,7 @@ use gravity_utils::{
 use lazy_static::lazy_static;
 use tokio::time::sleep;
 
-use crate::{utils::*, ONE_ETH, TOTAL_TIMEOUT};
+use crate::{get_fee, utils::*, ONE_ETH, TOTAL_TIMEOUT};
 
 const TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -28,13 +28,13 @@ lazy_static! {
     /// Gravity Deposits = (erc20_addresses.len() * NUM_USERS)
     /// Batches executed = erc20_addresses.len() * (NUM_USERS / 100)
     static ref NUM_USERS: usize =
-        env::var("NUM_USERS").unwrap_or_else(|_| "100".to_string()).parse().unwrap();
+        env::var("NUM_USERS").unwrap_or_else(|_| "10".to_string()).parse().unwrap();
     /// default is 0.001 ETH per user
     static ref WEI_PER_USER: Uint256 =
     Uint256::from_u128(env::var("WEI_PER_USER").unwrap_or_else(|_| "1000000000000000".to_string()).parse::<u128>().unwrap());
     /// The number of the iteration to send per user for both eth->cosmos and cosmos->eth
     static ref NUM_OF_SEND_ITERATIONS: usize =
-        env::var("NUM_OF_SEND_ITERATIONS").unwrap_or_else(|_| "5".to_string()).parse().unwrap();
+        env::var("NUM_OF_SEND_ITERATIONS").unwrap_or_else(|_| "2".to_string()).parse().unwrap();
 }
 
 /// Perform a stress test by sending thousands of
@@ -52,22 +52,22 @@ pub async fn remote_stress_test(
             keys.clone(),
             gravity_address,
             false,
-            create_no_batch_requests_config(),
+            create_default_test_config(),
         )
         .await;
     }
 
     // Generate user keys to send ETH and multiple types of tokens
-    let mut user_keys = Vec::new();
+    let mut users_keys = Vec::new();
     for _ in 0..*NUM_USERS {
-        user_keys.push(get_user_key());
+        users_keys.push(get_user_key());
     }
 
     // the sending eth addresses need Ethereum to send ERC20 tokens to the bridge
-    let sending_eth_addresses: Vec<EthAddress> = user_keys.iter().map(|i| i.eth_address).collect();
+    let sending_eth_addresses: Vec<EthAddress> = users_keys.iter().map(|i| i.eth_address).collect();
     // the destination eth addresses need Ethereum to perform a contract call and get their erc20 balances
     let dest_eth_addresses: Vec<EthAddress> =
-        user_keys.iter().map(|i| i.eth_dest_address).collect();
+        users_keys.iter().map(|i| i.eth_dest_address).collect();
     let mut eth_destinations = Vec::new();
     eth_destinations.extend(sending_eth_addresses.clone());
     eth_destinations.extend(dest_eth_addresses);
@@ -110,13 +110,13 @@ pub async fn remote_stress_test(
     for _ in 0..*NUM_OF_SEND_ITERATIONS {
         for token in erc20_addresses.iter() {
             let mut sends = Vec::new();
-            for keys in user_keys.iter() {
+            for user_keys in users_keys.iter() {
                 let fut = send_to_cosmos(
                     *token,
                     gravity_address,
                     send_to_cosmos_amount,
-                    keys.cosmos_address,
-                    keys.eth_key,
+                    user_keys.cosmos_address,
+                    user_keys.eth_key,
                     TIMEOUT,
                     web30,
                     vec![SendTxOption::GasPriceMultiplier(1.5)],
@@ -145,8 +145,8 @@ pub async fn remote_stress_test(
     let check_all_deposists_bridged_to_cosmos = async {
         loop {
             let mut good = true;
-            for keys in user_keys.iter() {
-                let c_addr = keys.cosmos_address;
+            for user_keys in users_keys.iter() {
+                let c_addr = user_keys.cosmos_address;
                 let balances = contact.get_balances(c_addr).await.unwrap();
 
                 for token in erc20_addresses.iter() {
@@ -185,14 +185,32 @@ pub async fn remote_stress_test(
     {
         panic!(
             "Failed to perform all {} deposits to Cosmos!",
-            user_keys.len() * erc20_addresses.len()
+            users_keys.len() * erc20_addresses.len()
         );
     }
 
     info!(
         "All {} deposits bridged to Cosmos successfully!",
-        user_keys.len() * erc20_addresses.len() * *NUM_OF_SEND_ITERATIONS
+        users_keys.len() * erc20_addresses.len() * *NUM_OF_SEND_ITERATIONS
     );
+
+    let bridge_fee = get_fee();
+    let cosmos_tx_fee = get_fee();
+
+    info!("Sending cosmos coins to pay bridge ans tx fee!");
+    for _ in 0..*NUM_OF_SEND_ITERATIONS {
+        for _token in erc20_addresses.iter() {
+            for user_keys in users_keys.iter() {
+                send_cosmos_coins(
+                    contact,
+                    keys[0].validator_key,
+                    vec![user_keys.cosmos_address],
+                    vec![bridge_fee.clone(), cosmos_tx_fee.clone()],
+                )
+                .await;
+            }
+        }
+    }
 
     info!("Sending from Cosmos to Ethereum");
     let send_to_eth_amount = send_to_cosmos_amount.checked_sub(u256!(500)).unwrap(); // a bit less to keep some for fee
@@ -203,10 +221,10 @@ pub async fn remote_stress_test(
     for _ in 0..*NUM_OF_SEND_ITERATIONS {
         for token in erc20_addresses.iter() {
             let mut futs = Vec::new();
-            for keys in user_keys.iter() {
-                let c_addr = keys.cosmos_address;
-                let c_key = keys.cosmos_key;
-                let e_dest_addr = keys.eth_dest_address;
+            for user_keys in users_keys.iter() {
+                let c_addr = user_keys.cosmos_address;
+                let c_key = user_keys.cosmos_key;
+                let e_dest_addr = user_keys.eth_dest_address;
                 let balances = contact.get_balances(c_addr).await.unwrap();
                 // this way I don't have to hardcode a denom and we can change the way denoms are formed
                 // without changing this test.
@@ -219,16 +237,13 @@ pub async fn remote_stress_test(
                 }
                 let mut send_coin = send_coin.unwrap();
                 send_coin.amount = send_to_eth_amount;
-                let send_fee = Coin {
-                    denom: send_coin.denom.clone(),
-                    amount: u256!(1),
-                };
+
                 let res = send_to_eth(
                     c_key,
                     e_dest_addr,
                     send_coin,
-                    send_fee.clone(),
-                    send_fee,
+                    bridge_fee.clone(),
+                    cosmos_tx_fee.clone(),
                     contact,
                 );
                 futs.push(res);
@@ -250,8 +265,8 @@ pub async fn remote_stress_test(
     let check_withdraws_from_ethereum = async {
         loop {
             let mut good = true;
-            for keys in user_keys.iter() {
-                let e_dest_addr = keys.eth_dest_address;
+            for user_keys in users_keys.iter() {
+                let e_dest_addr = user_keys.eth_dest_address;
                 for token in erc20_addresses.iter() {
                     let bal = get_erc20_balance_safe(*token, web30, e_dest_addr)
                         .await

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,11 +27,12 @@ func TestModuleBalanceUnbatchedTxs(t *testing.T) {
 	allVouchersToken, err := types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 	require.NoError(t, err)
 	allVouchers := sdk.Coins{allVouchersToken.GravityCoin()}
-	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allVouchers)
+	allCoins := allVouchers.Add(sdk.NewInt64Coin(sdk.DefaultBondDenom, 99999)) // vouchers and fee
+	err = input.BankKeeper.MintCoins(ctx, types.ModuleName, allCoins)
 	require.NoError(t, err)
 	// set senders balance
 	input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allVouchers)
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, mySender, allCoins)
 	require.NoError(t, err)
 
 	////////////////// EXECUTE //////////////////
@@ -43,9 +44,7 @@ func TestModuleBalanceUnbatchedTxs(t *testing.T) {
 		amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), myTokenContractAddr)
 		require.NoError(t, err)
 		amount := amountToken.GravityCoin()
-		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
-		require.NoError(t, err)
-		fee := feeToken.GravityCoin()
+		fee := sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewIntFromUint64(v))
 
 		r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *receiver, amount, fee)
 		require.NotZero(t, r)
@@ -94,9 +93,10 @@ func TestModuleBalanceBatchedTxs(t *testing.T) {
 		sdk.NewCoins(tokens[0].GravityCoin()),
 		sdk.NewCoins(tokens[1].GravityCoin()),
 	}
+	allCoins := append(allVouchers, sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 10000)))
 
 	// mint some voucher first
-	for _, v := range allVouchers {
+	for _, v := range allCoins {
 		require.NoError(t, input.BankKeeper.MintCoins(ctx, types.ModuleName, v))
 		// set senders balance
 		input.AccountKeeper.NewAccountWithAddress(ctx, mySender)
@@ -113,9 +113,7 @@ func TestModuleBalanceBatchedTxs(t *testing.T) {
 			amountToken, err := types.NewInternalERC20Token(sdk.NewInt(int64(i+100)), tok.Contract.GetAddress())
 			require.NoError(t, err)
 			amount := amountToken.GravityCoin()
-			feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), tok.Contract.GetAddress())
-			require.NoError(t, err)
-			fee := feeToken.GravityCoin()
+			fee := sdk.NewCoin(sdk.DefaultBondDenom, sdk.NewIntFromUint64(v))
 
 			r, err := input.GravityKeeper.AddToOutgoingPool(ctx, mySender, *myReceiver, amount, fee)
 			require.NoError(t, err)
@@ -158,7 +156,7 @@ func TestModuleBalanceBatchedTxs(t *testing.T) {
 	checkImbalancedModule(t, ctx, input.GravityKeeper, input.BankKeeper, mySender, voucherCoins[1])
 
 	// Simulate one batch being relayed and observed
-	input.GravityKeeper.OutgoingTxBatchExecuted(ctx, batches[1].TokenContract, batches[1].BatchNonce)
+	input.GravityKeeper.OutgoingTxBatchExecuted(ctx, batches[1].TokenContract, batches[1].BatchNonce, mySender.String())
 	// The module should be balanced with the batch now being observed + one leftover unbatched tx still in the pool
 	checkInvariant(t, ctx, input.GravityKeeper, true)
 	checkImbalancedModule(t, ctx, input.GravityKeeper, input.BankKeeper, mySender, voucherCoins[0])

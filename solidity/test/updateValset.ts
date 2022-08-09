@@ -8,7 +8,8 @@ import {
     EmptyDenom,
     examplePowers,
     getSignerAddresses,
-    makeCheckpoint, parseEvent,
+    makeCheckpoint,
+    parseEvent,
     signHash
 } from "../test-utils/pure";
 import {BigNumber} from "ethers";
@@ -30,6 +31,7 @@ async function runTest(opts: {
     notEnoughPowerNewSet?: boolean;
     zeroLengthValset?: boolean;
     duplicateValidator?: boolean;
+    unsortValidators?: boolean;
 }) {
     const signers = await ethers.getSigners();
     const gravityId = ethers.utils.formatBytes32String("foo");
@@ -43,13 +45,17 @@ async function runTest(opts: {
 
     let rewardRecipient = EmptyCosmosAddress
 
-    const { gravity } = await deployContracts(gravityId, validators, powers);
+    const {gravity} = await deployContracts(gravityId, validators, powers);
 
     let newPowers = examplePowers();
     newPowers[0] -= 3;
     newPowers[1] += 3;
 
-    let newValidators = sortValidators(signers.slice(0, newPowers.length));
+    let newValidators = signers.slice(0, newPowers.length);
+
+    if (!opts.unsortValidators) {
+        newValidators = sortValidators(newValidators)
+    }
 
     // arbitrarily set a duplicate validator
     if (opts.duplicateValidator) {
@@ -155,7 +161,6 @@ async function runTest(opts: {
         rewardRecipient
     ), 0)
 
-    // check that the relayer was paid
     if (opts.withReward) {
         expect(valsetUpdateEventArgs).to.deep.equal({
             _newValsetNonce: BigNumber.from(1),
@@ -172,7 +177,14 @@ async function runTest(opts: {
 }
 
 describe("updateValset tests", function () {
-    it("throws MalformedNewValidatorSet on duplicate validators", async function () {
+
+    it("throws MalformedNewValidatorSet on non-duplicate, unsorted validators", async function () {
+        await expect(runTest({unsortValidators: true})).to.be.revertedWith(
+            "MalformedNewValidatorSet()"
+        );
+    });
+
+    it("throws MalformedNewValidatorSet on duplicate, unsorted validators", async function () {
         await expect(runTest({duplicateValidator: true})).to.be.revertedWith(
             "MalformedNewValidatorSet()"
         );

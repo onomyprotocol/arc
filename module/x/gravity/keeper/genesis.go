@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"fmt"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -165,6 +166,15 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		if !exists {
 			panic(fmt.Sprintf("Invalid Cosmos originated denom for valset reward, denom %s "+
 				"not found in the bank keeper metadata", valsetReward.Denom))
+		}
+	}
+
+	batchFeeDenom := k.GetParams(ctx).BatchFeeDenom
+	if strings.TrimSpace(batchFeeDenom) != "" {
+		_, exists := k.bankKeeper.GetDenomMetaData(ctx, batchFeeDenom)
+		if !exists {
+			panic(fmt.Sprintf("Invalid Cosmos originated denom for batch fee denom, denom %s "+
+				"not found in the bank keeper metadata", batchFeeDenom))
 		}
 	}
 

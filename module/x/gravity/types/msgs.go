@@ -139,12 +139,6 @@ func (msg MsgSendToEth) ValidateBasic() error {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, msg.Sender)
 	}
 
-	// fee and send must be of the same denom
-	if msg.Amount.Denom != msg.BridgeFee.Denom {
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidCoins,
-			fmt.Sprintf("fee and amount must be the same type %s != %s", msg.Amount.Denom, msg.BridgeFee.Denom))
-	}
-
 	if !msg.Amount.IsValid() || msg.Amount.IsZero() {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidCoins, "amount")
 	}
@@ -421,9 +415,9 @@ func (e *MsgBatchSendToEthClaim) ValidateBasic() error {
 	return nil
 }
 
-// Hash implements WithdrawBatch.Hash
+// ClaimHash hashes implements WithdrawBatch.Hash
 func (msg *MsgBatchSendToEthClaim) ClaimHash() ([]byte, error) {
-	path := fmt.Sprintf("%s/%d/%d/%s", msg.TokenContract, msg.BatchNonce, msg.EventNonce, msg.TokenContract)
+	path := fmt.Sprintf("%s/%d/%d/%s/%s", msg.TokenContract, msg.BatchNonce, msg.EventNonce, msg.TokenContract, msg.RewardRecipient)
 	return tmhash.Sum([]byte(path)), nil
 }
 

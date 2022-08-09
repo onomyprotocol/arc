@@ -85,6 +85,9 @@ var (
 	// ParamStoreErc20ToDenomPermanentSwap the key of Erc20ToDenomPair for store.
 	ParamStoreErc20ToDenomPermanentSwap = []byte("Erc20ToDenomPermanentSwap")
 
+	// ParamStoreBatchFeeDenom the key of BatchFeeDenom for store.
+	ParamStoreBatchFeeDenom = []byte("BatchFeeDenom")
+
 	// Ensure that params implements the proper interface
 	_ paramtypes.ParamSet = &Params{
 		GravityId:                    "",
@@ -106,9 +109,10 @@ var (
 			Denom:  "",
 			Amount: sdk.Int{},
 		},
-		BridgeActive:      true,
-		EthereumBlacklist: []string{},
+		BridgeActive:              true,
+		EthereumBlacklist:         []string{},
 		Erc20ToDenomPermanentSwap: ERC20ToDenom{},
+		BatchFeeDenom:             "",
 	}
 )
 
@@ -161,6 +165,7 @@ func DefaultParams() *Params {
 		BridgeActive:                 true,
 		EthereumBlacklist:            []string{},
 		Erc20ToDenomPermanentSwap:    ERC20ToDenom{},
+		BatchFeeDenom:                sdk.DefaultBondDenom,
 	}
 }
 
@@ -217,6 +222,9 @@ func (p Params) ValidateBasic() error {
 	if err := validateErc20ToDenomPermanentSwap(p.Erc20ToDenomPermanentSwap); err != nil {
 		return sdkerrors.Wrap(err, "Erc20ToDenomPermanentSwap")
 	}
+	if err := validateBatchFeeDenom(p.BatchFeeDenom); err != nil {
+		return sdkerrors.Wrap(err, "BatchFeeDenom")
+	}
 	return nil
 }
 
@@ -243,6 +251,7 @@ func ParamKeyTable() paramtypes.KeyTable {
 			Amount: sdk.Int{},
 		},
 		Erc20ToDenomPermanentSwap: ERC20ToDenom{},
+		BatchFeeDenom:             "",
 	})
 }
 
@@ -268,6 +277,7 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 		paramtypes.NewParamSetPair(ParamStoreBridgeActive, &p.BridgeActive, validateBridgeActive),
 		paramtypes.NewParamSetPair(ParamStoreEthereumBlacklist, &p.EthereumBlacklist, validateEthereumBlacklistAddresses),
 		paramtypes.NewParamSetPair(ParamStoreErc20ToDenomPermanentSwap, &p.Erc20ToDenomPermanentSwap, validateErc20ToDenomPermanentSwap),
+		paramtypes.NewParamSetPair(ParamStoreBatchFeeDenom, &p.BatchFeeDenom, validateBatchFeeDenom),
 	}
 }
 
@@ -451,6 +461,14 @@ func validateErc20ToDenomPermanentSwap(i interface{}) error {
 		(i.(ERC20ToDenom).Erc20 != "" && i.(ERC20ToDenom).Denom == "") {
 		return fmt.Errorf("invalid parameter type: %T, len must be 0 or 2, current value: %+v", i, i)
 	}
+	return nil
+}
+
+func validateBatchFeeDenom(i interface{}) error {
+	if _, ok := i.(string); !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
 	return nil
 }
 

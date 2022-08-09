@@ -15,14 +15,13 @@ use gravity_utils::{
     deep_space::{coin::Coin, Contact},
     u64_array_bigints,
 };
-use happy_path::happy_path_test;
 use happy_path_v2::happy_path_test_v2;
 use lazy_static::lazy_static;
 use orch_keys::orch_keys;
-use relay_market::relay_market_test;
 use remote_stress_test::remote_stress_test;
 use transaction_stress_test::transaction_stress_test;
 use unhalt_bridge::unhalt_bridge_test;
+use validator_out::validator_out_test;
 use valset_stress::validator_set_stress_test;
 
 use crate::{
@@ -39,13 +38,11 @@ mod bootstrapping;
 mod deposit_overflow;
 mod ethereum_blacklist_test;
 mod evidence_based_slashing;
-mod happy_path;
 mod happy_path_v2;
 mod ibc_metadata;
 mod invalid_events;
 mod orch_keys;
 mod pause_bridge;
-mod relay_market;
 mod remote_stress_test;
 mod signature_slashing;
 mod slashing_delegation;
@@ -53,6 +50,7 @@ mod transaction_stress_test;
 mod tx_cancel;
 mod unhalt_bridge;
 mod utils;
+mod validator_out;
 mod valset_rewards;
 mod valset_stress;
 
@@ -96,7 +94,7 @@ lazy_static! {
 /// returns the static fee for the tests
 pub fn get_fee() -> Coin {
     Coin {
-        denom: get_test_token_name(),
+        denom: get_stake_token_name(),
         amount: u256!(1),
     }
 }
@@ -108,7 +106,7 @@ pub fn get_deposit() -> Coin {
     }
 }
 
-pub fn get_test_token_name() -> String {
+pub fn get_stake_token_name() -> String {
     "stake".to_string()
 }
 
@@ -170,7 +168,7 @@ pub async fn main() {
                     .validator_key
                     .to_address(&contact.get_prefix())
                     .unwrap(),
-                get_test_token_name(),
+                get_stake_token_name(),
             )
             .await
             .unwrap()
@@ -190,7 +188,7 @@ pub async fn main() {
     if let Ok(test_type) = test_type {
         if test_type == "VALIDATOR_OUT" {
             info!("Starting Validator out test");
-            happy_path_test(
+            validator_out_test(
                 &web30,
                 grpc_client,
                 &contact,
@@ -238,10 +236,6 @@ pub async fn main() {
         } else if test_type == "V2_HAPPY_PATH" || test_type == "HAPPY_PATH_V2" {
             info!("Starting happy path for Gravity v2");
             happy_path_test_v2(&web30, grpc_client, &contact, keys, gravity_address, false).await;
-            return;
-        } else if test_type == "RELAY_MARKET" {
-            info!("Starting relay market tests!");
-            relay_market_test(&web30, grpc_client, &contact, keys, gravity_address).await;
             return;
         } else if test_type == "ORCHESTRATOR_KEYS" {
             info!("Starting orchestrator key update tests!");
@@ -328,7 +322,7 @@ pub async fn main() {
         }
     }
     info!("Starting Happy path test");
-    happy_path_test(
+    validator_out_test(
         &web30,
         grpc_client,
         &contact,

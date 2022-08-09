@@ -33,7 +33,7 @@ use crate::{
     MINER_ADDRESS, MINER_PRIVATE_KEY, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
 };
 
-pub async fn happy_path_test(
+pub async fn validator_out_test(
     web30: &Web3,
     grpc_client: GravityQueryClient<Channel>,
     contact: &Contact,
@@ -353,7 +353,7 @@ pub async fn test_erc20_deposit_result(
 
     let mut grpc_client = grpc_client.clone();
     let start_coin = contact
-        .get_balance(dest, format!("gravity{}", erc20_address))
+        .get_balance(dest, convert_to_erc20_denom(erc20_address))
         .await
         .unwrap();
 
@@ -392,7 +392,7 @@ pub async fn test_erc20_deposit_result(
             match (
                 start_coin.clone(),
                 contact
-                    .get_balance(dest, format!("gravity{}", erc20_address))
+                    .get_balance(dest, convert_to_erc20_denom(erc20_address))
                     .await
                     .unwrap(),
             ) {
@@ -460,7 +460,7 @@ pub async fn test_erc20_deposit_result(
             contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
         }
     })
-    .await
+        .await
     {
         Err(_) => Err(GravityError::ValidationError(
             "Did not complete deposit!".to_string(),
@@ -527,33 +527,38 @@ async fn test_batch(
     let dest_cosmos_address = dest_cosmos_private_key
         .to_address(&contact.get_prefix())
         .unwrap();
-    let coin = contact
-        .get_balance(dest_cosmos_address, format!("gravity{}", erc20_contract))
+    let coin_balance = contact
+        .get_balance(dest_cosmos_address, convert_to_erc20_denom(erc20_contract))
         .await
         .unwrap()
         .unwrap();
-    let token_name = coin.denom;
-    let amount = coin.amount;
 
-    let bridge_denom_fee = Coin {
-        denom: token_name.clone(),
-        amount: u256!(1),
+    let coin_to_bridge = Coin {
+        denom: coin_balance.denom,
+        amount: coin_balance.amount.checked_sub(u256!(5)).unwrap(),
     };
-    let amount = amount.checked_sub(u256!(5)).unwrap();
+    let bridge_fee = get_fee();
+    let cosmos_tx_fee = get_fee();
+
+    // send some coins to pay fees
+    send_cosmos_coins(
+        contact,
+        requester_cosmos_private_key,
+        vec![dest_cosmos_address],
+        vec![bridge_fee.clone(), cosmos_tx_fee.clone()],
+    )
+    .await;
+
     info!(
         "Sending {}{} from {} on Cosmos back to Ethereum",
-        amount, token_name, dest_cosmos_address
+        coin_to_bridge.amount, coin_to_bridge.denom, dest_cosmos_address
     );
-
     let res = send_to_eth(
         dest_cosmos_private_key,
         dest_eth_address,
-        Coin {
-            denom: token_name.clone(),
-            amount,
-        },
-        bridge_denom_fee.clone(),
-        bridge_denom_fee.clone(),
+        coin_to_bridge.clone(),
+        bridge_fee,
+        cosmos_tx_fee,
         contact,
     )
     .await
@@ -608,10 +613,16 @@ async fn test_batch(
                 // we have to send this address one eth so that it can perform contract calls
                 send_one_eth(dest_eth_address, web30).await;
             }
-            check_erc20_balance(erc20_contract, amount, dest_eth_address, web30).await;
+            check_erc20_balance(
+                erc20_contract,
+                coin_to_bridge.amount,
+                dest_eth_address,
+                web30,
+            )
+            .await;
             info!(
                 "Successfully updated txbatch nonce to {} and sent {}{} tokens to Ethereum!",
-                current_eth_batch_nonce, amount, token_name
+                current_eth_batch_nonce, coin_to_bridge.amount, coin_to_bridge.denom
             );
         }
     }
@@ -629,7 +640,7 @@ async fn submit_duplicate_erc20_send(
     keys: &[ValidatorKeys],
 ) {
     let start_coin = contact
-        .get_balance(receiver, format!("gravity{}", erc20_address))
+        .get_balance(receiver, convert_to_erc20_denom(erc20_address))
         .await
         .unwrap()
         .unwrap();
@@ -668,7 +679,7 @@ async fn submit_duplicate_erc20_send(
     contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
 
     let end_coin = contact
-        .get_balance(receiver, format!("gravity{}", erc20_address))
+        .get_balance(receiver, convert_to_erc20_denom(erc20_address))
         .await
         .unwrap()
         .unwrap();

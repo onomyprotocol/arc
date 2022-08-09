@@ -12,13 +12,13 @@ use gravity_utils::{
 use tonic::transport::Channel;
 
 use crate::{
-    get_fee,
-    happy_path::test_valset_update,
+    get_fee, send_cosmos_coins,
     signature_slashing::{reduce_slashing_window, wait_for_height},
     utils::{
         create_default_test_config, get_operator_address, get_user_key, start_orchestrators,
         ValidatorKeys,
     },
+    validator_out::test_valset_update,
     STAKING_TOKEN, TOTAL_TIMEOUT,
 };
 
@@ -62,20 +62,18 @@ pub async fn slashing_delegation_test(
     let user_d = get_user_key();
 
     // send test users their required coins
-    for coin in vec![amount_to_delegate.clone(), fee_send] {
-        for dest in vec![user_a, user_b, user_c, user_d] {
-            contact
-                .send_coins(
-                    coin.clone(),
-                    Some(get_fee()),
-                    dest.cosmos_address,
-                    Some(TOTAL_TIMEOUT),
-                    keys[0].validator_key,
-                )
-                .await
-                .unwrap();
-        }
-    }
+    send_cosmos_coins(
+        contact,
+        keys[0].validator_key,
+        vec![
+            user_a.cosmos_address,
+            user_b.cosmos_address,
+            user_c.cosmos_address,
+            user_d.cosmos_address,
+        ],
+        vec![amount_to_delegate.clone(), fee_send],
+    )
+    .await;
 
     let no_relay_market_config = create_default_test_config();
     // by setting validator out to true, the last validator will not have an orchestrator, will not submit
