@@ -14,9 +14,9 @@ Arc enables users to transfer tokens from an integrated chain to Onomy and back 
 
 This documentation lives with the code it references and helps to understand the functions and data structures involved. This is useful if you are reviewing or working on the code.
 
-* [Solidity Ethereum contract documentation](https://github.com/onomyprotocol/onomy-arc/blob/main/solidity/contracts/contract-explanation.md)
+* [Solidity Ethereum contract documentation](https://github.com/onomyprotocol/arc/blob/main/solidity/contracts/contract-explanation.md)
 
-* [Go Cosmos module documentation](https://github.com/onomyprotocol/onomy-arc/tree/main/module/x/gravity/spec)
+* [Go Cosmos module documentation](https://github.com/onomyprotocol/arc/tree/main/module/x/gravity/spec)
 
 ### Specs
 
