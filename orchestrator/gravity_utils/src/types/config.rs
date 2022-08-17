@@ -122,7 +122,7 @@ pub enum BatchRequestMode {
 
 /// A whitelisted token that will be relayed given the batch
 /// provides at least amount of this specific token
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct WhitelistToken {
     /// the amount which the batch must have to be relayed
     pub amount: Uint256,
