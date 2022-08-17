@@ -526,7 +526,7 @@ pub async fn get_event_nonce_safe(
     web3: &Web3,
     caller_address: EthAddress,
 ) -> Result<u64, Web3Error> {
-    return tokio::time::timeout(TOTAL_TIMEOUT, async {
+    tokio::time::timeout(TOTAL_TIMEOUT, async {
         loop {
             let new_balance = get_event_nonce(gravity_contract_address, caller_address, web3).await;
             if let Err(ref e) = new_balance {
@@ -538,7 +538,7 @@ pub async fn get_event_nonce_safe(
         }
     })
     .await
-    .expect("Can't get event nonce withing timeout");
+    .expect("Can't get event nonce withing timeout")
 }
 
 /// waits for the cosmos chain to start producing blocks, used to prevent race conditions
