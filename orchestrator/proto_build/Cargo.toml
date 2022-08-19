@@ -5,9 +5,9 @@ authors = ["Justin Kilpatrick <justin@althea.net>"]
 edition = "2018"
 
 [dependencies]
-prost = "0.9"
-prost-build = "0.9"
+prost = "0.10"
+prost-build = "0.10"
 regex = "1.5"
-tonic = "0.6"
-tonic-build = "0.6"
+tonic = "0.7"
+tonic-build = "0.7"
 walkdir = "2"

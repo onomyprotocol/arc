@@ -5,7 +5,7 @@ authors = ["Justin Kilpatrick <justin@althea.net>"]
 edition = "2018"
 
 [dependencies]
-cosmos-sdk-proto = { package = "cosmos-sdk-proto-althea", version = "^0.9.1" }
-prost = "0.9"
-prost-types = "0.9"
-tonic = "0.6"
+cosmos-sdk-proto = { package = "cosmos-sdk-proto-althea", version = "0.13" }
+prost = "0.10"
+prost-types = "0.10"
+tonic = "0.7"

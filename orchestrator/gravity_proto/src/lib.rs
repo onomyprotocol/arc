@@ -4,6 +4,8 @@
 //! those paths with references ot upstream cosmos-sdk-proto and delete the other files. This reduces cruft in this repo even
 //! if it does make for a somewhat more confusing proto generation process.
 
+#![allow(clippy::derive_partial_eq_without_eq)]
+
 pub use cosmos_sdk_proto;
 pub mod gravity {
     include!("prost/gravity.v1.rs");
