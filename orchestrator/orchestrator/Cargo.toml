@@ -30,5 +30,5 @@ openssl-probe = "0.1"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.17", features = ["macros", "rt-multi-thread"] }
-tonic = "0.6"
+tokio = { version = "1.20", features = ["macros", "rt-multi-thread"] }
+tonic = "0.7"
