@@ -18,7 +18,7 @@ use gravity_utils::{
 use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
 
-const BLOCK_DELAY: Uint256 = u256!(35);
+const BLOCK_DELAY: Uint256 = u256!(64);
 const LOCAL_GETH_CHAIN_ID: u64 = 15;
 const LOCAL_HARDHAT_CHAIN_ID: u64 = 31337;
 
