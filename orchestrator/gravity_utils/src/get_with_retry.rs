@@ -8,8 +8,18 @@ use web30::client::Web3;
 
 pub const RETRY_TIME: Duration = Duration::from_secs(5);
 
-/// gets the current Ethereum block number, no matter how long it takes
-pub async fn get_block_number_with_retry(web3: &Web3) -> Uint256 {
+/// gets the current Ethereum finalized block number, no matter how long it takes
+pub async fn get_finalized_block_number_with_retry(web3: &Web3) -> Uint256 {
+    loop {
+        match web3.eth_finalized_block_number().await {
+            Ok(res) => return res,
+            _ => sleep(RETRY_TIME).await,
+        }
+    }
+}
+
+// gets the latest block number
+pub async fn get_latest_block_number_with_retry(web3: &Web3) -> Uint256 {
     loop {
         match web3.eth_block_number().await {
             Ok(res) => return res,
