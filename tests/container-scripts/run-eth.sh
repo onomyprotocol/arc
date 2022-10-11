@@ -51,4 +51,13 @@ else
     --nousb \
     --verbosity=5 \
     --miner.etherbase=0xBf660843528035a5A4921534E156a27e64B231fE &> /geth.log &
+
+    echo "waiting for geth to come online"
+    until $(curl --output /dev/null --fail --silent --header "content-type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}' http://localhost:8545); do
+        sleep 1
+    done
+    echo "waiting for geth to sync"
+    until [ "$(curl -s --header "content-type: application/json" --data '{"id":1,"jsonrpc":"2.0","method":"eth_syncing","params":[]}' http://localhost:8545)" == '{"jsonrpc":"2.0","id":1,"result":false}' ]; do
+        sleep 1
+    done
 fi
