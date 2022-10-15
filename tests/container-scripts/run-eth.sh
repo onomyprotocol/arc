@@ -43,4 +43,10 @@ else
         --http-port=8545 \
         --db-type=memdb \
         --staking-enabled=false &> /gravity/tests/assets/avalanchego.log &
+
+    echo "waiting for avalanche to come online"
+    until $(curl --output /dev/null --fail --silent --header "content-type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":93,"jsonrpc":"2.0"}' http://localhost:8545/ext/bc/C/rpc); do
+        printf '.'
+        sleep 1
+    done
 fi

@@ -161,7 +161,7 @@ pub async fn main() {
     // addresses of deployed ERC20 token contracts to be used for testing
     let erc20_addresses = contracts.erc20_addresses;
 
-    info!("Starting block stimulator workaround");
+    /*info!("Starting block stimulator workaround");
     tokio::spawn(async move {
         use std::str::FromStr;
         // we need a duplicate `send_eth_bulk` that uses a different
@@ -198,24 +198,22 @@ pub async fn main() {
                 nonce = nonce.checked_add(u256!(1)).unwrap();
             }
             for tx in transactions {
-                web3.eth_send_raw_transaction(tx.to_bytes().unwrap())
-                    .await
-                    .unwrap();
+                web3.eth_send_raw_transaction(tx.to_bytes().unwrap()).await.unwrap();
             }
         }
 
         // repeatedly send single atoms to unrelated address
         let web3 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
-        loop {
+        for i in 0u64.. {
             send_eth_bulk2(
                 u256!(1),
-                &[EthAddress::from_str("0x798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc").unwrap()],
+                &if (i & 1) == 0 {[EthAddress::from_str("0x798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc").unwrap()]} else {[EthAddress::from_str("0xFf64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB").unwrap()]},
                 &web3,
             )
             .await;
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            tokio::time::sleep(Duration::from_secs(4)).await;
         }
-    });
+    });*/
 
     if !keys.is_empty() {
         // before we start the orchestrators send them some funds so they can pay

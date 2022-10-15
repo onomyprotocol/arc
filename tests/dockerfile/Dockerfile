@@ -7,7 +7,7 @@ RUN dnf install -y git make gcc gcc-c++ which iproute iputils procps-ng vim-mini
 # only required for deployment script
 RUN npm install -g ts-node && npm install -g typescript
 
-COPY --from=avaplatform/avalanchego:v1.7.16 /avalanchego/ /avalanchego/
+COPY --from=avaplatform/avalanchego:v1.9.0 /avalanchego/ /avalanchego/
 RUN mv /avalanchego/build/avalanchego /usr/bin/avalanchego
 
 # the actual source code for this repo, this **only** includes checked in files!
