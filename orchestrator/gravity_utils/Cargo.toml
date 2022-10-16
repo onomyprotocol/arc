@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 clarity = { git = "https://github.com/onomyprotocol/clarity.git", rev = "3e875b608a2d9302c8b23dd40dc8705901db230c" }
-deep_space = { git = "https://github.com/onomyprotocol/deep_space.git", rev = "20e9f0ce59412a305af4a3d6e9bf6c22413a2f81" }
+deep_space = { git = "https://github.com/onomyprotocol/deep_space.git", rev = "36aa611a1ccfd4a48e1248d029a11cb026106254" }
 gravity_proto = { path = "../gravity_proto/" }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
