@@ -51,4 +51,10 @@ else
     --nousb \
     --verbosity=5 \
     --miner.etherbase=0xBf660843528035a5A4921534E156a27e64B231fE &> /geth.log &
+
+    echo "waiting for geth to come online"
+    until $(curl --output /dev/null --fail --silent --header "content-type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":93,"jsonrpc":"2.0"}' http://localhost:8545); do
+        printf '.'
+        sleep 1
+    done
 fi
