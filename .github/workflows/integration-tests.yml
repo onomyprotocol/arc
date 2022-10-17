@@ -2,9 +2,9 @@ name: Integration tests
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, avax]
   pull_request:
-    branches: [master, main]
+    branches: [master, main, avax]
 
 jobs:
   happy-path-hardhat:
