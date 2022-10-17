@@ -161,7 +161,7 @@ pub async fn main() {
     // addresses of deployed ERC20 token contracts to be used for testing
     let erc20_addresses = contracts.erc20_addresses;
 
-    /*info!("Starting block stimulator workaround");
+    info!("Starting block stimulator workaround");
     tokio::spawn(async move {
         use std::str::FromStr;
         // we need a duplicate `send_eth_bulk` that uses a different
@@ -213,7 +213,7 @@ pub async fn main() {
             .await;
             tokio::time::sleep(Duration::from_secs(4)).await;
         }
-    });*/
+    });
 
     if !keys.is_empty() {
         // before we start the orchestrators send them some funds so they can pay

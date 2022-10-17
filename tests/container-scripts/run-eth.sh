@@ -37,6 +37,7 @@ else
     pushd /
     avalanchego \
         --genesis="/gravity/tests/assets/ETHGenesis.json" \
+        --chain-config-dir="/gravity/tests/assets/avalanchego_configs" \
         --network-id=15 \
         --build-dir="/avalanchego/build/" \
         --public-ip=127.0.0.1 \
