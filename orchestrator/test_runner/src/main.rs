@@ -198,7 +198,9 @@ pub async fn main() {
                 nonce = nonce.checked_add(u256!(1)).unwrap();
             }
             for tx in transactions {
-                web3.eth_send_raw_transaction(tx.to_bytes().unwrap()).await.unwrap();
+                web3.eth_send_raw_transaction(tx.to_bytes().unwrap())
+                    .await
+                    .unwrap();
             }
         }
 
@@ -207,7 +209,11 @@ pub async fn main() {
         for i in 0u64.. {
             send_eth_bulk2(
                 u256!(1),
-                &if (i & 1) == 0 {[EthAddress::from_str("0x798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc").unwrap()]} else {[EthAddress::from_str("0xFf64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB").unwrap()]},
+                &if (i & 1) == 0 {
+                    [EthAddress::from_str("0x798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc").unwrap()]
+                } else {
+                    [EthAddress::from_str("0xFf64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB").unwrap()]
+                },
                 &web3,
             )
             .await;

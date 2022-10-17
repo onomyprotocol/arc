@@ -21,7 +21,7 @@ use gravity_utils::{
 use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
 
-const EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(32);
+const EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(0);
 const LOCAL_GETH_CHAIN_ID: u64 = 15;
 const LOCAL_HARDHAT_CHAIN_ID: u64 = 31337;
 
@@ -55,7 +55,7 @@ pub async fn check_for_events(
 
     let expected_delay = match net_version {
         // integration tests use custom low delays
-        LOCAL_GETH_CHAIN_ID | LOCAL_HARDHAT_CHAIN_ID => u256!(1),
+        LOCAL_GETH_CHAIN_ID | LOCAL_HARDHAT_CHAIN_ID => u256!(0),
         _ => EXPECTED_MIN_BLOCK_DELAY,
     };
 
