@@ -9,12 +9,12 @@ use cosmos_gravity::{
 };
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{u256, Address as EthAddress, Uint256},
+    clarity::{Address as EthAddress, Uint256},
     deep_space::{Coin, Contact, PrivateKey},
     prices::get_weth_price,
     types::BatchRequestMode,
-    u64_array_bigints,
     web30::client::Web3,
+    TEST_GAS_LIMIT,
 };
 use tonic::transport::Channel;
 
@@ -34,11 +34,6 @@ pub async fn request_batches(
     } else {
         Some(request_fee)
     };
-    // TODO: this is a heuristic that needs to be dialed in
-    // it's not easy to really estimate the actual cost of a batch
-    // before we have an eth tx to simulate it with, so we're just
-    // assuming a base batch starts at 200k gas
-    const BATCH_GAS: Uint256 = u256!(200_000);
     // get the gas price once
     let eth_gas_price = web30.eth_gas_price().await;
     if let Err(e) = eth_gas_price {
@@ -69,7 +64,7 @@ pub async fn request_batches(
 
         match batch_request_mode {
             BatchRequestMode::ProfitableOnly => {
-                let weth_cost_estimate = eth_gas_price.checked_mul(BATCH_GAS).unwrap();
+                let weth_cost_estimate = eth_gas_price.checked_mul(TEST_GAS_LIMIT).unwrap();
                 match get_weth_price(token, total_fee, eth_address, web30).await {
                     Ok(price) => {
                         if price > weth_cost_estimate {

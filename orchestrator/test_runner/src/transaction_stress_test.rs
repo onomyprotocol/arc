@@ -12,6 +12,7 @@ use gravity_utils::{
     deep_space::{coin::Coin, Contact},
     u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
+    TESTS_BATCH_NUM_USERS,
 };
 use rand::seq::SliceRandom;
 use tokio::time::sleep;
@@ -30,7 +31,7 @@ const TIMEOUT: Duration = Duration::from_secs(120);
 /// ERC20 sends = (erc20_addresses.len() * NUM_USERS)
 /// Gravity Deposits = (erc20_addresses.len() * NUM_USERS)
 /// Batches executed = erc20_addresses.len() * (NUM_USERS / 100)
-const NUM_USERS: usize = 100;
+const NUM_USERS: usize = TESTS_BATCH_NUM_USERS;
 
 /// Perform a stress test by sending thousands of
 /// transactions and producing large batches

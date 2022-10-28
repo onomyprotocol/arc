@@ -3,7 +3,7 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
     clarity::{u256, Address, Uint256},
     deep_space::address::Address as CosmosAddress,
-    get_with_retry::{get_block_number_with_retry, RETRY_TIME},
+    get_with_retry::{get_latest_block_number_with_retry, RETRY_TIME},
     types::{
         event_signatures::*, Erc20DeployedEvent, LogicCallExecutedEvent, SendToCosmosEvent,
         TransactionBatchExecutedEvent, ValsetUpdatedEvent,
@@ -27,7 +27,7 @@ pub async fn get_last_checked_block(
     let mut grpc_client = grpc_client;
     const BLOCKS_TO_SEARCH: Uint256 = u256!(5_000);
 
-    let latest_block = get_block_number_with_retry(web3).await;
+    let latest_block = get_latest_block_number_with_retry(web3).await;
     let mut last_event_nonce = Uint256::from_u64(
         get_last_event_nonce_with_retry(&mut grpc_client, our_cosmos_address, prefix).await,
     );

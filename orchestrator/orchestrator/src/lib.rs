@@ -1,3 +1,6 @@
+// some returns need to be more visible
+#![allow(clippy::question_mark)]
+
 #[macro_use]
 extern crate log;
 

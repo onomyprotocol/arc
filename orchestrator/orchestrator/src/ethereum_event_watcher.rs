@@ -4,23 +4,20 @@
 use cosmos_gravity::{query::get_last_event_nonce_for_validator, send::send_ethereum_claims};
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{u256, utils::bytes_to_hex_str, Address as EthAddress, Uint256},
+    clarity::{utils::bytes_to_hex_str, Address as EthAddress, Uint256},
     deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey, Contact},
     error::GravityError,
-    get_with_retry::{get_block_number_with_retry, get_net_version_with_retry},
+    get_block_delay, get_expected_block_delay,
+    get_with_retry::{get_finalized_block_number_with_retry, get_latest_block_number_with_retry},
     types::{
         event_signatures::*, Erc20DeployedEvent, LogicCallExecutedEvent, SendToCosmosEvent,
         TransactionBatchExecutedEvent, ValsetUpdatedEvent,
     },
-    u64_array_bigints,
     web30::{client::Web3, jsonrpc::error::Web3Error},
+    USE_FINALIZATION,
 };
 use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
-
-const BLOCK_DELAY: Uint256 = u256!(35);
-const LOCAL_GETH_CHAIN_ID: u64 = 15;
-const LOCAL_HARDHAT_CHAIN_ID: u64 = 31337;
 
 #[derive(Clone, Copy)]
 pub struct CheckedNonces {
@@ -39,22 +36,43 @@ pub async fn check_for_events(
     starting_block: Uint256,
 ) -> Result<CheckedNonces, GravityError> {
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
-    let latest_block = get_block_number_with_retry(web3).await;
-    let latest_block_with_delay = latest_block
-        .checked_sub(get_block_delay(web3).await)
-        .ok_or_else(|| {
-            GravityError::UnrecoverableError(
-                // This should only happen if the bridge is started immediately after the chain
-                // genesis which will not happen in production. In tests this is an indicator that
-                // `get_block_delay` is not setting the delay to zero for the testnet id.
-                "Latest block number is less than the block delay".to_owned(),
-            )
-        })?;
+
+    let ending_block = if USE_FINALIZATION {
+        // NOTE: the delay can only be omitted if we are using the `finalized` version on a PoS network
+        let finalized_block = get_finalized_block_number_with_retry(web3).await;
+
+        let expected_delay = get_expected_block_delay(web3).await;
+
+        // don't accidentally use this variable elswhere
+        let unsafe_latest_block = get_latest_block_number_with_retry(web3).await;
+        // do this even if `expected_delay` is zero, be extra paranoid
+        if finalized_block.checked_add(expected_delay).unwrap() > unsafe_latest_block {
+            return Err(GravityError::UnrecoverableError(format!(
+                "the finalized block number ({:?}) does not have the expected minimum delay \
+                ({:?}) over the latest block number ({:?})",
+                finalized_block, expected_delay, unsafe_latest_block
+            )));
+        }
+
+        finalized_block
+    } else {
+        let latest_block = get_latest_block_number_with_retry(web3).await;
+        latest_block
+            .checked_sub(get_block_delay(web3).await)
+            .ok_or_else(|| {
+                GravityError::UnrecoverableError(
+                    // This should only happen if the bridge is started immediately after the chain
+                    // genesis which will not happen in production. In tests this is an indicator that
+                    // `get_block_delay` is not setting the delay to zero for the testnet id.
+                    "Latest block number is less than the block delay".to_owned(),
+                )
+            })?
+    };
 
     let deposits = web3
         .check_for_events(
             starting_block,
-            Some(latest_block_with_delay),
+            Some(ending_block),
             vec![gravity_contract_address],
             vec![SENT_TO_COSMOS_EVENT_SIG],
         )
@@ -64,7 +82,7 @@ pub async fn check_for_events(
     let batches = web3
         .check_for_events(
             starting_block,
-            Some(latest_block_with_delay),
+            Some(ending_block),
             vec![gravity_contract_address],
             vec![TRANSACTION_BATCH_EXECUTED_EVENT_SIG],
         )
@@ -74,7 +92,7 @@ pub async fn check_for_events(
     let valsets = web3
         .check_for_events(
             starting_block,
-            Some(latest_block_with_delay),
+            Some(ending_block),
             vec![gravity_contract_address],
             vec![VALSET_UPDATED_EVENT_SIG],
         )
@@ -84,7 +102,7 @@ pub async fn check_for_events(
     let erc20_deployed = web3
         .check_for_events(
             starting_block,
-            Some(latest_block_with_delay),
+            Some(ending_block),
             vec![gravity_contract_address],
             vec![ERC20_DEPLOYED_EVENT_SIG],
         )
@@ -94,7 +112,7 @@ pub async fn check_for_events(
     let logic_call_executed = web3
         .check_for_events(
             starting_block,
-            Some(latest_block_with_delay),
+            Some(ending_block),
             vec![gravity_contract_address],
             vec![LOGIC_CALL_EVENT_SIG],
         )
@@ -219,7 +237,7 @@ pub async fn check_for_events(
             }
         }
         Ok(CheckedNonces {
-            block_number: latest_block_with_delay,
+            block_number: ending_block,
             event_nonce: new_event_nonce,
         })
     } else {
@@ -228,31 +246,5 @@ pub async fn check_for_events(
         Err(GravityError::RpcError(Box::new(Web3Error::BadResponse(
             "Failed to get logs!".into(),
         ))))
-    }
-}
-
-/// The number of blocks behind the 'latest block' on Ethereum our event checking should be.
-/// Ethereum does not have finality and as such is subject to chain reorgs and temporary forks
-/// if we check for events up to the very latest block we may process an event which did not
-/// 'actually occur' in the longest POW chain.
-///
-/// Obviously we must chose some delay in order to prevent incorrect events from being claimed
-///
-/// For EVM chains with finality the correct value for this is zero. As there's no need
-/// to concern ourselves with re-orgs or forking. This function checks the netID of the
-/// provided Ethereum RPC and adjusts the block delay accordingly
-///
-/// The value used here for Ethereum is a balance between being reasonably fast and reasonably secure
-/// As you can see on https://etherscan.io/blocks_forked uncles (one block deep reorgs)
-/// occur once every few minutes. Two deep once or twice a day.
-/// https://etherscan.io/chart/uncles
-/// We use block delay of 35, giving preference to security over speed.
-async fn get_block_delay(web3: &Web3) -> Uint256 {
-    let net_version = get_net_version_with_retry(web3).await;
-
-    match net_version {
-        // For the chains we use for the integration tests we don't require the block delay.
-        LOCAL_GETH_CHAIN_ID | LOCAL_HARDHAT_CHAIN_ID => u256!(0),
-        _ => BLOCK_DELAY,
     }
 }

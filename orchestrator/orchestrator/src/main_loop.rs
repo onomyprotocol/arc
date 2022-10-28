@@ -166,8 +166,8 @@ pub async fn eth_oracle_main_loop(
                         sleep(DELAY).await;
                         return None;
                     }
-                    (Err(_), Ok(_)) => {
-                        warn!("Could not contact Eth node, trying again");
+                    (Err(e), Ok(_)) => {
+                        warn!("Could not contact Eth node ({:?}), trying again", e);
                         metrics_warnings_counter(1, "Could not contact Eth node");
                         sleep(DELAY).await;
                         return None;
