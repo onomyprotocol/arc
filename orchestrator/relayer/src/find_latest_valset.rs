@@ -19,7 +19,7 @@ pub async fn find_latest_valset(
     web3: &Web3,
 ) -> Result<Valset, GravityError> {
     const BLOCKS_TO_SEARCH: Uint256 = u256!(5_000);
-    let latest_block = web3.eth_finalized_block_number().await?;
+    let latest_block = web3.eth_block_number().await?;
     let mut current_block: Uint256 = latest_block;
 
     while !current_block.is_zero() {
