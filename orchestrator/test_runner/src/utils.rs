@@ -21,6 +21,7 @@ use gravity_utils::{
     types::{BatchRelayingMode, BatchRequestMode, GravityBridgeToolsConfig, ValsetRelayingMode},
     u64_array_bigints,
     web30::{client::Web3, jsonrpc::error::Web3Error, types::SendTxOption},
+    TEST_GAS_LIMIT,
 };
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
@@ -121,7 +122,7 @@ pub async fn send_erc20_bulk(
             Some(OPERATION_TIMEOUT),
             vec![
                 SendTxOption::Nonce(nonce),
-                SendTxOption::GasLimit(u256!(100_000)),
+                SendTxOption::GasLimit(TEST_GAS_LIMIT),
                 SendTxOption::GasPriceMultiplier(5.0),
             ],
         );
@@ -150,12 +151,13 @@ pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &
         .unwrap();
     let mut transactions = Vec::new();
     let gas_price: Uint256 = web3.eth_gas_price().await.unwrap();
+    let double = gas_price.checked_mul(u256!(2)).unwrap();
     for address in destinations {
         let t = Transaction {
             to: *address,
             nonce,
-            gas_price: gas_price.checked_mul(u256!(2)).unwrap(),
-            gas_limit: u256!(24000),
+            gas_price: double,
+            gas_limit: TEST_GAS_LIMIT,
             value: amount,
             data: Vec::new(),
             signature: None,

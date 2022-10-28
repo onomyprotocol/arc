@@ -1,3 +1,6 @@
+// some returns need to be more visible
+#![allow(clippy::question_mark)]
+
 pub mod batch_relaying;
 pub mod find_latest_valset;
 pub mod logic_call_relaying;
