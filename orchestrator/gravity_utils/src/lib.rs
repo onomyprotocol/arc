@@ -21,15 +21,15 @@ use web30::client::Web3;
 // constants commonly modified across chains are here
 
 // if the net version is this, the test values will be used
-pub const TEST_ETH_CHAIN_ID: u64 = 15;
+pub const TEST_ETH_CHAIN_ID: u64 = 1337;
 
 // see `orchestrator/src/ethereum_event_watcher.rs`
 
-pub const BLOCK_DELAY: Uint256 = u256!(35);
+pub const BLOCK_DELAY: Uint256 = u256!(96);
 pub const TEST_BLOCK_DELAY: Uint256 = u256!(0);
 
-pub const USE_FINALIZATION: bool = false;
-pub const EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(0);
+pub const USE_FINALIZATION: bool = true;
+pub const EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(32);
 pub const TEST_EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(0);
 
 /// Only for tests, some chains are quiescent and need dummy transactions to keep block
