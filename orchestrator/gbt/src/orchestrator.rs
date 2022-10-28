@@ -8,7 +8,10 @@ use gravity_utils::{
         wait_for_cosmos_node_ready,
     },
     error::GravityError,
+    get_block_delay, get_expected_block_delay,
+    get_with_retry::get_net_version_with_retry,
     types::{BatchRequestMode, GravityBridgeToolsConfig},
+    TEST_ETH_CHAIN_ID, USE_FINALIZATION,
 };
 use metrics_exporter::metrics_server;
 use orchestrator::main_loop::{
@@ -56,6 +59,26 @@ pub async fn orchestrator(
         "Ethereum Address: {} Cosmos Address {}",
         public_eth_key, public_cosmos_key
     );
+
+    // so we can double check in the logs that there is no configuration problem
+    let net_version = get_net_version_with_retry(&web3).await;
+    let block_delay = get_block_delay(&web3).await;
+    let expected_block_delay = get_expected_block_delay(&web3).await;
+    info!("Chain ID is {}", net_version);
+    if net_version == TEST_ETH_CHAIN_ID {
+        warn!("Chain ID is equal to TEST_ETH_CHAIN_ID, assuming this is a local test net");
+    }
+    if USE_FINALIZATION {
+        info!(
+            "Using finalization with expected minimum block delay {}",
+            expected_block_delay
+        );
+    } else {
+        info!(
+            "Using probabilistic finality with block delay {}",
+            block_delay
+        );
+    }
 
     // check if the cosmos node is syncing, if so wait for it
     // we can't move any steps above this because they may fail on an incorrect

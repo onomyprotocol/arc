@@ -151,6 +151,25 @@ pub async fn main() {
     let web30 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
     let keys = get_keys();
 
+    let net_version = get_net_version_with_retry(&web30).await;
+    let block_delay = get_block_delay(&web30).await;
+    let expected_block_delay = get_expected_block_delay(&web30).await;
+    info!("Chain ID is {}", net_version);
+    if net_version != TEST_ETH_CHAIN_ID {
+        warn!("Chain ID is not equal to TEST_ETH_CHAIN_ID");
+    }
+    if USE_FINALIZATION {
+        info!(
+            "Using finalization with expected minimum block delay {}",
+            expected_block_delay
+        );
+    } else {
+        info!(
+            "Using probabilistic finality with block delay {}",
+            block_delay
+        );
+    }
+
     if TEST_RUN_BLOCK_STIMULATOR {
         // if `should_deploy_contracts()` this needs to be running beforehand,
         // because some chains have really strong quiescence
