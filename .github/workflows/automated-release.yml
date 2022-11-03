@@ -214,9 +214,14 @@ jobs:
       # entry is already made and rust builds take nearly 10 minutes, so instead
       # of having a workable release in 20 minutes we can have one in 10 with the ARM
       # binaries coming 10 minutes later.
+
+      # because of https://github.com/cross-rs/cross/issues/724
+      # we have to run `cargo clean` between targets
+
       - name: Build GBT ARM64
         run: |
           cd orchestrator
+          cargo clean
           cross build --target aarch64-unknown-linux-musl --release --all
 
       - name: Upload Gravity Bridge Tools ARM
@@ -233,6 +238,7 @@ jobs:
       - name: Build GBT Windows 
         run: |
           cd orchestrator
+          cargo clean
           cross build --target x86_64-pc-windows-gnu --release --all
 
       - name: Upload Gravity Bridge Tools Windows 
@@ -268,6 +274,7 @@ jobs:
           UNATTENDED=yes OSX_VERSION_MIN=10.7 ./build.sh
           popd
           cd orchestrator
+          cargo clean
           PATH="/tmp/osxcross/target/bin:$PATH" \
           CC=o64-clang \
           CXX=o64-clang++ \
