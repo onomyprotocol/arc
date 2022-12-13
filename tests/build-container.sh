@@ -46,9 +46,11 @@ else
         PATH=$PATH:/usr/local/go/bin LEDGER_ENABLED=false BIN_PATH=$DOCKERFOLDER/ make build-linux-amd64
 
     # build npm artifacts
-    pushd $REPOFOLDER/solidity/ &&
-    HUSKY_SKIP_INSTALL=1 npm ci
-    npm run typechain
+    if [[ "${SKIP_NPM:-0}" -eq "0" ]]; then
+        pushd $REPOFOLDER/solidity/ &&
+        HUSKY_SKIP_INSTALL=1 npm ci
+        npm run typechain
+    fi
 
     # compress binaries
     pushd $DOCKERFOLDER

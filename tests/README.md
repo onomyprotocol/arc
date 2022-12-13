@@ -29,9 +29,7 @@ The default process takes several minutes which makes development cycles slow. I
 as slow as the default case, but every build afterwards will reuse the local incremental compilation
 data on the Rust and Go sides.
 
-One more thing which can reduce build time is to comment out the line below "build npm artifacts"
-in `build-container.sh` (because `npm` is slow at rebuilding when no changes have been made), but
-only do this after the first build after changes to `solidity/`
+One more thing which can reduce build time is `SKIP_NPM=1` (because `npm` is slow at rebuilding when
+no changes have been made), but only do this after the first build after changes to `solidity/`
 
 ## [Run remote stress on running chain](./REMOTE_STRESS.md)
-
