@@ -162,7 +162,7 @@ pub async fn send_eth_bulk(amount: Uint256, destinations: &[EthAddress], web3: &
             data: Vec::new(),
             signature: None,
         };
-        let t = t.sign(&*MINER_PRIVATE_KEY, Some(net_version));
+        let t = t.sign(&MINER_PRIVATE_KEY, Some(net_version));
         transactions.push(t);
         nonce = nonce.checked_add(u256!(1)).unwrap();
     }

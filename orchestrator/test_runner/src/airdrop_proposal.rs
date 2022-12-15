@@ -31,7 +31,7 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
         &community_pool_contents_start
     );
     let starting_amount_in_pool =
-        get_coins(&*STAKING_TOKEN, &community_pool_contents_start).unwrap();
+        get_coins(&STAKING_TOKEN, &community_pool_contents_start).unwrap();
     let bad_airdrop_denom = "notoken".to_string();
 
     info!("Starting user key generation");
@@ -99,7 +99,7 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
     .await;
 
     let community_pool_contents_end = contact.query_community_pool().await.unwrap();
-    let end = get_coins(&*STAKING_TOKEN, &community_pool_contents_end).unwrap();
+    let end = get_coins(&STAKING_TOKEN, &community_pool_contents_end).unwrap();
     info!(
         "FeePool start {} and End {}",
         starting_amount_in_pool.amount, end.amount
