@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          working-directory: orchestrator/
+          workspaces: orchestrator/
       - name: Build Orchestrator
         run: cd orchestrator && cargo check --all --verbose
   test:
@@ -24,9 +24,9 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          working-directory: orchestrator/
+          workspaces: orchestrator/
       - name: Run Orchestrator tests
         run: cd orchestrator && cargo test --all --release --verbose
   rustfmt:
@@ -47,9 +47,9 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          working-directory: orchestrator/
+          workspaces: orchestrator/
       - name: Check for Clippy lints
         run: rustup component add clippy && cd orchestrator && cargo clippy --all --all-targets --all-features -- -D warnings
   audit:
@@ -57,9 +57,9 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          working-directory: orchestrator/
+          workspaces: orchestrator/
       - name: Run Cargo Audit
         run: cargo install cargo-audit && cd orchestrator && cargo audit
   cross-compile-arm64:
@@ -67,8 +67,8 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          working-directory: orchestrator/
+          workspaces: orchestrator/
       - name: Cross compile tests
         run: cargo install cross && cd orchestrator && cross test --all --release --target aarch64-unknown-linux-gnu

@@ -6,178 +6,76 @@ on:
   pull_request:
     branches: [master, main]
 
+# the old `action-docker-layer-caching` repo was unmaintained, found https://github.com/satackey/action-docker-layer-caching/issues/347 as an alternative
 jobs:
-  happy-path-hardhat:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run all up happy-path test
-        run: tests/all-up-test.sh
-        env:
-          HARDHAT: True
+  # this is the standard test, which is the only one without `skip-save: true` so we don't waste a
+  # lot of resources saving the same thing for every test
   happy-path-geth:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
+      - uses: jpribyl/action-docker-layer-caching@v0.1.1
+        with:
+          continue-on-error: true
       - name: Prune cache to keep the size down
         run: docker builder prune -af && docker system prune -af
       - name: Run all up happy-path test
         run: tests/all-up-test.sh
-  validator-out:
+  # these other tests before the matrix have special requirements
+  happy-path-hardhat:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run all up test with a validator out
-        run: tests/all-up-test.sh VALIDATOR_OUT
-  valset-stress:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run all up valset stress test
-        run: tests/all-up-test.sh VALSET_STRESS
-  batch-stress:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run all up batch stress test
-        run: tests/all-up-test.sh BATCH_STRESS
-  remote-stress:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run all up remote stress test
-        run: tests/all-up-test.sh REMOTE_STRESS_FOR_CI
-  v2-happy-path:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run all up batch stress test
-        run: tests/all-up-test.sh V2_HAPPY_PATH
+      - uses: jpribyl/action-docker-layer-caching@v0.1.1
+        with:
+          skip-save: true
+          continue-on-error: true
+      - name: Run all up happy-path test
+        run: tests/all-up-test.sh
+        env:
+          HARDHAT: True
   relay-market:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
+      - uses: jpribyl/action-docker-layer-caching@v0.1.1
+        with:
+          skip-save: true
+          continue-on-error: true
       - name: Run all up relay market test
         run: tests/all-up-test.sh RELAY_MARKET $ALCHEMY_ID
         env:
           ALCHEMY_ID: ${{ secrets.ALCHEMY_ID }}
-  orchestrator-keys:
+  all-up-test-matrix:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        name:
+          [
+            VALIDATOR_OUT,
+            VALSET_STRESS,
+            BATCH_STRESS,
+            REMOTE_STRESS_FOR_CI,
+            HAPPY_PATH_V2,
+            ORCHESTRATOR_KEYS,
+            VALSET_REWARDS,
+            EVIDENCE,
+            TXCANCEL,
+            INVALID_EVENTS,
+            UNHALT_BRIDGE,
+            PAUSE_BRIDGE,
+            DEPOSIT_OVERFLOW,
+            ETHEREUM_BLACKLIST,
+            AIRDROP_PROPOSAL,
+            SIGNATURE_SLASHING,
+            SLASHING_DELEGATION,
+            IBC_METADATA,
+          ]
     steps:
       - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run orchestrator key setting test
-        run: tests/all-up-test.sh ORCHESTRATOR_KEYS
-  valset_update_rewards:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run the validator set update rewards test
-        run: tests/all-up-test.sh VALSET_REWARDS
-  evidence_based_slashing:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run the evidence based slashing test
-        run: tests/all-up-test.sh EVIDENCE
-  transaction-cancel:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Run the transaction cancel test
-        run: tests/all-up-test.sh TXCANCEL
-  invalid-events:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Submit invalid events
-        run: tests/all-up-test.sh INVALID_EVENTS
-  unhalt-bridge:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Halt bridge with ETH hardfork and then unhalt the bridge via governance
-        run: tests/all-up-test.sh UNHALT_BRIDGE
-  pause-bridge:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Pause and then resume the bridge via governance
-        run: tests/all-up-test.sh PAUSE_BRIDGE
-  deposit-overflow:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Submit an overflowing deposit
-        run: tests/all-up-test.sh DEPOSIT_OVERFLOW
-  ethereum-blacklist:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Attempt to deposit to a blacklisted address
-        run: tests/all-up-test.sh ETHEREUM_BLACKLIST
-  airdrop_proposal:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Execute a governance powered airdrop
-        run: tests/all-up-test.sh AIRDROP_PROPOSAL
-  signature_slashing:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Test slashing for unsubmitted signatures
-        run: tests/all-up-test.sh SIGNATURE_SLASHING
-  slashing_delegation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Test delegation after slashing
-        run: tests/all-up-test.sh SLASHING_DELEGATION
-  ibc_metadata:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-      - name: Test setting metadata for IBC tokens
-        run: tests/all-up-test.sh IBC_METADATA
+      - uses: jpribyl/action-docker-layer-caching@v0.1.1
+        with:
+          skip-save: true
+          continue-on-error: true
+      - name: Run all up ${{ matrix.name }} test
+        run: tests/all-up-test.sh ${{ matrix.name }}
