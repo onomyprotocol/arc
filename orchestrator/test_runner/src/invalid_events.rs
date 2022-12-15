@@ -22,7 +22,7 @@ use crate::{
         create_default_test_config, footoken_metadata, get_event_nonce_safe, get_user_key,
         start_orchestrators, ValidatorKeys,
     },
-    MINER_ADDRESS, MINER_PRIVATE_KEY, ONE_ETH, TOTAL_TIMEOUT,
+    MINER_ADDRESS, MINER_PRIVATE_KEY, ONE_ETH, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
 };
 
 pub async fn invalid_events(
@@ -315,6 +315,9 @@ async fn deploy_invalid_erc20(
     keys: Vec<ValidatorKeys>,
     erc20_params: Erc20Params,
 ) {
+    // there are spurious errors related to too much gas in a single block
+    web30.wait_for_next_block(OPERATION_TIMEOUT).await.unwrap();
+
     let starting_event_nonce =
         get_event_nonce_safe(gravity_address, web30, keys[0].eth_key.to_address())
             .await
