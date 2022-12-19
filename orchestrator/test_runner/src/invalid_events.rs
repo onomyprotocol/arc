@@ -11,6 +11,7 @@ use gravity_utils::{
     deep_space::Contact,
     u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
+    TEST_ERC20_MAX_SIZE, TEST_GAS_LIMIT,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tonic::transport::Channel;
@@ -162,10 +163,6 @@ fn get_erc20_test_values() -> Vec<Erc20Params> {
     // A series of test strings designed to torture our implementation.
     let mut test_strings = Vec::new();
 
-    // the maximum size I could get OpenEthereum ERC20 to accept
-    // maybe higher in the future
-    const MAX_SIZE: usize = 5_000;
-
     // start with normal utf-8 and odd decimals values
     let bad = "bad".to_string().as_bytes().to_vec();
     test_strings.push(Erc20Params {
@@ -186,7 +183,7 @@ fn get_erc20_test_values() -> Vec<Erc20Params> {
     // a very long, but valid utf8 string
     let rand_string: String = thread_rng()
         .sample_iter(&Alphanumeric)
-        .take(MAX_SIZE)
+        .take(TEST_ERC20_MAX_SIZE)
         .map(char::from)
         .collect();
     let rand_string = rand_string.as_bytes().to_vec();
@@ -210,9 +207,13 @@ fn get_erc20_test_values() -> Vec<Erc20Params> {
     });
 
     // generate a random but invalid utf-8 string, but this time longer
-    let mut rand_invalid_long: Vec<u8> = (0..MAX_SIZE).map(|_| rand::random::<u8>()).collect();
+    let mut rand_invalid_long: Vec<u8> = (0..TEST_ERC20_MAX_SIZE)
+        .map(|_| rand::random::<u8>())
+        .collect();
     while String::from_utf8(rand_invalid_long.clone()).is_ok() {
-        rand_invalid_long = (0..MAX_SIZE).map(|_| rand::random::<u8>()).collect();
+        rand_invalid_long = (0..TEST_ERC20_MAX_SIZE)
+            .map(|_| rand::random::<u8>())
+            .collect();
     }
     test_strings.push(Erc20Params {
         erc20_symbol: rand_invalid_long.clone(),
@@ -336,7 +337,10 @@ async fn deploy_invalid_erc20(
             u256!(0),
             *MINER_ADDRESS,
             &MINER_PRIVATE_KEY,
-            vec![SendTxOption::GasPriceMultiplier(2.0)],
+            vec![
+                SendTxOption::GasPriceMultiplier(2.0),
+                SendTxOption::GasLimit(TEST_GAS_LIMIT),
+            ],
         )
         .await
         .unwrap();

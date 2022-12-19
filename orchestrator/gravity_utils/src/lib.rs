@@ -42,6 +42,8 @@ pub const TEST_GAS_LIMIT: Uint256 = u256!(200_000);
 /// When debugging `BATCH_STRESS` or `REMOTE_STRESS` it may be useful to reduce this,
 /// note this has a minimum of 4 users because of assumptions the tests make
 pub const TESTS_BATCH_NUM_USERS: usize = 100;
+/// This causes failures in INVALID_EVENTS if too large
+pub const TEST_ERC20_MAX_SIZE: usize = 5_000;
 
 /// For chains with probabilistic finality (`USE_FINALIZATION == false`),
 /// this will delay `check_for_events` from considering a block finalized
