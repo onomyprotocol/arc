@@ -291,7 +291,7 @@ pub async fn send_ethereum_claims(
         ordered_msgs.insert(valset.event_nonce, msg);
     }
 
-    let msgs: Vec<Msg> = ordered_msgs.into_iter().map(|(_, v)| v).collect();
+    let msgs: Vec<Msg> = ordered_msgs.into_values().collect();
 
     contact
         .send_message(&msgs, None, &[fee], Some(TIMEOUT), private_key)

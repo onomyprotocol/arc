@@ -9,6 +9,7 @@ use gravity_utils::{
     num_conversion::print_eth,
     u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
+    TESTS_BATCH_NUM_USERS,
 };
 use lazy_static::lazy_static;
 use tokio::time::sleep;
@@ -28,7 +29,7 @@ lazy_static! {
     /// Gravity Deposits = (erc20_addresses.len() * NUM_USERS)
     /// Batches executed = erc20_addresses.len() * (NUM_USERS / 100)
     static ref NUM_USERS: usize =
-        env::var("NUM_USERS").unwrap_or_else(|_| "100".to_string()).parse().unwrap();
+        env::var("NUM_USERS").map(|s| s.parse().unwrap()).unwrap_or_else(|_| TESTS_BATCH_NUM_USERS);
     /// default is 0.001 ETH per user
     static ref WEI_PER_USER: Uint256 =
     Uint256::from_u128(env::var("WEI_PER_USER").unwrap_or_else(|_| "1000000000000000".to_string()).parse::<u128>().unwrap());

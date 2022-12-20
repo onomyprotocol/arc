@@ -210,9 +210,15 @@ pub async fn main() {
                     nonce = nonce.checked_add(u256!(1)).unwrap();
                 }
                 for tx in transactions {
-                    web3.eth_send_raw_transaction(tx.to_bytes().unwrap())
-                        .await
-                        .unwrap();
+                    // The problem that this is trying to solve, is that if we try and wait
+                    // for the transaction in this thread, there are race conditions such
+                    // that we can softlock. There are also problems with fluctuating gas
+                    // prices and long block production times from batch tests that cause
+                    // replacement errors. What we do is simply ignore the transaction ids
+                    // and just send a warning if there is an error.
+                    if let Err(e) = web3.eth_send_raw_transaction(tx.to_bytes().unwrap()).await {
+                        warn!("Block stimulator encountered transaction error: {}", e);
+                    }
                 }
             }
 
@@ -222,7 +228,7 @@ pub async fn main() {
             for i in 0u64.. {
                 send_eth_bulk2(
                     u256!(1),
-                    // some chain had a problem with identical transactions being made, alternate
+                    // alternate to reduce replacement errors
                     &if (i & 1) == 0 {
                         [
                             EthAddress::from_str("0x798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc")
