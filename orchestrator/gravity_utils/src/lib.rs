@@ -23,14 +23,14 @@ use web30::client::Web3;
 // note: also modify the names in `module/config/config.go`
 pub const DEFAULT_ADDRESS_PREFIX: &str = "onomy";
 // note: also modify `GravityDenomPrefix` in `module/x/gravity/types/ethereum.go`
-pub const GRAVITY_DENOM_PREFIX: &str = "eth";
+pub const GRAVITY_DENOM_PREFIX: &str = "polygon";
 
 // if the net version is this, the test values will be used
 pub const TEST_ETH_CHAIN_ID: u64 = 15;
 
 // see `orchestrator/src/ethereum_event_watcher.rs`
 
-pub const BLOCK_DELAY: Uint256 = u256!(35);
+pub const BLOCK_DELAY: Uint256 = u256!(512);
 pub const TEST_BLOCK_DELAY: Uint256 = u256!(0);
 
 pub const USE_FINALIZATION: bool = false;
