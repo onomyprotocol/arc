@@ -5,6 +5,8 @@ set -ex
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REPOFOLDER=$DIR/..
 
+pushd $DIR
+
 # builds the container containing various system deps
 # also builds Gravity once in order to cache Go deps, this container
 # must be rebuilt every time you run this test if you want a faster
@@ -74,5 +76,32 @@ else
    RUN_ARGS="/bin/bash /gravity/tests/container-scripts/all-up-test-internal.sh ${NODES} ${TEST_TYPE:-} ${ALCHEMY_ID:-}"
 fi
 
-# Run new test container instance
-docker run --name gravity_all_up_test_instance $VOLUME_ARGS --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} $REPLICATED_VARS $PLATFORM_CMD --cap-add=NET_ADMIN -t gravity-base $RUN_ARGS
+export NEON_EVM_IMAGE="neonlabsorg/evm_loader:v0.15.1"
+export NEON_PROXY_IMAGE="neonlabsorg/proxy:fa44a0e0dd3512e82ec8c4b9053c7be48ca01279-48553df"
+export NEON_FAUCET_IMAGE="neonlabsorg/faucet:v0.12.0"
+export USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0}
+export VOLUME_ARGS
+export RUN_ARGS
+
+docker-compose -f dockerfile/docker-compose.yml down
+
+set +e
+docker network rm net
+set -e
+# insure everything is self contained
+docker network create --internal net
+
+docker-compose -f dockerfile/docker-compose.yml build
+
+set +e
+docker-compose -f dockerfile/docker-compose.yml up -d --force-recreate
+set -e
+
+# the test container is run separately from the ones in `docker-compose` because of problems related
+# to passing the replicated variables, volumes, and adding IPs for the gravity nodes
+docker run --name gravity_all_up_test_instance --network net --hostname test $VOLUME_ARGS --env USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0} $REPLICATED_VARS $PLATFORM_CMD --cap-add=NET_ADMIN -t gravity-base $RUN_ARGS
+
+docker-compose -f dockerfile/docker-compose.yml down
+set +e
+docker network rm net
+set -e

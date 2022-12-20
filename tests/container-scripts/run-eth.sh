@@ -33,32 +33,19 @@ elif [[ ! -z "$HARDHAT" ]]; then
 # the right number of cpu cores and Geth goes crazy consuming all the processing power, on the other hand
 # hardhat doesn't work for some tests that depend on transactions waiting for blocks, so Geth is the default
 else
-    # init the genesis block
-    geth --identity "GravityTestnet" \
-        --nodiscover \
-        --networkid 15 \
-        init /gravity/tests/assets/ETHGenesis.json
-
-    # etherbase is where rewards get sent
-    # private key for this address is 0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7
-    geth --identity "GravityTestnet" --nodiscover \
-        --networkid 15 \
-        --mine \
-        --http \
-        --http.addr="0.0.0.0" \
-        --http.vhosts="*" \
-        --http.corsdomain="*" \
-        --miner.threads=1 \
-        --nousb \
-        --verbosity=5 \
-        --miner.etherbase=0xBf660843528035a5A4921534E156a27e64B231fE &> /gravity/tests/assets/geth.log &
-
-    echo "waiting for geth to come online"
-    until $(curl --output /dev/null --fail --silent --header "content-type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}' http://localhost:8545); do
+    echo "waiting for neon to come online"
+    until $(curl --output /dev/null --fail --silent --header "content-type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}' http://proxy:9090/solana); do
         sleep 1
     done
-    echo "waiting for geth to sync"
-    until [ "$(curl -s --header "content-type: application/json" --data '{"id":1,"jsonrpc":"2.0","method":"eth_syncing","params":[]}' http://localhost:8545)" == '{"jsonrpc":"2.0","id":1,"result":false}' ]; do
+    echo "waiting for neon to sync"
+    until [ "$(curl -s --header "content-type: application/json" --data '{"id":1,"jsonrpc":"2.0","method":"eth_syncing","params":[]}' http://proxy:9090/solana)" == '{"jsonrpc": "2.0", "id": 1, "result": false}' ]; do
         sleep 1
     done
+    # request funds for the test account
+    echo "waiting for faucet"
+    until $(curl --output /dev/null --fail --silent -X POST -d '{"wallet": "0xBf660843528035a5A4921534E156a27e64B231fE", "amount": 100000000}' 'http://faucet:3333/request_neon'); do
+        sleep 1
+    done
+    # request funds for block stimulator
+    curl -X POST -d '{"wallet": "0x3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0", "amount": 100000000}' 'http://faucet:3333/request_neon'
 fi
