@@ -181,7 +181,12 @@ async fn wait_for_txids(txids: Vec<Result<Uint256, Web3Error>>, web3: &Web3) {
         let wait = web3.wait_for_transaction(txid.unwrap(), TOTAL_TIMEOUT, None);
         wait_for_txid.push(wait);
     }
-    join_all(wait_for_txid).await;
+    let results = join_all(wait_for_txid).await;
+    for (i, res) in results.into_iter().enumerate() {
+        if let Err(e) = res {
+            panic!("`wait_for_txids` failed on index {}: {:?}", i, e);
+        }
+    }
 }
 
 /// utility function for bulk checking erc20 balances, used to provide
