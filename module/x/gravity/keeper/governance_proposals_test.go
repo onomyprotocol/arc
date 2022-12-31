@@ -3,10 +3,10 @@ package keeper
 import (
 	"testing"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	disttypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,16 +16,10 @@ func TestAirdropProposal(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 
-	testAddr := []string{"gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm", "gravity1n38caqg63jf9hefycw3yp95fpkpk669nvekqy2", "gravity1qz4zm5s0vwfuu46lg3q0vmnwsukd8e9yfmcgjj"}
+	testAddr := []sdk.AccAddress{RandomAccAddress(), RandomAccAddress(), RandomAccAddress()}
 
-	parsedRecipients := make([]sdk.AccAddress, len(testAddr))
-	for i, v := range testAddr {
-		parsed, err := sdk.AccAddressFromBech32(v)
-		require.NoError(t, err)
-		parsedRecipients[i] = parsed
-	}
 	byteEncodedRecipients := []byte{}
-	for _, v := range parsedRecipients {
+	for _, v := range testAddr {
 		byteEncodedRecipients = append(byteEncodedRecipients, v.Bytes()...)
 	}
 

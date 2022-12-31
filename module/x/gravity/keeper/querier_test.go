@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -19,12 +20,10 @@ import (
 
 func TestQueryValsetConfirm(t *testing.T) {
 	var (
-		addrStr                       = "gravity1ees2tqhhhm9ahlhceh2zdguww9lqn2ckcxpllh"
 		nonce                         = uint64(1)
-		myValidatorCosmosAddr, err1   = sdk.AccAddressFromBech32(addrStr)
+		myValidatorCosmosAddr         = RandomAccAddress()
 		myValidatorEthereumAddr, err2 = types.NewEthAddress("0x3232323232323232323232323232323232323232")
 	)
-	require.NoError(t, err1)
 	require.NoError(t, err2)
 	input := CreateTestEnv(t)
 	sdkCtx := input.Context
@@ -85,20 +84,20 @@ func TestQueryValsetConfirm(t *testing.T) {
 
 //nolint: exhaustivestruct
 func TestAllValsetConfirmsBynonce(t *testing.T) {
-	addrs := []string{
-		"gravity1u508cfnsk2nhakv80vdtq3nf558ngyvlfxm2hd",
-		"gravity1krtcsrxhadj54px0vy6j33pjuzcd3jj8jtz98y",
-		"gravity1u94xef3cp9thkcpxecuvhtpwnmg8mhljeh96n9",
+	length := 3
+	tmpAddrs := make([]sdk.AccAddress, length)
+	for i := 0; i < length; i++ {
+		tmpAddrs[i] = RandomAccAddress()
 	}
 	var (
-		nonce                       = uint64(1)
-		myValidatorCosmosAddr1, _   = sdk.AccAddressFromBech32(addrs[0])
-		myValidatorCosmosAddr2, _   = sdk.AccAddressFromBech32(addrs[1])
-		myValidatorCosmosAddr3, _   = sdk.AccAddressFromBech32(addrs[2])
+		nonce = uint64(1)
+		addrs = tmpAddrs
+		// these have to be specific
 		myValidatorEthereumAddr1, _ = types.NewEthAddress("0x0101010101010101010101010101010101010101")
 		myValidatorEthereumAddr2, _ = types.NewEthAddress("0x0202020202020202020202020202020202020202")
 		myValidatorEthereumAddr3, _ = types.NewEthAddress("0x0303030303030303030303030303030303030303")
 	)
+	fmt.Println("LKJ", addrs)
 
 	input := CreateTestEnv(t)
 	sdkCtx := input.Context
@@ -107,14 +106,22 @@ func TestAllValsetConfirmsBynonce(t *testing.T) {
 
 	// seed confirmations
 	for i := 0; i < 3; i++ {
-		addr, _ := sdk.AccAddressFromBech32(addrs[i])
 		msg := types.MsgValsetConfirm{}
 		msg.EthAddress = gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(i + 1)}, 20)).String()
 		msg.Nonce = uint64(1)
-		msg.Orchestrator = addr.String()
+		msg.Orchestrator = addrs[i].String()
 		msg.Signature = fmt.Sprintf("signature %d", i+1)
 		input.GravityKeeper.SetValsetConfirm(sdkCtx, msg)
 	}
+
+	confirms := []types.MsgValsetConfirm{
+		*types.NewMsgValsetConfirm(nonce, *myValidatorEthereumAddr1, addrs[0], "signature 1"),
+		*types.NewMsgValsetConfirm(nonce, *myValidatorEthereumAddr2, addrs[1], "signature 2"),
+		*types.NewMsgValsetConfirm(nonce, *myValidatorEthereumAddr3, addrs[2], "signature 3"),
+	}
+	sort.Slice(confirms, func(i, j int) bool {
+		return confirms[i].Orchestrator > confirms[j].Orchestrator
+	})
 
 	specs := map[string]struct {
 		src     types.QueryValsetConfirmsByNonceRequest
@@ -123,11 +130,8 @@ func TestAllValsetConfirmsBynonce(t *testing.T) {
 	}{
 		"all good": {
 			src: types.QueryValsetConfirmsByNonceRequest{Nonce: 1},
-			expResp: types.QueryValsetConfirmsByNonceResponse{Confirms: []types.MsgValsetConfirm{
-				*types.NewMsgValsetConfirm(nonce, *myValidatorEthereumAddr2, myValidatorCosmosAddr2, "signature 2"),
-				*types.NewMsgValsetConfirm(nonce, *myValidatorEthereumAddr3, myValidatorCosmosAddr3, "signature 3"),
-				*types.NewMsgValsetConfirm(nonce, *myValidatorEthereumAddr1, myValidatorCosmosAddr1, "signature 1"),
-			}},
+			// note: this has to be ordered a particular way
+			expResp: types.QueryValsetConfirmsByNonceResponse{Confirms: confirms},
 		},
 		"unknown nonce": {
 			src:     types.QueryValsetConfirmsByNonceRequest{Nonce: 999999},
@@ -142,6 +146,9 @@ func TestAllValsetConfirmsBynonce(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			sort.Slice(got.Confirms, func(i, j int) bool {
+				return got.Confirms[i].Orchestrator > got.Confirms[j].Orchestrator
+			})
 			assert.Equal(t, &(spec.expResp), got)
 		})
 	}
@@ -305,7 +312,7 @@ func TestLastValsetRequests(t *testing.T) {
 	}
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 // TODO: check that it doesn't accidently return a valset that HAS been signed
 // Right now it is basically just testing that any valset comes back
 func TestPendingValsetRequests(t *testing.T) {
@@ -477,6 +484,8 @@ func TestPendingValsetRequests(t *testing.T) {
 // TODO: check that it actually returns a batch that has NOT been signed, not just any batch
 func TestLastPendingBatchRequest(t *testing.T) {
 
+	mySender := RandomAccAddress()
+	sender := mySender.String()
 	specs := map[string]struct {
 		expResp types.QueryLastPendingBatchRequestByAddrResponse
 	}{
@@ -488,7 +497,7 @@ func TestLastPendingBatchRequest(t *testing.T) {
 					Transactions: []types.OutgoingTransferTx{
 						{
 							Id:          2,
-							Sender:      "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+							Sender:      sender,
 							DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 							Erc20Token: types.ERC20Token{
 								Amount:   sdk.NewInt(101),
@@ -501,7 +510,7 @@ func TestLastPendingBatchRequest(t *testing.T) {
 						},
 						{
 							Id:          3,
-							Sender:      "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+							Sender:      sender,
 							DestAddress: "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934",
 							Erc20Token: types.ERC20Token{
 								Amount:   sdk.NewInt(102),
@@ -525,7 +534,7 @@ func TestLastPendingBatchRequest(t *testing.T) {
 	input, _ := SetupTestChain(t, []uint64{minStake, minStake, minStake, minStake, minStake}, true)
 	ctx := sdk.WrapSDKContext(input.Context)
 	var valAddr sdk.AccAddress = bytes.Repeat([]byte{byte(1)}, 20)
-	createTestBatch(t, input, 2)
+	createTestBatch(t, input, mySender, 2)
 	for msg, spec := range specs {
 		t.Run(msg, func(t *testing.T) {
 			req := new(types.QueryLastPendingBatchRequestByAddrRequest)
@@ -537,10 +546,9 @@ func TestLastPendingBatchRequest(t *testing.T) {
 	}
 }
 
-//nolint: exhaustivestruct
-func createTestBatch(t *testing.T, input TestInput, maxTxElements uint) {
+// nolint: exhaustivestruct
+func createTestBatch(t *testing.T, input TestInput, mySender sdk.AccAddress, maxTxElements uint) {
 	var (
-		mySender            = bytes.Repeat([]byte{1}, 20)
 		myReceiver          = "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934"
 		myTokenContractAddr = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 		now                 = time.Now().UTC()
@@ -557,8 +565,8 @@ func createTestBatch(t *testing.T, input TestInput, maxTxElements uint) {
 	require.NoError(t, err)
 
 	// set senders balance
-	input.AccountKeeper.NewAccountWithAddress(input.Context, mySender)
-	err = input.BankKeeper.SendCoinsFromModuleToAccount(input.Context, types.ModuleName, mySender, allVouchers)
+	input.AccountKeeper.NewAccountWithAddress(input.Context, mySender.Bytes())
+	err = input.BankKeeper.SendCoinsFromModuleToAccount(input.Context, types.ModuleName, mySender.Bytes(), allVouchers)
 	require.NoError(t, err)
 
 	// add some TX to the pool
@@ -569,7 +577,7 @@ func createTestBatch(t *testing.T, input TestInput, maxTxElements uint) {
 		feeToken, err := types.NewInternalERC20Token(sdk.NewIntFromUint64(v), myTokenContractAddr)
 		require.NoError(t, err)
 		fee := feeToken.GravityCoin()
-		_, err = input.GravityKeeper.AddToOutgoingPool(input.Context, mySender, *receiver, amount, fee)
+		_, err = input.GravityKeeper.AddToOutgoingPool(input.Context, mySender.Bytes(), *receiver, amount, fee)
 		require.NoError(t, err)
 		// Should create:
 		// 1: amount 100, fee 2
@@ -595,10 +603,9 @@ func TestQueryAllBatchConfirms(t *testing.T) {
 	k := input.GravityKeeper
 
 	var (
-		tokenContract      = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
-		validatorAddr, err = sdk.AccAddressFromBech32("gravity1mgamdcs9dah0vn0gqupl05up7pedg2mvc3tzjl")
+		tokenContract = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+		validatorAddr = RandomAccAddress()
 	)
-	require.NoError(t, err)
 
 	input.GravityKeeper.SetBatchConfirm(sdkCtx, &types.MsgConfirmBatch{
 		Nonce:         1,
@@ -617,7 +624,7 @@ func TestQueryAllBatchConfirms(t *testing.T) {
 				Nonce:         1,
 				TokenContract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 				EthSigner:     "0xf35e2cc8e6523d683ed44870f5b7cc785051a77d",
-				Orchestrator:  "gravity1mgamdcs9dah0vn0gqupl05up7pedg2mvc3tzjl",
+				Orchestrator:  validatorAddr.String(),
 				Signature:     "signature",
 			},
 		},
@@ -757,7 +764,9 @@ func TestQueryBatch(t *testing.T) {
 		tokenContract = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 	)
 
-	createTestBatch(t, input, 2)
+	mySender := RandomAccAddress()
+	createTestBatch(t, input, mySender, 2)
+	sender := mySender.String()
 
 	batch, err := k.BatchRequestByNonce(ctx, &types.QueryBatchRequestByNonceRequest{Nonce: 1, ContractAddress: tokenContract})
 	require.NoError(t, err)
@@ -776,7 +785,7 @@ func TestQueryBatch(t *testing.T) {
 						Amount:   sdk.NewInt(101),
 						Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 					},
-					Sender: "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+					Sender: sender,
 					Id:     2,
 				},
 				{
@@ -789,7 +798,7 @@ func TestQueryBatch(t *testing.T) {
 						Amount:   sdk.NewInt(102),
 						Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 					},
-					Sender: "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+					Sender: sender,
 					Id:     3,
 				},
 			},
@@ -809,8 +818,12 @@ func TestLastBatchesRequest(t *testing.T) {
 	ctx := sdk.WrapSDKContext(input.Context)
 	k := input.GravityKeeper
 
-	createTestBatch(t, input, 2)
-	createTestBatch(t, input, 3)
+	mySender2 := RandomAccAddress()
+	mySender3 := RandomAccAddress()
+	createTestBatch(t, input, mySender2, 2)
+	createTestBatch(t, input, mySender3, 3)
+	sender2 := mySender2.String()
+	sender3 := mySender3.String()
 
 	lastBatches, err := k.OutgoingTxBatches(ctx, &types.QueryOutgoingTxBatchesRequest{})
 	require.NoError(t, err)
@@ -830,7 +843,7 @@ func TestLastBatchesRequest(t *testing.T) {
 							Amount:   sdk.NewInt(101),
 							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 						},
-						Sender: "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+						Sender: sender3,
 						Id:     6,
 					},
 					{
@@ -843,7 +856,7 @@ func TestLastBatchesRequest(t *testing.T) {
 							Amount:   sdk.NewInt(102),
 							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 						},
-						Sender: "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+						Sender: sender3,
 						Id:     7,
 					},
 					{
@@ -856,7 +869,7 @@ func TestLastBatchesRequest(t *testing.T) {
 							Amount:   sdk.NewInt(100),
 							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 						},
-						Sender: "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+						Sender: sender3,
 						Id:     5,
 					},
 				},
@@ -877,7 +890,7 @@ func TestLastBatchesRequest(t *testing.T) {
 							Amount:   sdk.NewInt(101),
 							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 						},
-						Sender: "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+						Sender: sender2,
 						Id:     2,
 					},
 					{
@@ -890,7 +903,7 @@ func TestLastBatchesRequest(t *testing.T) {
 							Amount:   sdk.NewInt(102),
 							Contract: "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 						},
-						Sender: "gravity1qyqszqgpqyqszqgpqyqszqgpqyqszqgpkrnxg5",
+						Sender: sender2,
 						Id:     3,
 					},
 				},
@@ -1000,13 +1013,13 @@ func TestQueryPendingSendToEth(t *testing.T) {
 	k := input.GravityKeeper
 	var (
 		now                 = time.Now().UTC()
-		mySender, err1      = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender            = RandomAccAddress()
+		sender              = mySender.String()
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
 		token, err2         = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
 		allVouchers         = sdk.NewCoins(token.GravityCoin())
 	)
-	require.NoError(t, err1)
 	require.NoError(t, err2)
 	receiver, err := types.NewEthAddress(myReceiver)
 	require.NoError(t, err)
@@ -1053,7 +1066,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 	expectedRes := types.QueryPendingSendToEthResponse{TransfersInBatches: []types.OutgoingTransferTx{
 		{
 			Id:          2,
-			Sender:      "gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm",
+			Sender:      sender,
 			DestAddress: "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7",
 			Erc20Token: types.ERC20Token{
 				Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
@@ -1066,7 +1079,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 		},
 		{
 			Id:          3,
-			Sender:      "gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm",
+			Sender:      sender,
 			DestAddress: "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7",
 			Erc20Token: types.ERC20Token{
 				Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
@@ -1082,7 +1095,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 		UnbatchedTransfers: []types.OutgoingTransferTx{
 			{
 				Id:          1,
-				Sender:      "gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm",
+				Sender:      sender,
 				DestAddress: "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7",
 				Erc20Token: types.ERC20Token{
 					Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",
@@ -1095,7 +1108,7 @@ func TestQueryPendingSendToEth(t *testing.T) {
 			},
 			{
 				Id:          4,
-				Sender:      "gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm",
+				Sender:      sender,
 				DestAddress: "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7",
 				Erc20Token: types.ERC20Token{
 					Contract: "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5",

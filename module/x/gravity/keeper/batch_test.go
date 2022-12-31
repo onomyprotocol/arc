@@ -19,7 +19,7 @@ func TestBatches(t *testing.T) {
 	ctx := input.Context
 	var (
 		now                    = time.Now().UTC()
-		mySender, _            = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender               = RandomAccAddress()
 		myReceiver, _          = types.NewEthAddress("0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7")
 		myTokenContractAddr, _ = types.NewEthAddress("0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5") // Pickle
 		token, err             = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr.GetAddress())
@@ -220,7 +220,7 @@ func TestBatches(t *testing.T) {
 	// verify that confirms are persisted
 	secondBatchConfirms := input.GravityKeeper.GetBatchConfirmByNonceAndTokenContract(ctx, secondBatch.BatchNonce, secondBatch.TokenContract)
 	require.Equal(t, len(OrchAddrs), len(secondBatchConfirms))
-  
+
 	//check that last added batch is the one with the biggest nonce
 	lastOutgoingBatch := input.GravityKeeper.GetLastOutgoingBatchByTokenType(ctx, *myTokenContractAddr)
 	require.NotNil(t, lastOutgoingBatch)
@@ -292,7 +292,7 @@ func TestBatchesFullCoins(t *testing.T) {
 	ctx := input.Context
 	var (
 		now                 = time.Now().UTC()
-		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender            = RandomAccAddress()
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		receiverAddr, _     = types.NewEthAddress(myReceiver)
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"   // Pickle
@@ -495,13 +495,13 @@ func TestBatchesFullCoins(t *testing.T) {
 
 // TestManyBatches handles test cases around batch execution, specifically executing multiple batches
 // out of sequential order, which is exactly what happens on the
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestManyBatches(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
 		now                = time.Now().UTC()
-		mySender, _        = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender           = RandomAccAddress()
 		myReceiver         = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		tokenContractAddr1 = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 		tokenContractAddr2 = "0xF815240800ddf3E0be80e0d848B13ecaa504BF37"
@@ -598,8 +598,8 @@ func TestPoolTxRefund(t *testing.T) {
 	ctx := input.Context
 	var (
 		now                 = time.Now().UTC()
-		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
-		notMySender, _      = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085case3km")
+		mySender            = RandomAccAddress()
+		notMySender         = RandomAccAddress()
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
 		token, err          = types.NewInternalERC20Token(sdk.NewInt(414), myTokenContractAddr)
@@ -678,7 +678,7 @@ func TestBatchesNotCreatedWhenBridgePaused(t *testing.T) {
 
 	var (
 		now                    = time.Now().UTC()
-		mySender, _            = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender               = RandomAccAddress()
 		myReceiver, _          = types.NewEthAddress("0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7")
 		myTokenContractAddr, _ = types.NewEthAddress("0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5") // Pickle
 		token, err             = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr.GetAddress())
@@ -741,14 +741,14 @@ func TestBatchesNotCreatedWhenBridgePaused(t *testing.T) {
 	require.NotNil(t, gotFirstBatch)
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 // test that tokens on the blacklist do not enter batches
 func TestEthereumBlacklistBatches(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
 		now                    = time.Now().UTC()
-		mySender, _            = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender               = RandomAccAddress()
 		myReceiver, _          = types.NewEthAddress("0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7")
 		blacklistedReceiver, _ = types.NewEthAddress("0x4d16b9E4a27c3313440923fEfCd013178149A5bD")
 		myTokenContractAddr, _ = types.NewEthAddress("0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5") // Pickle
@@ -828,7 +828,7 @@ func TestEthereumBlacklistBatches(t *testing.T) {
 
 }
 
-//tests total batch fee collected from all of the txs in the batch
+// tests total batch fee collected from all of the txs in the batch
 func TestGetFees(t *testing.T) {
 
 	txs := []types.OutgoingTransferTx{

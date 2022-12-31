@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,12 +19,11 @@ func TestBatchAndTxImportExport(t *testing.T) {
 	ctx := input.Context
 	batchSize := 100
 	accAddresses := []string{ // Warning: this must match the length of ctrAddresses
-
-		"gravity1dg55rtevlfxh46w88yjpdd08sqhh5cc3z8yqu6",
-		"gravity164knshrzuuurf05qxf3q5ewpfnwzl4gj3t84vv",
-		"gravity193fw83ynn76328pty4yl7473vg9x86aly623wk",
-		"gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm",
-		"gravity1ees2tqhhhm9ahlhceh2zdguww9lqn2ckcxpllh",
+		RandomAccAddress().String(),
+		RandomAccAddress().String(),
+		RandomAccAddress().String(),
+		RandomAccAddress().String(),
+		RandomAccAddress().String(),
 	}
 	ethAddresses := []string{
 		"0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7",

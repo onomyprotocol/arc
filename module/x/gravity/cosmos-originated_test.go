@@ -45,7 +45,7 @@ func initializeTestingVars(t *testing.T) *testingVars {
 
 	tv.t = t
 
-	tv.erc20 = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
+	tv.erc20, _ = keeper.RandomEthAddress()
 	tv.denom = "ugraviton"
 
 	tv.input, tv.ctx = keeper.SetupFiveValChain(t)
@@ -108,15 +108,15 @@ func addDenomToERC20Relation(tv *testingVars, myNonce uint64) {
 
 func lockCoinsInModule(tv *testingVars) {
 	var (
-		userCosmosAddr, err           = sdk.AccAddressFromBech32("gravity1990z7dqsvh8gthw9pa5sn4wuy2xrsd80lcx6lv")
-		denom                         = "ugraviton"
-		startingCoinAmount  sdk.Int   = sdk.NewIntFromUint64(150)
-		sendAmount          sdk.Int   = sdk.NewIntFromUint64(50)
-		feeAmount           sdk.Int   = sdk.NewIntFromUint64(5)
-		startingCoins       sdk.Coins = sdk.Coins{sdk.NewCoin(denom, startingCoinAmount)}
-		sendingCoin         sdk.Coin  = sdk.NewCoin(denom, sendAmount)
-		feeCoin             sdk.Coin  = sdk.NewCoin(denom, feeAmount)
-		ethDestination                = "0x3c9289da00b02dC623d0D8D907619890301D26d4"
+		userCosmosAddr               = keeper.RandomAccAddress()
+		denom                        = "ugraviton"
+		startingCoinAmount sdk.Int   = sdk.NewIntFromUint64(150)
+		sendAmount         sdk.Int   = sdk.NewIntFromUint64(50)
+		feeAmount          sdk.Int   = sdk.NewIntFromUint64(5)
+		startingCoins      sdk.Coins = sdk.Coins{sdk.NewCoin(denom, startingCoinAmount)}
+		sendingCoin        sdk.Coin  = sdk.NewCoin(denom, sendAmount)
+		feeCoin            sdk.Coin  = sdk.NewCoin(denom, feeAmount)
+		ethDestination               = "0x3c9289da00b02dC623d0D8D907619890301D26d4"
 	)
 
 	// we start by depositing some funds into the users balance to send
@@ -133,7 +133,7 @@ func lockCoinsInModule(tv *testingVars) {
 		BridgeFee: feeCoin,
 	}
 
-	_, err = tv.h(tv.ctx, msg)
+	_, err := tv.h(tv.ctx, msg)
 	require.NoError(tv.t, err)
 
 	// Check that user balance has gone down
@@ -150,10 +150,9 @@ func lockCoinsInModule(tv *testingVars) {
 
 func acceptDepositEvent(tv *testingVars, myNonce uint64) {
 	var (
-		myCosmosAddr, err = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
-		anyETHAddr        = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
+		myCosmosAddr = keeper.RandomAccAddress()
+		anyETHAddr   = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
 	)
-	require.NoError(tv.t, err)
 
 	myErc20 := types.ERC20Token{
 		Amount:   sdk.NewInt(12),

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/btcutil/bech32"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -227,6 +228,40 @@ var (
 		BridgeActive:                 true,
 	}
 )
+
+func RandomAccAddress() sdk.AccAddress {
+	return sdk.AccAddress(secp256k1.GenPrivKey().PubKey().Address())
+}
+
+func RandomValAddress() sdk.ValAddress {
+	return sdk.ValAddress(secp256k1.GenPrivKey().PubKey().Address())
+}
+
+func RandomEthAddress() (string, string) {
+	s := fmt.Sprintf("0x%s", secp256k1.GenPrivKey().PubKey().Address().String())
+	ethAddr, err := types.NewEthAddress(s)
+	if err != nil {
+		panic("bad eth address")
+	}
+	denomAddr := fmt.Sprintf("%s%s", types.GravityDenomPrefix, ethAddr.GetAddress())
+	return ethAddr.GetAddress(), denomAddr
+}
+
+func TestAccAddress(prefix string, data []byte) sdk.AccAddress {
+	testAddress, e0 := bech32.ConvertBits(data, 8, 5, true)
+	if e0 != nil {
+		panic(e0)
+	}
+	bech, e1 := bech32.Encode(prefix, testAddress)
+	if e1 != nil {
+		panic(e1)
+	}
+	addr, e2 := sdk.GetFromBech32(bech, prefix)
+	if e2 != nil {
+		panic(e2)
+	}
+	return addr
+}
 
 // TestInput stores the various keepers required to test gravity
 type TestInput struct {

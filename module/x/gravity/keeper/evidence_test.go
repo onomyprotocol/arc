@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +19,7 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 
 	var (
 		now                 = time.Now().UTC()
-		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender            = RandomAccAddress()
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5" // Pickle
 		token, err          = types.NewInternalERC20Token(sdk.NewInt(99999), myTokenContractAddr)
