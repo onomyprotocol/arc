@@ -1,5 +1,5 @@
 //! This file handles the automatic request of batches, see the documentation on batch creation
-//! https://github.com/onomyprotocol/cosmos-gravity-bridge/blob/main/spec/batch-creation-spec.md
+//! <https://github.com/onomyprotocol/cosmos-gravity-bridge/blob/main/spec/batch-creation-spec.md>
 //! By having batches requested by relayers instead of created automatically the chain can outsource
 //! the significant work of checking if a batch is profitable before creating it
 
