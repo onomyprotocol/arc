@@ -16,6 +16,7 @@ use gravity_utils::{
         client::Web3,
         jsonrpc::error::Web3Error,
     },
+    GRAVITY_DENOM_PREFIX,
 };
 use rand::Rng;
 use tokio::time::sleep;
@@ -138,9 +139,7 @@ async fn setup_batch_test(
     let mut rng = rand::thread_rng();
     let secret: [u8; 32] = rng.gen();
     let dest_cosmos_private_key = CosmosPrivateKey::from_secret(&secret);
-    let dest_cosmos_address = dest_cosmos_private_key
-        .to_address(ADDRESS_PREFIX.as_str())
-        .unwrap();
+    let dest_cosmos_address = dest_cosmos_private_key.to_address(&ADDRESS_PREFIX).unwrap();
     let dest_eth_private_key = EthPrivateKey::from_slice(&secret).unwrap();
     let dest_eth_address = dest_eth_private_key.to_address();
 
@@ -178,7 +177,10 @@ async fn setup_batch_test(
     )
     .await;
     let cdai_held = contact
-        .get_balance(dest_cosmos_address, format!("gravity{}", erc20_contract))
+        .get_balance(
+            dest_cosmos_address,
+            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_contract),
+        )
         .await
         .unwrap()
         .unwrap();

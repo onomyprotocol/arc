@@ -235,7 +235,7 @@ fn generate_accounts_and_amounts(
             .unwrap()
             .checked_sub(rng.gen_range(0..100))
             .unwrap();
-        let cosmos_address = CosmosAddress::from_bytes(secret, ADDRESS_PREFIX.as_str()).unwrap();
+        let cosmos_address = CosmosAddress::from_bytes(secret, ADDRESS_PREFIX.to_owned()).unwrap();
         user_addresses.push(cosmos_address);
         amounts.push(amount)
     }

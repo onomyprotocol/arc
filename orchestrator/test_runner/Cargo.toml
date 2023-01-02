@@ -16,6 +16,7 @@ gravity_proto = { path = "../gravity_proto/" }
 gravity_utils = { path = "../gravity_utils" }
 orchestrator = { path = "../orchestrator/" }
 
+bech32 = "0.9"
 bytes = "1"
 docopt = "1"
 env_logger = "0.9"

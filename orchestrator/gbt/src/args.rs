@@ -7,6 +7,7 @@ use clap::Parser;
 use gravity_utils::{
     clarity::{Address as EthAddress, PrivateKey as EthPrivateKey},
     deep_space::{address::Address as CosmosAddress, Coin, PrivateKey as CosmosPrivateKey},
+    DEFAULT_ADDRESS_PREFIX,
 };
 
 /// Gravity Bridge tools (gbt) provides tools for interacting with the Onomy Gravity bridge for Cosmos based blockchains.
@@ -24,7 +25,7 @@ pub struct Opts {
     #[clap(short, long, parse(from_str))]
     pub home: Option<PathBuf>,
     /// Set the address prefix for the Cosmos chain
-    #[clap(short, long, default_value = "gravity")]
+    #[clap(short, long, default_value = DEFAULT_ADDRESS_PREFIX)]
     pub address_prefix: String,
     #[clap(subcommand)]
     pub subcmd: SubCommand,

@@ -8,6 +8,10 @@ CHAIN_ID="gravity-test"
 NODES=$1
 
 ALLOCATION="10000000000000000000000stake,10000000000footoken,10000000000ibc/nometadatatoken"
+pushd /gravity/orchestrator/test_runner
+# note that the gravity address here is the sha256 hash of 'distribution'
+ADDRESS=$(GET_TEST_ADDRESS=1 PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS)
+popd
 
 # first we start a genesis.json with validator 1
 # validator 1 will also collect the gentx's once gnerated
@@ -27,11 +31,10 @@ jq '.app_state.bank.denom_metadata += [{"name": "Foo Token", "symbol": "FOO", "b
 # a 60 second voting period to allow us to pass governance proposals in the tests
 jq '.app_state.gov.voting_params.voting_period = "60s"' /metadata-genesis.json > /community-pool-genesis.json
 
-# Add some funds to the community pool to test Airdrops, note that the gravity address here is the first 20 bytes
-# of the sha256 hash of 'distribution' to create the address of the module
+# Add some funds to the community pool to test Airdrops
 jq '.app_state.distribution.fee_pool.community_pool = [{"denom": "stake", "amount": "10000000000.0"}]' /community-pool-genesis.json > /community-pool2-genesis.json
-jq '.app_state.auth.accounts += [{"@type": "/cosmos.auth.v1beta1.ModuleAccount", "base_account": { "account_number": "0", "address": "gravity1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8r0kyvh","pub_key": null,"sequence": "0"},"name": "distribution","permissions": ["basic"]}]' /community-pool2-genesis.json > /community-pool3-genesis.json
-jq '.app_state.bank.balances += [{"address": "gravity1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8r0kyvh", "coins": [{"amount": "10000000000", "denom": "stake"}]}]' /community-pool3-genesis.json > /edited-genesis.json
+jq '.app_state.auth.accounts += [{"@type": "/cosmos.auth.v1beta1.ModuleAccount", "base_account": { "account_number": "0", "address": "'$ADDRESS'","pub_key": null,"sequence": "0"},"name": "distribution","permissions": ["basic"]}]' /community-pool2-genesis.json > /community-pool3-genesis.json
+jq '.app_state.bank.balances += [{"address": "'$ADDRESS'", "coins": [{"amount": "10000000000", "denom": "stake"}]}]' /community-pool3-genesis.json > /edited-genesis.json
 
 mv /edited-genesis.json /genesis.json
 

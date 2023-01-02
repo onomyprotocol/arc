@@ -237,7 +237,7 @@ pub fn get_user_key() -> BridgeUserKey {
     let eth_address = eth_key.to_address();
     // the destination on cosmos that sends along to the final ethereum destination
     let cosmos_key = CosmosPrivateKey::from_secret(&secret);
-    let cosmos_address = cosmos_key.to_address(ADDRESS_PREFIX.as_str()).unwrap();
+    let cosmos_address = cosmos_key.to_address(&ADDRESS_PREFIX).unwrap();
     let mut rng = rand::thread_rng();
     let secret: [u8; 32] = rng.gen();
     // the final destination of the tokens back on Ethereum
@@ -295,7 +295,7 @@ pub async fn start_orchestrators(
         info!(
             "Spawning Orchestrator with delegate keys {} {} and validator key {}",
             k.eth_key.to_address(),
-            k.orch_key.to_address(ADDRESS_PREFIX.as_str()).unwrap(),
+            k.orch_key.to_address(&ADDRESS_PREFIX).unwrap(),
             get_operator_address(k.validator_key),
         );
         let mut grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())

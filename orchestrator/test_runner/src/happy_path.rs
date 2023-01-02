@@ -22,6 +22,7 @@ use gravity_utils::{
     types::SendToCosmosEvent,
     u64_array_bigints,
     web30::client::Web3,
+    GRAVITY_DENOM_PREFIX,
 };
 use prost::Message;
 use tokio::time::sleep;
@@ -353,7 +354,7 @@ pub async fn test_erc20_deposit_result(
 
     let mut grpc_client = grpc_client.clone();
     let start_coin = contact
-        .get_balance(dest, format!("gravity{}", erc20_address))
+        .get_balance(dest, format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address))
         .await
         .unwrap();
 
@@ -392,7 +393,7 @@ pub async fn test_erc20_deposit_result(
             match (
                 start_coin.clone(),
                 contact
-                    .get_balance(dest, format!("gravity{}", erc20_address))
+                    .get_balance(dest, format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address))
                     .await
                     .unwrap(),
             ) {
@@ -528,7 +529,10 @@ async fn test_batch(
         .to_address(&contact.get_prefix())
         .unwrap();
     let coin = contact
-        .get_balance(dest_cosmos_address, format!("gravity{}", erc20_contract))
+        .get_balance(
+            dest_cosmos_address,
+            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_contract),
+        )
         .await
         .unwrap()
         .unwrap();
@@ -629,7 +633,10 @@ async fn submit_duplicate_erc20_send(
     keys: &[ValidatorKeys],
 ) {
     let start_coin = contact
-        .get_balance(receiver, format!("gravity{}", erc20_address))
+        .get_balance(
+            receiver,
+            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address),
+        )
         .await
         .unwrap()
         .unwrap();
@@ -668,7 +675,10 @@ async fn submit_duplicate_erc20_send(
     contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
 
     let end_coin = contact
-        .get_balance(receiver, format!("gravity{}", erc20_address))
+        .get_balance(
+            receiver,
+            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address),
+        )
         .await
         .unwrap()
         .unwrap();

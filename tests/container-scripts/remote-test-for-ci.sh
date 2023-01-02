@@ -14,7 +14,7 @@ else
 fi
 
 # manually set up the nodes so we can simulate interacting with already running testnet nodes
-bash /gravity/tests/container-scripts/setup-validators.sh 4
+RUN_ARGS=$RUN_ARGS bash /gravity/tests/container-scripts/setup-validators.sh 4
 bash /gravity/tests/container-scripts/run-gravity.sh 4
 sleep 10
 bash /gravity/tests/container-scripts/run-eth.sh
