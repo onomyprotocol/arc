@@ -87,6 +87,10 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
         assert_eq!(balances.unwrap().amount, big_amount);
     }
 
+    // the inflation rate is fast enough that it can cause the below proposal to
+    // succeed when it should fail, make the amounts high enough to prevent this
+    let amounts: Vec<u64> = amounts.into_iter().map(|x| x * 100).collect();
+
     // try to submit the airdrop again, make sure nothing happens because we are out of tokens
     submit_and_fail_airdrop_proposal(
         STAKING_TOKEN.clone(),
@@ -97,20 +101,9 @@ pub async fn airdrop_proposal_test(contact: &Contact, keys: Vec<ValidatorKeys>) 
         false,
     )
     .await;
+    // a go unit test checks for the correct change in ammounts
 
-    let community_pool_contents_end = contact.query_community_pool().await.unwrap();
-    let end = get_coins(&STAKING_TOKEN, &community_pool_contents_end).unwrap();
-    info!(
-        "FeePool start {} and End {}",
-        starting_amount_in_pool.amount, end.amount
-    );
-    // check that ending amount is smaller than starting (will panic on underflow)
-    // and that we have subtracted at least enough to fund the airdrop, the problem is
-    // that tokens are added to the pool via inflation while this whole test is running
-    // meaning we can't just check that it all adds up (we do that in the go unit test though)
-    assert!(starting_amount_in_pool.amount >= end.amount);
-
-    info!("Successfully Issued Airdrop!");
+    info!("Successfully Completed Airdrop Tests!");
 }
 
 // Submits the custom airdrop governance proposal, votes yes for each validator, waits for votes to be submitted
