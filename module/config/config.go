@@ -6,17 +6,17 @@ import (
 
 const (
 	// bech32PrefixAccAddr defines the bech32 prefix of an account's address
-	bech32PrefixAccAddr = "gravity"
+	bech32PrefixAccAddr = "onomy"
 	// bech32PrefixAccPub defines the bech32 prefix of an account's public key
-	bech32PrefixAccPub = "gravitypub"
+	bech32PrefixAccPub = "onomypub"
 	// bech32PrefixValAddr defines the bech32 prefix of a validator's operator address
-	bech32PrefixValAddr = "gravityvaloper"
+	bech32PrefixValAddr = "onomyvaloper"
 	// bech32PrefixValPub defines the bech32 prefix of a validator's operator public key
-	bech32PrefixValPub = "gravityvaloperpub"
+	bech32PrefixValPub = "onomyvaloperpub"
 	// bech32PrefixConsAddr defines the bech32 prefix of a consensus node address
-	bech32PrefixConsAddr = "gravityvalcons"
+	bech32PrefixConsAddr = "onomyvalcons"
 	// bech32PrefixConsPub defines the bech32 prefix of a consensus node public key
-	bech32PrefixConsPub = "gravityvalconspub"
+	bech32PrefixConsPub = "onomyvalconspub"
 )
 
 func init() {

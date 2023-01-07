@@ -21,9 +21,9 @@ use web30::client::Web3;
 // constants commonly modified across chains are here
 
 // note: also modify the names in `module/config/config.go`
-pub const DEFAULT_ADDRESS_PREFIX: &str = "gravity";
+pub const DEFAULT_ADDRESS_PREFIX: &str = "onomy";
 // note: also modify `GravityDenomPrefix` in `module/x/gravity/types/ethereum.go`
-pub const GRAVITY_DENOM_PREFIX: &str = "gravity";
+pub const GRAVITY_DENOM_PREFIX: &str = "eth";
 
 // if the net version is this, the test values will be used
 pub const TEST_ETH_CHAIN_ID: u64 = 15;
