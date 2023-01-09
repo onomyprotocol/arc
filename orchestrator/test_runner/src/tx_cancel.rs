@@ -11,7 +11,7 @@ use gravity_utils::{
 };
 use tonic::transport::Channel;
 
-use crate::{happy_path::test_erc20_deposit_panic, utils::*, ONE_ETH};
+use crate::{happy_path::test_erc20_deposit_panic, utils::*, GRAVITY_DENOM_PREFIX, ONE_ETH};
 
 // Justin: Here's the method I set up to test out sending and cancelling, but I have not been able to get any transaction ids
 // So I have not been able to generate the cancel request
@@ -44,7 +44,7 @@ pub async fn send_to_eth_and_cancel(
     )
     .await;
 
-    let token_name = format!("gravity{}", erc20_address);
+    let token_name = format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address);
 
     let bridge_denom_fee = Coin {
         denom: token_name.clone(),

@@ -15,8 +15,9 @@ use gravity_utils::{
     deep_space::{coin::Coin, Contact},
     get_block_delay, get_expected_block_delay,
     get_with_retry::get_net_version_with_retry,
-    u64_array_bigints, TEST_DEFAULT_ETH_NODE_ENDPOINT, TEST_DEFAULT_MINER_KEY, TEST_ETH_CHAIN_ID,
-    TEST_GAS_LIMIT, TEST_RUN_BLOCK_STIMULATOR, USE_FINALIZATION,
+    u64_array_bigints, DEFAULT_ADDRESS_PREFIX, GRAVITY_DENOM_PREFIX,
+    TEST_DEFAULT_ETH_NODE_ENDPOINT, TEST_DEFAULT_MINER_KEY, TEST_ETH_CHAIN_ID, TEST_GAS_LIMIT,
+    TEST_RUN_BLOCK_STIMULATOR, USE_FINALIZATION,
 };
 use happy_path::happy_path_test;
 use happy_path_v2::happy_path_test_v2;
@@ -67,7 +68,7 @@ const TOTAL_TIMEOUT: Duration = Duration::from_secs(3600);
 // Retrieve values from runtime ENV vars
 lazy_static! {
     static ref ADDRESS_PREFIX: String =
-        env::var("ADDRESS_PREFIX").unwrap_or_else(|_| "gravity".to_string());
+        env::var("ADDRESS_PREFIX").unwrap_or_else(|_| DEFAULT_ADDRESS_PREFIX.to_owned());
     static ref STAKING_TOKEN: String =
         env::var("STAKING_TOKEN").unwrap_or_else(|_| "stake".to_owned());
     static ref COSMOS_NODE_GRPC: String =
@@ -133,7 +134,21 @@ pub fn should_deploy_contracts() -> bool {
 
 #[tokio::main]
 pub async fn main() {
+    if matches!(env::var("GET_TEST_ADDRESS").as_deref(), Ok("1")) {
+        // A way to get the correct Bech32 to the scripts. Derived from the
+        // sha256 hash of 'distribution' to create the address of the module
+        let data = bech32::decode("gravity1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8r0kyvh")
+            .unwrap()
+            .1;
+        println!(
+            "{}",
+            bech32::encode(&ADDRESS_PREFIX, data, bech32::Variant::Bech32).unwrap()
+        );
+        return;
+    }
+
     env_logger::init();
+
     info!("Starting Gravity test-runner");
     let contact = Contact::new(
         COSMOS_NODE_GRPC.as_str(),
@@ -154,7 +169,10 @@ pub async fn main() {
     let net_version = get_net_version_with_retry(&web30).await;
     let block_delay = get_block_delay(&web30).await;
     let expected_block_delay = get_expected_block_delay(&web30).await;
-    info!("Chain ID is {}", net_version);
+    info!(
+        "Eth chain ID is {}, Cosmos prefix is {}, denom prefix is {}",
+        net_version, *ADDRESS_PREFIX, GRAVITY_DENOM_PREFIX
+    );
     if net_version != TEST_ETH_CHAIN_ID {
         warn!("Chain ID is not equal to TEST_ETH_CHAIN_ID");
     }

@@ -16,7 +16,7 @@ tokio = { version = "1.17", features = ["macros", "rt-multi-thread"] }
 tonic = "0.7"
 u64_array_bigints = { version = "0.3", default-features = false, features = ["serde_support"] }
 url = "2"
-web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "909950b43faa014ebfdced5074b59179e35fb65a" }
+web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "e5f7eac019d9c9f2730316295564e69336ef036c", features = ["warn_on_rpc_error"]}
 
 [dev_dependencies]
 rand = "0.8"

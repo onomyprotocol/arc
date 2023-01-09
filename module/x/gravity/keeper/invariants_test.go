@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,7 +17,7 @@ func TestModuleBalanceUnbatchedTxs(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender            = RandomAccAddress()
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 	)
@@ -76,7 +76,7 @@ func TestModuleBalanceBatchedTxs(t *testing.T) {
 	ctx := input.Context
 	var (
 		now                     = time.Now().UTC()
-		mySender, _             = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender                = RandomAccAddress()
 		myReceiver, _           = types.NewEthAddress("0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7")
 		myTokenContractAddr1, _ = types.NewEthAddress("0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5")
 		myTokenContractAddr2, _ = types.NewEthAddress("0xF815240800ddf3E0be80e0d848B13ecaa504BF37")

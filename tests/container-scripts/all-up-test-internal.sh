@@ -35,7 +35,7 @@ if [[ -z "${ETH_NODE}" ]]; then
 fi
 if [[ -z "${COSMOS_NODE_GRPC}" ]] ; then
     echo "Setting up cosmos side"
-    bash /gravity/tests/container-scripts/setup-validators.sh $NODES
+    RUN_ARGS=$RUN_ARGS bash /gravity/tests/container-scripts/setup-validators.sh $NODES
     bash /gravity/tests/container-scripts/run-gravity.sh $NODES
     # let the cosmos chain settle before starting eth as it
     # consumes a lot of processing power

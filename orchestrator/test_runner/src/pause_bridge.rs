@@ -17,6 +17,7 @@ use gravity_utils::{
     deep_space::{coin::Coin, Contact},
     u64_array_bigints,
     web30::client::Web3,
+    GRAVITY_DENOM_PREFIX,
 };
 use tokio::time::sleep;
 use tonic::transport::Channel;
@@ -112,7 +113,7 @@ pub async fn pause_bridge_test(
     let coin = contact
         .get_balance(
             user_keys.cosmos_address,
-            format!("gravity{}", erc20_address),
+            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address),
         )
         .await
         .unwrap()
@@ -186,7 +187,7 @@ pub async fn pause_bridge_test(
     let res = contact
         .get_balance(
             user_keys.cosmos_address,
-            format!("gravity{}", erc20_address),
+            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address),
         )
         .await
         .unwrap()

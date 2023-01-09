@@ -19,10 +19,10 @@ import (
 //nolint: exhaustivestruct
 func TestHandleMsgSendToEth(t *testing.T) {
 	var (
-		userCosmosAddr, _                = sdk.AccAddressFromBech32("gravity1990z7dqsvh8gthw9pa5sn4wuy2xrsd80lcx6lv")
+		userCosmosAddr                   = keeper.RandomAccAddress()
 		blockTime                        = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
 		blockHeight            int64     = 200
-		denom                            = "gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
+		_, denom                         = keeper.RandomEthAddress()
 		startingCoinAmount, _            = sdk.NewIntFromString("150000000000000000000") // 150 ETH worth, required to reach above u64 limit (which is about 18 ETH)
 		sendAmount, _                    = sdk.NewIntFromString("50000000000000000000")  // 50 ETH
 		feeAmount, _                     = sdk.NewIntFromString("5000000000000000000")   // 5 ETH
@@ -98,12 +98,12 @@ func TestHandleMsgSendToEth(t *testing.T) {
 //nolint: exhaustivestruct
 func TestMsgSendToCosmosClaim(t *testing.T) {
 	var (
-		myCosmosAddr, _ = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
-		anyETHAddr      = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
-		tokenETHAddr    = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
-		myBlockTime     = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
-		amountA, _      = sdk.NewIntFromString("50000000000000000000")  // 50 ETH
-		amountB, _      = sdk.NewIntFromString("100000000000000000000") // 100 ETH
+		myCosmosAddr        = keeper.RandomAccAddress()
+		tokenETHAddr, denom = keeper.RandomEthAddress()
+		anyETHAddr          = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
+		myBlockTime         = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
+		amountA, _          = sdk.NewIntFromString("50000000000000000000")  // 50 ETH
+		amountB, _          = sdk.NewIntFromString("100000000000000000000") // 100 ETH
 	)
 	input, ctx := keeper.SetupFiveValChain(t)
 	h := NewHandler(input.GravityKeeper)
@@ -146,7 +146,7 @@ func TestMsgSendToCosmosClaim(t *testing.T) {
 
 	// and vouchers added to the account
 	balance := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
-	assert.Equal(t, sdk.Coins{sdk.NewCoin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", amountA)}, balance)
+	assert.Equal(t, sdk.Coins{sdk.NewCoin(denom, amountA)}, balance)
 
 	// send attestations from all five validators
 	for _, v := range keeper.OrchAddrs {
@@ -169,7 +169,7 @@ func TestMsgSendToCosmosClaim(t *testing.T) {
 	}
 
 	balance = input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
-	assert.Equal(t, sdk.Coins{sdk.NewCoin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", amountA)}, balance)
+	assert.Equal(t, sdk.Coins{sdk.NewCoin(denom, amountA)}, balance)
 
 	// send attestations from all five validators
 	for _, v := range keeper.OrchAddrs {
@@ -193,15 +193,15 @@ func TestMsgSendToCosmosClaim(t *testing.T) {
 	}
 
 	balance = input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
-	assert.Equal(t, sdk.Coins{sdk.NewCoin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", amountB)}, balance)
+	assert.Equal(t, sdk.Coins{sdk.NewCoin(denom, amountB)}, balance)
 }
 
 //nolint: exhaustivestruct
 func TestMsgSendToCosmosClaimWithDenomSwap(t *testing.T) {
 	var (
-		myCosmosAddr, _ = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
+		myCosmosAddr    = keeper.RandomAccAddress()
 		anyETHAddr      = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
-		tokenETHAddr    = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
+		tokenETHAddr, _ = keeper.RandomEthAddress()
 		myBlockTime     = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
 		amountA, _      = sdk.NewIntFromString("50000000000000000000") // 50 ETH
 		swapDenom       = "swap-denom"
@@ -260,11 +260,11 @@ func TestMsgSendToCosmosClaimWithDenomSwap(t *testing.T) {
 //nolint: exhaustivestruct
 func TestEthereumBlacklist(t *testing.T) {
 	var (
-		myCosmosAddr, _ = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
-		anyETHSender    = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
-		tokenETHAddr    = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
-		myBlockTime     = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
-		amountA, _      = sdk.NewIntFromString("50000000000000000000") // 50 ETH
+		myCosmosAddr        = keeper.RandomAccAddress()
+		tokenETHAddr, denom = keeper.RandomEthAddress()
+		anyETHSender        = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
+		myBlockTime         = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
+		amountA, _          = sdk.NewIntFromString("50000000000000000000") // 50 ETH
 	)
 	input, ctx := keeper.SetupFiveValChain(t)
 	h := NewHandler(input.GravityKeeper)
@@ -317,14 +317,14 @@ func TestEthereumBlacklist(t *testing.T) {
 
 	// and vouchers added to the account
 	balance := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
-	assert.NotEqual(t, sdk.Coins{sdk.NewCoin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", amountA)}, balance)
+	assert.NotEqual(t, sdk.Coins{sdk.NewCoin(denom, amountA)}, balance)
 
 	// Make sure that the balance is empty since funds should be sent to the community pool
 	assert.Equal(t, balance, sdk.Coins{})
 
 	//Check community pool has received the money instead of the address
 	community_pool_balance := input.DistKeeper.GetFeePool(ctx).CommunityPool
-	assert.Equal(t, sdk.NewDecCoinsFromCoins(sdk.NewCoin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", amountA)), community_pool_balance)
+	assert.Equal(t, sdk.NewDecCoinsFromCoins(sdk.NewCoin(denom, amountA)), community_pool_balance)
 
 }
 
@@ -354,7 +354,7 @@ func TestMsgSendToCosmosOverflow(t *testing.T) {
 	var (
 		biggestBigInt, _    = new(big.Int).SetString(biggestInt, 10)
 		grandeBigInt, _     = new(big.Int).SetString(grandeInt, 10)
-		myCosmosAddr, _     = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
+		myCosmosAddr        = keeper.RandomAccAddress()
 		myNonce             = uint64(1)
 		anyETHAddr          = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
 		tokenETHAddr1       = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
@@ -448,14 +448,14 @@ func TestMsgSendToCosmosOverflow(t *testing.T) {
 	fmt.Println("END>>>>")
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestMsgSendToCosmosClaimSpreadVotes(t *testing.T) {
 	var (
-		myCosmosAddr, _ = sdk.AccAddressFromBech32("gravity16ahjkfqxpp6lvfy9fpfnfjg39xr96qet0l08hu")
-		myNonce         = uint64(1)
-		anyETHAddr      = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
-		tokenETHAddr    = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
-		myBlockTime     = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
+		myCosmosAddr        = keeper.RandomAccAddress()
+		tokenETHAddr, denom = keeper.RandomEthAddress()
+		myNonce             = uint64(1)
+		anyETHAddr          = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
+		myBlockTime         = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
 	)
 	input, ctx := keeper.SetupFiveValChain(t)
 	h := NewHandler(input.GravityKeeper)
@@ -489,7 +489,7 @@ func TestMsgSendToCosmosClaimSpreadVotes(t *testing.T) {
 		require.NotNil(t, a1)
 		// and vouchers not yet added to the account
 		balance1 := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
-		assert.NotEqual(t, sdk.Coins{sdk.NewInt64Coin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", 12)}, balance1)
+		assert.NotEqual(t, sdk.Coins{sdk.NewInt64Coin(denom, 12)}, balance1)
 	}
 
 	// when
@@ -506,7 +506,7 @@ func TestMsgSendToCosmosClaimSpreadVotes(t *testing.T) {
 	require.NotNil(t, a2)
 	// and vouchers now added to the account
 	balance2 := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
-	assert.Equal(t, sdk.Coins{sdk.NewInt64Coin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", 12)}, balance2)
+	assert.Equal(t, sdk.Coins{sdk.NewInt64Coin(denom, 12)}, balance2)
 
 	// when
 	ctx = ctx.WithBlockTime(myBlockTime)
@@ -522,25 +522,21 @@ func TestMsgSendToCosmosClaimSpreadVotes(t *testing.T) {
 	require.NotNil(t, a3)
 	// and no additional added to the account
 	balance3 := input.BankKeeper.GetAllBalances(ctx, myCosmosAddr)
-	assert.Equal(t, sdk.Coins{sdk.NewInt64Coin("gravity0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e", 12)}, balance3)
+	assert.Equal(t, sdk.Coins{sdk.NewInt64Coin(denom, 12)}, balance3)
 }
 
 // Tests sending funds to a native account and to that same account with a foreign prefix
 // The SendToCosmosClaims should modify the balance of the underlying account
 func TestMsgSendToCosmosForeignPrefixedAddress(t *testing.T) {
 	var (
-		coreAddress          = "6ahjkfqxpp6lvfy9fpfnfjg39xr96qet"
-		myForeignBytes, err0 = types.IBCAddressFromBech32("levity1" + coreAddress + "vanuy5")
-		myForeignAddr        = sdk.AccAddress(myForeignBytes)
-		myNativeAddr, err1   = sdk.AccAddressFromBech32("gravity1" + coreAddress + "0l08hu")
-
-		myNonce      = uint64(1)
-		anyETHAddr   = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
-		tokenETHAddr = "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
-		myBlockTime  = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
+		// the data needs to be 20 bytes of the same data, with there being different prefixes
+		myForeignAddr   = keeper.TestAccAddress("foreign", []byte("1___Test_Address___1"))
+		myNativeAddr    = keeper.TestAccAddress(types.GravityDenomPrefix, []byte("1___Test_Address___1"))
+		myNonce         = uint64(1)
+		anyETHAddr      = "0xf9613b532673Cc223aBa451dFA8539B87e1F666D"
+		tokenETHAddr, _ = keeper.RandomEthAddress()
+		myBlockTime     = time.Date(2020, 9, 14, 15, 20, 10, 0, time.UTC)
 	)
-	require.NoError(t, err0)
-	require.NoError(t, err1)
 	input, ctx := keeper.SetupFiveValChain(t)
 	k := input.GravityKeeper
 
@@ -590,7 +586,7 @@ func TestMsgSendToCosmosForeignPrefixedAddress(t *testing.T) {
 	require.Equal(t, nativeBals, sdk.NewCoins(sdk.NewCoin(erc20Denom, expectedDoubleBalance)))
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestMsgSetOrchestratorAddresses(t *testing.T) {
 	var (
 		ethAddress, _                 = types.NewEthAddress("0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255")

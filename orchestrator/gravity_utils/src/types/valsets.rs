@@ -81,7 +81,7 @@ pub struct Valset {
     /// normalized powers for them
     pub members: Vec<ValsetMember>,
     /// An optional reward to be issued to the Relayer on Ethereum
-    /// TODO make Option<Uint256>
+    /// TODO make `Option<Uint256>`
     pub reward_amount: Uint256,
     /// An optional reward to be issued to the Relayer on Ethereum
     pub reward_token: Option<EthAddress>,

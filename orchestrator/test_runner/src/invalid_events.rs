@@ -11,7 +11,7 @@ use gravity_utils::{
     deep_space::Contact,
     u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
-    TEST_ERC20_MAX_SIZE, TEST_GAS_LIMIT,
+    GRAVITY_DENOM_PREFIX, TEST_ERC20_MAX_SIZE, TEST_INVALID_EVENTS_GAS_LIMIT,
 };
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tonic::transport::Channel;
@@ -35,7 +35,7 @@ pub async fn invalid_events(
     grpc_client: GravityQueryClient<Channel>,
 ) {
     let mut grpc_client = grpc_client;
-    let erc20_denom = format!("gravity{}", erc20_address);
+    let erc20_denom = format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address);
 
     // figure out how many of a given erc20 we already have on startup so that we can
     // keep track of incrementation. This makes it possible to run this test again without
@@ -339,7 +339,7 @@ async fn deploy_invalid_erc20(
             &MINER_PRIVATE_KEY,
             vec![
                 SendTxOption::GasPriceMultiplier(2.0),
-                SendTxOption::GasLimit(TEST_GAS_LIMIT),
+                SendTxOption::GasLimit(TEST_INVALID_EVENTS_GAS_LIMIT),
             ],
         )
         .await

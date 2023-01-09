@@ -107,7 +107,7 @@ func (a AttestationHandler) Handle(ctx sdk.Context, att types.Attestation, claim
 
 		if !isCosmosOriginated {
 			swapPair := a.keeper.GetParams(ctx).Erc20ToDenomPermanentSwap
-			if swapPair.Erc20 != "" && swapPair.Denom != "" && denom == types.ModuleName+swapPair.Erc20 {
+			if swapPair.Erc20 != "" && swapPair.Denom != "" && denom == types.GravityDenomPrefix+swapPair.Erc20 {
 				denom = swapPair.Denom
 				coins[0].Denom = swapPair.Denom
 			}

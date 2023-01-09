@@ -3,8 +3,10 @@ package keeper
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"testing"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -153,44 +155,47 @@ func TestDelegateKeys(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
 	k := input.GravityKeeper
+	length := 4
+	tmp_ethStrings := make([]string, length)
+	tmp_ethAddrs := make([]types.EthAddress, length)
+	tmp_valAddrs := make([]sdk.ValAddress, length)
+	tmp_orchAddrs := make([]sdk.AccAddress, length)
+	for i := 0; i < length; i++ {
+		// we need the strings for both sorting and an assertion below
+		tmp_ethStrings[i] = fmt.Sprintf("0x%s", secp256k1.GenPrivKey().PubKey().Address().String())
+		tmp_valAddrs[i] = RandomValAddress()
+		tmp_orchAddrs[i] = RandomAccAddress()
+	}
+	sort.Strings(tmp_ethStrings)
+	for i := 0; i < length; i++ {
+		tmp, err := types.NewEthAddress(tmp_ethStrings[i])
+		require.NoError(t, err)
+		tmp_ethAddrs[i] = *tmp
+	}
 	var (
-		ethAddrs = []string{"0x3146D2d6Eed46Afa423969f5dDC3152DfC359b09",
-			"0x610277F0208D342C576b991daFdCb36E36515e76", "0x835973768750b3ED2D5c3EF5AdcD5eDb44d12aD4",
-			"0xb2A7F3E84F8FdcA1da46c810AEa110dd96BAE6bF"}
-
-		valAddrs = []string{"gravityvaloper1jpz0ahls2chajf78nkqczdwwuqcu97w6j77vg6",
-			"gravityvaloper15n79nty2fj37ant3p2gj4wju4ls6eu6tzpy7gq", "gravityvaloper16dnkc6ac6ruuyr6l372fc3p77jgjpet6eezum0",
-			"gravityvaloper1vrptwhl3ht2txmzy28j9msqkcvmn8gjzyqpjtn"}
-
-		orchAddrs = []string{"gravity1g0etv93428tvxqftnmj25jn06mz6dtda5zxt8k", "gravity1rhfs24tlw4na04v35tzmjncy785kkw9jwwlvnw",
-			"gravity10upq3tmt04zf55f6hw67m0uyrda3mp72wsvhxx", "gravity1nt2uwjh5peg9vz2wfh2m3jjwqnu9kpjlncnrum"}
+		ethStrings = tmp_ethStrings
+		ethAddrs   = tmp_ethAddrs
+		valAddrs   = tmp_valAddrs
+		orchAddrs  = tmp_orchAddrs
 	)
 
 	for i := range ethAddrs {
-		// set some addresses
-		val, err1 := sdk.ValAddressFromBech32(valAddrs[i])
-		orch, err2 := sdk.AccAddressFromBech32(orchAddrs[i])
-		require.NoError(t, err1)
-		require.NoError(t, err2)
 		// set the orchestrator address
-		k.SetOrchestratorValidator(ctx, val, orch)
+		k.SetOrchestratorValidator(ctx, valAddrs[i], orchAddrs[i])
 		// set the ethereum address
-		ethAddr, err := types.NewEthAddress(ethAddrs[i])
-		require.NoError(t, err)
-		k.SetEthAddressForValidator(ctx, val, *ethAddr)
+		k.SetEthAddressForValidator(ctx, valAddrs[i], ethAddrs[i])
 	}
 
 	addresses := k.GetDelegateKeys(ctx)
 	for i := range addresses {
 		res := addresses[i]
-		assert.Equal(t, valAddrs[i], res.Validator)
-		assert.Equal(t, orchAddrs[i], res.Orchestrator)
-		assert.Equal(t, ethAddrs[i], res.EthAddress)
+		assert.Equal(t, valAddrs[i].String(), res.Validator)
+		assert.Equal(t, orchAddrs[i].String(), res.Orchestrator)
+		assert.Equal(t, ethStrings[i], res.EthAddress)
 	}
-
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestLastSlashedValsetNonce(t *testing.T) {
 	input, ctx := SetupFiveValChain(t)
 	k := input.GravityKeeper

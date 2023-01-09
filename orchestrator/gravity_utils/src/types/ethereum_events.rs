@@ -2,7 +2,7 @@
 //! is parsed directly from it's binary representation. This is technical debt within this implementation. It's quite easy to parse any
 //! individual event manually but a generic decoder can be quite challenging to implement. A proper implementation would probably closely
 //! mirror Serde and perhaps even become a serde crate for Ethereum ABI decoding
-//! For now reference the ABI encoding document here https://docs.soliditylang.org/en/v0.8.3/abi-spec.html
+//! For now reference the ABI encoding document here <https://docs.soliditylang.org/en/v0.8.3/abi-spec.html>
 
 // TODO this file needs static assertions that prevent it from compiling on 16 bit systems.
 // we assume a system bit width of at least 32
