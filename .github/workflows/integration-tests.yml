@@ -13,8 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: jpribyl/action-docker-layer-caching@v0.1.1
-        with:
-          continue-on-error: true
       - name: Prune cache to keep the size down
         run: docker builder prune -af && docker system prune -af
       - name: Run all up happy-path test
@@ -27,7 +25,6 @@ jobs:
       - uses: jpribyl/action-docker-layer-caching@v0.1.1
         with:
           skip-save: true
-          continue-on-error: true
       - name: Run all up happy-path test
         run: tests/all-up-test.sh
         env:
@@ -39,7 +36,6 @@ jobs:
       - uses: jpribyl/action-docker-layer-caching@v0.1.1
         with:
           skip-save: true
-          continue-on-error: true
       - name: Run all up relay market test
         run: tests/all-up-test.sh RELAY_MARKET $ALCHEMY_ID
         env:
@@ -74,6 +70,5 @@ jobs:
       - uses: jpribyl/action-docker-layer-caching@v0.1.1
         with:
           skip-save: true
-          continue-on-error: true
       - name: Run all up ${{ matrix.name }} test
         run: tests/all-up-test.sh ${{ matrix.name }}
