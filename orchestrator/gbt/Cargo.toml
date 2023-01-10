@@ -17,7 +17,7 @@ metrics_exporter = { path = "../metrics_exporter" }
 orchestrator = { path = "../orchestrator/" }
 relayer = { path = "../relayer/" }
 
-clap = { version = "3", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 dirs = "4.0"
 env_logger = "0.9"
 lazy_static = "1"
