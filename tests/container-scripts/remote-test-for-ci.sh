@@ -24,4 +24,4 @@ sleep 10
 pushd /gravity/orchestrator/test_runner
 DEPLOY_CONTRACTS=1 RUST_BACKTRACE=full RUST_LOG="INFO,relayer=DEBUG,orchestrator=DEBUG" PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS
 
-GRAVITY_ADDRESS=$(cat /contracts | sed -n -e 's/^Gravity deployed at Address -  //p') COSMOS_NODE_GRPC=http://localhost:9090 COSMOS_NODE_ABCI=http://localhost:26657 ETH_NODE=http://localhost:8545 bash /gravity/tests/container-scripts/all-up-test-internal.sh REMOTE_STRESS
+GRAVITY_ADDRESS=$(cat /contracts | sed -n -e 's/^Gravity deployed at Address -  //p') COSMOS_NODE_GRPC=http://localhost:9090 COSMOS_NODE_ABCI=http://localhost:26657 ETH_NODE=http://localhost:8545/ext/bc/C/rpc bash /gravity/tests/container-scripts/all-up-test-internal.sh REMOTE_STRESS

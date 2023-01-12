@@ -12,7 +12,7 @@ import (
 
 const (
 	// GravityDenomPrefix indicates the prefix for all assests minted by this module
-	GravityDenomPrefix = "eth"
+	GravityDenomPrefix = "avax"
 
 	// GravityDenomSeparator is the separator for gravity denoms
 	GravityDenomSeparator = ""
