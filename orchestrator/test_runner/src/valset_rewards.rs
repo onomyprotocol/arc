@@ -53,20 +53,20 @@ pub async fn valset_rewards_test(
 
     let mut params_to_change = Vec::new();
     let gravity_address_param = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "BridgeEthereumAddress".to_string(),
         value: format!("\"{}\"", gravity_address),
     };
     params_to_change.push(gravity_address_param);
     let json_value = serde_json::to_string(&valset_reward).unwrap().to_string();
     let valset_reward_param = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "ValsetReward".to_string(),
         value: json_value.clone(),
     };
     params_to_change.push(valset_reward_param);
     let chain_id = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "BridgeChainID".to_string(),
         value: format!("\"{}\"", 1),
     };

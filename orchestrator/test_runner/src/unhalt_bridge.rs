@@ -281,7 +281,7 @@ async fn print_sends_to_cosmos(grpc_client: &GravityQueryClient<Channel>, print_
     let attestations = get_attestations(grpc_client, None).await.unwrap();
     for (i, attestation) in attestations.into_iter().enumerate() {
         let claim = attestation.claim.clone().unwrap();
-        if print_others && claim.type_url != "/gravity.v1.MsgSendToCosmosClaim" {
+        if print_others && claim.type_url != "/arcbnb.v1.MsgSendToCosmosClaim" {
             info!("attestation {}: {:?}", i, &attestation);
             continue;
         }

@@ -218,7 +218,7 @@ jobs:
       # because of https://github.com/cross-rs/cross/issues/724
       # we have to run `cargo clean` between targets
 
-      - name: Build GBT ARM64
+      - name: Build ARCBNBBT ARM64
         run: |
           cd orchestrator
           cargo clean
@@ -235,7 +235,7 @@ jobs:
           asset_name: gbt-arm
           asset_content_type: application/bin
 
-      - name: Build GBT Windows 
+      - name: Build ARCBNBBT Windows 
         run: |
           cd orchestrator
           cargo clean
@@ -252,7 +252,7 @@ jobs:
           asset_name: gbt.exe
           asset_content_type: application/bin
 
-      - name: Build GBT Mac 
+      - name: Build ARCBNBBT Mac 
         run: |
           sudo apt install \
                 clang \

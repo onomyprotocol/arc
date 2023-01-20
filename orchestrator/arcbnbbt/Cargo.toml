@@ -1,0 +1,32 @@
+[package]
+authors = ["Justin Kilpatrick <justin@althea.net>"]
+description = "Gravity Bridge Tools. User tooling for the Onomy Ethereum <=> Cosmos Gravtiy bridge"
+edition = "2018"
+homepage = "https://onomy.io/"
+license = "Apache-2.0"
+name = "arcbnbbt"
+repository = "https://github.com/onomyprotocol/arc"
+version = "0.5.6"
+
+[dependencies]
+cosmos_gravity = { path = "../cosmos_gravity" }
+ethereum_gravity = { path = "../ethereum_gravity" }
+gravity_proto = { path = "../gravity_proto" }
+gravity_utils = { path = "../gravity_utils" }
+metrics_exporter = { path = "../metrics_exporter" }
+orchestrator = { path = "../orchestrator/" }
+relayer = { path = "../relayer/" }
+
+clap = { version = "4", features = ["derive"] }
+dirs = "4.0"
+env_logger = "0.9"
+lazy_static = "1"
+log = "0.4"
+openssl-probe = "0.1"
+prost = "0.10"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.20", features = ["macros", "rt-multi-thread"] }
+toml = "0.5"
+url = "2"

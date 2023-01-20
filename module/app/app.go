@@ -94,10 +94,10 @@ import (
 	// unnamed import of statik for swagger UI support
 	_ "github.com/cosmos/cosmos-sdk/client/docs/statik"
 
-	gravityparams "github.com/onomyprotocol/cosmos-gravity-bridge/module/app/params"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
-	gravitytypes "github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	gravityparams "github.com/onomyprotocol/arc/module/app/params"
+	"github.com/onomyprotocol/arc/module/x/arcbnb"
+	"github.com/onomyprotocol/arc/module/x/arcbnb/keeper"
+	gravitytypes "github.com/onomyprotocol/arc/module/x/arcbnb/types"
 )
 
 const appName = "app"
@@ -134,7 +134,7 @@ var (
 		evidence.AppModuleBasic{},
 		transfer.AppModuleBasic{},
 		vesting.AppModuleBasic{},
-		gravity.AppModuleBasic{},
+		arcbnb.AppModuleBasic{},
 	)
 
 	// module account permissions
@@ -588,7 +588,7 @@ func NewGravityApp(
 		ibc.NewAppModule(&ibcKeeper),
 		params.NewAppModule(paramsKeeper),
 		ibcTransferModule,
-		gravity.NewAppModule(
+		arcbnb.NewAppModule(
 			gravityKeeper,
 			bankKeeper,
 		),

@@ -370,7 +370,7 @@ pub async fn submit_false_claims(
             orchestrator: orch_addr.to_string(),
         };
         info!("Oracle number {} submitting false deposit {:?}", i, claim);
-        let msg_url = "/gravity.v1.MsgSendToCosmosClaim";
+        let msg_url = "/arcbnb.v1.MsgSendToCosmosClaim";
         let msg = Msg::new(msg_url, claim.clone());
         let res = contact
             .send_message(

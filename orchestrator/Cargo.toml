@@ -2,7 +2,7 @@
 members = [
     "cosmos_gravity",
     "ethereum_gravity",
-    "gbt",
+    "arcbnbbt",
     "gravity_proto",
     "gravity_utils",
     "metrics_exporter",
@@ -11,6 +11,6 @@ members = [
     "relayer",
     "test_runner"
 ]
-default-members = ["gbt"]
+default-members = ["arcbnbbt"]
 
 [patch.crates-io]

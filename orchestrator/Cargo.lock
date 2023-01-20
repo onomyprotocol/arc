@@ -35,6 +35,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 
 [[package]]
+name = "arcbnbbt"
+version = "0.5.6"
+dependencies = [
+ "clap",
+ "cosmos_gravity",
+ "dirs",
+ "env_logger",
+ "ethereum_gravity",
+ "gravity_proto",
+ "gravity_utils",
+ "lazy_static",
+ "log",
+ "metrics_exporter",
+ "openssl-probe",
+ "orchestrator",
+ "prost",
+ "rand",
+ "relayer",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "url",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -713,32 +739,6 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
-]
-
-[[package]]
-name = "gbt"
-version = "0.5.6"
-dependencies = [
- "clap",
- "cosmos_gravity",
- "dirs",
- "env_logger",
- "ethereum_gravity",
- "gravity_proto",
- "gravity_utils",
- "lazy_static",
- "log",
- "metrics_exporter",
- "openssl-probe",
- "orchestrator",
- "prost",
- "rand",
- "relayer",
- "serde",
- "serde_json",
- "tokio",
- "toml",
- "url",
 ]
 
 [[package]]

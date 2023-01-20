@@ -25,7 +25,7 @@ pub async fn ethereum_blacklist_test(
 
     let mut params_to_change = Vec::new();
     let blocked_address_param = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "EthereumBlacklist".to_string(),
         value: json_value,
     };

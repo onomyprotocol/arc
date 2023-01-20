@@ -2,7 +2,9 @@ name: Rust
 
 on:
   push:
+    branches: [bnb]
   pull_request:
+    branches: [bnb]
 
 env:
   CARGO_TERM_COLOR: always
