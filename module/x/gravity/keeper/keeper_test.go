@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 //nolint: exhaustivestruct
@@ -195,7 +195,7 @@ func TestDelegateKeys(t *testing.T) {
 	}
 }
 
-// nolint: exhaustivestruct
+//nolint: exhaustivestruct
 func TestLastSlashedValsetNonce(t *testing.T) {
 	input, ctx := SetupFiveValChain(t)
 	k := input.GravityKeeper

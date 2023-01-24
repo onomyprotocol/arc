@@ -5,7 +5,7 @@ edition = "2018"
 homepage = "https://onomy.io/"
 license = "Apache-2.0"
 name = "gbt"
-repository = "https://github.com/onomyprotocol/cosmos-gravity-bridge"
+repository = "https://github.com/onomyprotocol/arc"
 version = "0.5.6"
 
 [dependencies]

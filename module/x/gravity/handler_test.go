@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	_ "github.com/onomyprotocol/arc/module/config"
+	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 //nolint: exhaustivestruct
@@ -448,7 +448,7 @@ func TestMsgSendToCosmosOverflow(t *testing.T) {
 	fmt.Println("END>>>>")
 }
 
-// nolint: exhaustivestruct
+//nolint: exhaustivestruct
 func TestMsgSendToCosmosClaimSpreadVotes(t *testing.T) {
 	var (
 		myCosmosAddr        = keeper.RandomAccAddress()
@@ -586,7 +586,7 @@ func TestMsgSendToCosmosForeignPrefixedAddress(t *testing.T) {
 	require.Equal(t, nativeBals, sdk.NewCoins(sdk.NewCoin(erc20Denom, expectedDoubleBalance)))
 }
 
-// nolint: exhaustivestruct
+//nolint: exhaustivestruct
 func TestMsgSetOrchestratorAddresses(t *testing.T) {
 	var (
 		ethAddress, _                 = types.NewEthAddress("0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255")
