@@ -6,7 +6,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	abci "github.com/tendermint/tendermint/abci/types"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 const (

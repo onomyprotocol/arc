@@ -9,7 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 // AddToOutgoingPool creates a transaction and adds it to the pool, returns the id of the unbatched transaction
