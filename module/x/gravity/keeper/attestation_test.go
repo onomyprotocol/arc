@@ -3,9 +3,9 @@ package keeper
 import (
 	"testing"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 

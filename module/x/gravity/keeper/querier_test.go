@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/onomyprotocol/cosmos-gravity-bridge/module/config"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	_ "github.com/onomyprotocol/arc/module/config"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 func TestQueryValsetConfirm(t *testing.T) {
@@ -312,7 +312,7 @@ func TestLastValsetRequests(t *testing.T) {
 	}
 }
 
-// nolint: exhaustivestruct
+//nolint: exhaustivestruct
 // TODO: check that it doesn't accidently return a valset that HAS been signed
 // Right now it is basically just testing that any valset comes back
 func TestPendingValsetRequests(t *testing.T) {
@@ -546,7 +546,7 @@ func TestLastPendingBatchRequest(t *testing.T) {
 	}
 }
 
-// nolint: exhaustivestruct
+//nolint: exhaustivestruct
 func createTestBatch(t *testing.T, input TestInput, mySender sdk.AccAddress, maxTxElements uint) {
 	var (
 		myReceiver          = "0x320915BD0F1bad11cBf06e85D5199DBcAC4E9934"

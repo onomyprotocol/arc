@@ -11,8 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 func TestValsetCreationIfNotAvailable(t *testing.T) {
@@ -267,7 +267,6 @@ func TestValsetSetting(t *testing.T) {
 	require.True(t, len(valsets) == 1)
 }
 
-/// Test batch timeout
 func TestBatchTimeout(t *testing.T) {
 	input, ctx := keeper.SetupFiveValChain(t)
 	pk := input.GravityKeeper

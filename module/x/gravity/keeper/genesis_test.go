@@ -7,7 +7,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 

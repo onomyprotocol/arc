@@ -1,4 +1,4 @@
-module github.com/onomyprotocol/cosmos-gravity-bridge/module
+module github.com/onomyprotocol/arc/module
 
 go 1.16
 

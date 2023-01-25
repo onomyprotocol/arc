@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 // Have the validators put in a erc20<>denom relation with ERC20DeployedEvent

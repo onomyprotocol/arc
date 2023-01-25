@@ -15,8 +15,8 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/spf13/cobra"
 
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/keeper"
-	"github.com/onomyprotocol/cosmos-gravity-bridge/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
 func GetTxCmd(storeKey string) *cobra.Command {
