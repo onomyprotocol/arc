@@ -2,7 +2,7 @@ name: Integration tests
 
 on:
   push:
-    branches: [main]
+    branches: [bnb]
   pull_request:
 
 # the old `action-docker-layer-caching` repo was unmaintained, found https://github.com/satackey/action-docker-layer-caching/issues/347 as an alternative
