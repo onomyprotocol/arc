@@ -1,11 +1,11 @@
 syntax = "proto3";
-package gravity.v1;
+package arcbnb.v1;
 
 import "gogoproto/gogo.proto";
-import "gravity/v1/types.proto";
-import "gravity/v1/msgs.proto";
-import "gravity/v1/batch.proto";
-import "gravity/v1/attestation.proto";
+import "arcbnb/v1/types.proto";
+import "arcbnb/v1/msgs.proto";
+import "arcbnb/v1/batch.proto";
+import "arcbnb/v1/attestation.proto";
 import "cosmos/base/v1beta1/coin.proto";
 
 option go_package = "github.com/onomyprotocol/arc/module/x/gravity/types";

@@ -1,5 +1,5 @@
 syntax = "proto3";
-package gravity.v1;
+package arcbnb.v1;
 import "gogoproto/gogo.proto";
 option go_package = "github.com/onomyprotocol/arc/module/x/gravity/types";
 

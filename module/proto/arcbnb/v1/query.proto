@@ -1,12 +1,12 @@
 syntax = "proto3";
-package gravity.v1;
+package arcbnb.v1;
 
-import "gravity/v1/genesis.proto";
-import "gravity/v1/types.proto";
-import "gravity/v1/msgs.proto";
-import "gravity/v1/pool.proto";
-import "gravity/v1/batch.proto";
-import "gravity/v1/attestation.proto";
+import "arcbnb/v1/genesis.proto";
+import "arcbnb/v1/types.proto";
+import "arcbnb/v1/msgs.proto";
+import "arcbnb/v1/pool.proto";
+import "arcbnb/v1/batch.proto";
+import "arcbnb/v1/attestation.proto";
 import "google/api/annotations.proto";
 import "gogoproto/gogo.proto";
 
@@ -16,74 +16,74 @@ option go_package = "github.com/onomyprotocol/arc/module/x/gravity/types";
 service Query {
   // Deployments queries deployments
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
-    option (google.api.http).get = "/gravity/v1beta/params";
+    option (google.api.http).get = "/arcbnb/v1beta/params";
   }
   rpc CurrentValset(QueryCurrentValsetRequest) returns (QueryCurrentValsetResponse) {
-    option (google.api.http).get = "/gravity/v1beta/valset/current";
+    option (google.api.http).get = "/arcbnb/v1beta/valset/current";
   }
   rpc ValsetRequest(QueryValsetRequestRequest) returns (QueryValsetRequestResponse) {
-    option (google.api.http).get = "/gravity/v1beta/valset";
+    option (google.api.http).get = "/arcbnb/v1beta/valset";
   }
   rpc ValsetConfirm(QueryValsetConfirmRequest) returns (QueryValsetConfirmResponse) {
-    option (google.api.http).get = "/gravity/v1beta/valset/confirm";
+    option (google.api.http).get = "/arcbnb/v1beta/valset/confirm";
   }
   rpc ValsetConfirmsByNonce(QueryValsetConfirmsByNonceRequest) returns (QueryValsetConfirmsByNonceResponse) {
-    option (google.api.http).get = "/gravity/v1beta/confirms/{nonce}";
+    option (google.api.http).get = "/arcbnb/v1beta/confirms/{nonce}";
   }
   rpc LastValsetRequests(QueryLastValsetRequestsRequest) returns (QueryLastValsetRequestsResponse) {
-    option (google.api.http).get = "/gravity/v1beta/valset/requests";
+    option (google.api.http).get = "/arcbnb/v1beta/valset/requests";
   }
   rpc LastPendingValsetRequestByAddr(QueryLastPendingValsetRequestByAddrRequest) returns (QueryLastPendingValsetRequestByAddrResponse) {
-    option (google.api.http).get = "/gravity/v1beta/valset/last";
+    option (google.api.http).get = "/arcbnb/v1beta/valset/last";
   }
   rpc LastPendingBatchRequestByAddr(QueryLastPendingBatchRequestByAddrRequest) returns (QueryLastPendingBatchRequestByAddrResponse) {
-    option (google.api.http).get = "/gravity/v1beta/batch/{address}";
+    option (google.api.http).get = "/arcbnb/v1beta/batch/{address}";
   }
   rpc LastPendingLogicCallByAddr(QueryLastPendingLogicCallByAddrRequest) returns (QueryLastPendingLogicCallByAddrResponse) {
-    option (google.api.http).get = "/gravity/v1beta/logic/{address}";
+    option (google.api.http).get = "/arcbnb/v1beta/logic/{address}";
   }
   rpc LastEventNonceByAddr(QueryLastEventNonceByAddrRequest) returns (QueryLastEventNonceByAddrResponse) {
-    option (google.api.http).get = "/gravity/v1beta/oracle/eventnonce/{address}";
+    option (google.api.http).get = "/arcbnb/v1beta/oracle/eventnonce/{address}";
   }
   rpc BatchFees(QueryBatchFeeRequest) returns (QueryBatchFeeResponse) {
-    option (google.api.http).get = "/gravity/v1beta/batchfees";
+    option (google.api.http).get = "/arcbnb/v1beta/batchfees";
   }
   rpc OutgoingTxBatches(QueryOutgoingTxBatchesRequest) returns (QueryOutgoingTxBatchesResponse) {
-    option (google.api.http).get = "/gravity/v1beta/batch/outgoingtx";
+    option (google.api.http).get = "/arcbnb/v1beta/batch/outgoingtx";
   }
   rpc OutgoingLogicCalls(QueryOutgoingLogicCallsRequest) returns (QueryOutgoingLogicCallsResponse) {
-    option (google.api.http).get = "/gravity/v1beta/batch/outgoinglogic";
+    option (google.api.http).get = "/arcbnb/v1beta/batch/outgoinglogic";
   }
   rpc BatchRequestByNonce(QueryBatchRequestByNonceRequest) returns (QueryBatchRequestByNonceResponse) {
-    option (google.api.http).get = "/gravity/v1beta/batch/{nonce}";
+    option (google.api.http).get = "/arcbnb/v1beta/batch/{nonce}";
   }
   rpc BatchConfirms(QueryBatchConfirmsRequest) returns (QueryBatchConfirmsResponse) {
-    option (google.api.http).get = "/gravity/v1beta/batch/confirms";
+    option (google.api.http).get = "/arcbnb/v1beta/batch/confirms";
   }
   rpc LogicConfirms(QueryLogicConfirmsRequest) returns (QueryLogicConfirmsResponse) {
-    option (google.api.http).get = "/gravity/v1beta/logic/confirms";
+    option (google.api.http).get = "/arcbnb/v1beta/logic/confirms";
   }
   rpc ERC20ToDenom(QueryERC20ToDenomRequest) returns (QueryERC20ToDenomResponse) {
-    option (google.api.http).get = "/gravity/v1beta/cosmos_originated/erc20_to_denom";
+    option (google.api.http).get = "/arcbnb/v1beta/cosmos_originated/erc20_to_denom";
   }
   rpc DenomToERC20(QueryDenomToERC20Request) returns (QueryDenomToERC20Response) {
-    option (google.api.http).get = "/gravity/v1beta/cosmos_originated/denom_to_erc20";
+    option (google.api.http).get = "/arcbnb/v1beta/cosmos_originated/denom_to_erc20";
   }
   rpc GetAttestations(QueryAttestationsRequest) returns (QueryAttestationsResponse) {
-    option (google.api.http).get = "/gravity/v1beta/query_attestations";
+    option (google.api.http).get = "/arcbnb/v1beta/query_attestations";
   }
   rpc GetDelegateKeyByValidator(QueryDelegateKeysByValidatorAddress) returns (QueryDelegateKeysByValidatorAddressResponse) {
-    option (google.api.http).get = "/gravity/v1beta/query_delegate_keys_by_validator";
+    option (google.api.http).get = "/arcbnb/v1beta/query_delegate_keys_by_validator";
   }
   rpc GetDelegateKeyByEth(QueryDelegateKeysByEthAddress) returns (QueryDelegateKeysByEthAddressResponse) {
-    option (google.api.http).get = "/gravity/v1beta/query_delegate_keys_by_eth";
+    option (google.api.http).get = "/arcbnb/v1beta/query_delegate_keys_by_eth";
   }
   rpc GetDelegateKeyByOrchestrator(QueryDelegateKeysByOrchestratorAddress) returns (QueryDelegateKeysByOrchestratorAddressResponse) {
-    option (google.api.http).get = "/gravity/v1beta/query_delegate_keys_by_orchestrator";
+    option (google.api.http).get = "/arcbnb/v1beta/query_delegate_keys_by_orchestrator";
   }
 
   rpc GetPendingSendToEth(QueryPendingSendToEth) returns (QueryPendingSendToEthResponse) {
-    option (google.api.http).get = "/gravity/v1beta/query_pending_send_to_eth";
+    option (google.api.http).get = "/arcbnb/v1beta/query_pending_send_to_eth";
   }
 }
 

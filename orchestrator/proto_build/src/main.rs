@@ -5,7 +5,7 @@
 // Building new Gravity rust proto definitions
 // run 'cargo run'
 // go to gravity_proto/prost
-// delete all files except gravity.v1.rs
+// delete all files except arcbnb.v1.rs
 // re-write calls to super::super::cosmos as cosmos-sdk-proto::cosmos
 
 use std::{
@@ -64,7 +64,7 @@ fn compile_protos(out_dir: &Path, tmp_dir: &Path) {
     let root = root.parent().unwrap().parent().unwrap().to_path_buf();
 
     let mut gravity_proto_dir = root.clone();
-    gravity_proto_dir.push("module/proto/gravity/v1");
+    gravity_proto_dir.push("module/proto/arcbnb/v1");
     let mut gravity_proto_include_dir = root.clone();
     gravity_proto_include_dir.push("module/proto");
     let mut third_party_proto_include_dir = root;

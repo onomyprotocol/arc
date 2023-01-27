@@ -44,15 +44,15 @@ impl BadSignatureEvidence {
         match self {
             BadSignatureEvidence::Valset(v) => {
                 let v: ProtoValset = v.into();
-                encode_any(v, "/gravity.v1.Valset".to_string())
+                encode_any(v, "/arcbnb.v1.Valset".to_string())
             }
             BadSignatureEvidence::Batch(b) => {
                 let b: ProtoBatch = b.into();
-                encode_any(b, "/gravity.v1.OutgoingTxBatch".to_string())
+                encode_any(b, "/arcbnb.v1.OutgoingTxBatch".to_string())
             }
             BadSignatureEvidence::LogicCall(l) => {
                 let l: ProtoLogicCall = l.into();
-                encode_any(l, "/gravity.v1.OutgoingLogicCall".to_string())
+                encode_any(l, "/arcbnb.v1.OutgoingLogicCall".to_string())
             }
         }
     }

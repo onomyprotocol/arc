@@ -43,14 +43,14 @@ pub struct Supply {
 /// denomination unit of the basic token.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DenomUnit {
-    /// denom represents the string name of the given denom unit (e.g anom).
+    /// denom represents the string name of the given denom unit (e.g uatom).
     #[prost(string, tag="1")]
     pub denom: ::prost::alloc::string::String,
     /// exponent represents power of 10 exponent that one must
     /// raise the base_denom to in order to equal the given DenomUnit's denom
     /// 1 denom = 1^exponent base_denom
-    /// (e.g. with a base_denom of anom, one can create a DenomUnit of 'nom' with
-    /// exponent = 18, thus: 1 nom = 10^18 anom).
+    /// (e.g. with a base_denom of uatom, one can create a DenomUnit of 'atom' with
+    /// exponent = 6, thus: 1 atom = 10^6 uatom).
     #[prost(uint32, tag="2")]
     pub exponent: u32,
     /// aliases is a list of string aliases for the given denom
@@ -73,10 +73,10 @@ pub struct Metadata {
     /// displayed in clients.
     #[prost(string, tag="4")]
     pub display: ::prost::alloc::string::String,
-    /// name defines the name of the token (eg: Onomy Nom)
+    /// name defines the name of the token (eg: Cosmos Atom)
     #[prost(string, tag="5")]
     pub name: ::prost::alloc::string::String,
-    /// symbol is the token symbol usually shown on exchanges (eg: NOM). This can
+    /// symbol is the token symbol usually shown on exchanges (eg: ATOM). This can
     /// be the same as the display.
     #[prost(string, tag="6")]
     pub symbol: ::prost::alloc::string::String,

@@ -74,7 +74,7 @@ pub async fn pause_bridge_test(
     info!("Voting to pause the bridge!");
     let mut params_to_change = Vec::new();
     let halt = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "BridgeActive".to_string(),
         value: format!("{}", false),
     };
@@ -167,7 +167,7 @@ pub async fn pause_bridge_test(
     info!("Voting to resume bridge operations!");
     let mut params_to_change = Vec::new();
     let unhalt = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "BridgeActive".to_string(),
         value: format!("{}", true),
     };

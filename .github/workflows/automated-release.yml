@@ -72,7 +72,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./orchestrator/target/x86_64-unknown-linux-musl/release/gbt
-          asset_name: gbt
+          asset_name: arcbnbbt
           asset_content_type: application/bin
 
       - name: Upload Rust test runner
@@ -218,7 +218,7 @@ jobs:
       # because of https://github.com/cross-rs/cross/issues/724
       # we have to run `cargo clean` between targets
 
-      - name: Build GBT ARM64
+      - name: Build ARCBNBBT ARM64
         run: |
           cd orchestrator
           cargo clean
@@ -232,10 +232,10 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./orchestrator/target/aarch64-unknown-linux-musl/release/gbt
-          asset_name: gbt-arm
+          asset_name: arcbnbbt-arm
           asset_content_type: application/bin
 
-      - name: Build GBT Windows 
+      - name: Build ARCBNBBT Windows
         run: |
           cd orchestrator
           cargo clean
@@ -249,10 +249,10 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./orchestrator/target/x86_64-pc-windows-gnu/release/gbt.exe
-          asset_name: gbt.exe
+          asset_name: arcbnbbt.exe
           asset_content_type: application/bin
 
-      - name: Build GBT Mac 
+      - name: Build ARCBNBBT Mac
         run: |
           sudo apt install \
                 clang \
@@ -289,5 +289,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./orchestrator/target/x86_64-apple-darwin/release/gbt
-          asset_name: gbt-mac-amd64
+          asset_name: arcbnbbt-mac-amd64
           asset_content_type: application/bin

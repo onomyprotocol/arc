@@ -1,9 +1,9 @@
 syntax = "proto3";
-package gravity.v1;
+package arcbnb.v1;
 import "cosmos/base/v1beta1/coin.proto";
 import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
-import "gravity/v1/types.proto";
+import "arcbnb/v1/types.proto";
 import "google/protobuf/any.proto";
 import "cosmos_proto/cosmos.proto";
 option go_package = "github.com/onomyprotocol/arc/module/x/gravity/types";
@@ -11,45 +11,45 @@ option go_package = "github.com/onomyprotocol/arc/module/x/gravity/types";
 // Msg defines the state transitions possible within gravity
 service Msg {
   rpc ValsetConfirm(MsgValsetConfirm) returns (MsgValsetConfirmResponse) {
-    option (google.api.http).post = "/gravity/v1/valset_confirm";
+    option (google.api.http).post = "/arcbnb/v1/valset_confirm";
   }
   rpc SendToEth(MsgSendToEth) returns (MsgSendToEthResponse) {
-    option (google.api.http).post = "/gravity/v1/send_to_eth";
+    option (google.api.http).post = "/arcbnb/v1/send_to_eth";
   }
   rpc RequestBatch(MsgRequestBatch) returns (MsgRequestBatchResponse) {
-    option (google.api.http).post = "/gravity/v1/request_batch";
+    option (google.api.http).post = "/arcbnb/v1/request_batch";
   }
   rpc ConfirmBatch(MsgConfirmBatch) returns (MsgConfirmBatchResponse) {
-    option (google.api.http).post = "/gravity/v1/confirm_batch";
+    option (google.api.http).post = "/arcbnb/v1/confirm_batch";
   }
   rpc ConfirmLogicCall(MsgConfirmLogicCall) returns (MsgConfirmLogicCallResponse) {
-    option (google.api.http).post = "/gravity/v1/confim_logic";
+    option (google.api.http).post = "/arcbnb/v1/confim_logic";
   }
   rpc SendToCosmosClaim(MsgSendToCosmosClaim) returns (MsgSendToCosmosClaimResponse) {
-    option (google.api.http).post = "/gravity/v1/send_to_cosmos_claim";
+    option (google.api.http).post = "/arcbnb/v1/send_to_cosmos_claim";
   }
   rpc BatchSendToEthClaim(MsgBatchSendToEthClaim) returns (MsgBatchSendToEthClaimResponse) {
-    option (google.api.http).post = "/gravity/v1/batch_send_to_eth_claim";
+    option (google.api.http).post = "/arcbnb/v1/batch_send_to_eth_claim";
   }
   rpc ValsetUpdateClaim(MsgValsetUpdatedClaim) returns (MsgValsetUpdatedClaimResponse) {
-    option (google.api.http).post = "/gravity/v1/valset_updated_claim";
+    option (google.api.http).post = "/arcbnb/v1/valset_updated_claim";
   }
   rpc ERC20DeployedClaim(MsgERC20DeployedClaim)
       returns (MsgERC20DeployedClaimResponse) {
-    option (google.api.http).post = "/gravity/v1/erc20_deployed_claim";
+    option (google.api.http).post = "/arcbnb/v1/erc20_deployed_claim";
   }
   rpc LogicCallExecutedClaim(MsgLogicCallExecutedClaim)
       returns (MsgLogicCallExecutedClaimResponse) {
-    option (google.api.http).post = "/gravity/v1/logic_call_executed_claim";
+    option (google.api.http).post = "/arcbnb/v1/logic_call_executed_claim";
   }
   rpc SetOrchestratorAddress(MsgSetOrchestratorAddress) returns (MsgSetOrchestratorAddressResponse) {
-    option (google.api.http).post = "/gravity/v1/set_orchestrator_address";
+    option (google.api.http).post = "/arcbnb/v1/set_orchestrator_address";
   }
   rpc CancelSendToEth(MsgCancelSendToEth) returns (MsgCancelSendToEthResponse) {
-    option (google.api.http).post = "/gravity/v1/cancel_send_to_eth";
+    option (google.api.http).post = "/arcbnb/v1/cancel_send_to_eth";
   }
   rpc SubmitBadSignatureEvidence(MsgSubmitBadSignatureEvidence) returns (MsgSubmitBadSignatureEvidenceResponse) {
-    option (google.api.http).post = "/gravity/v1/submit_bad_signature_evidence";
+    option (google.api.http).post = "/arcbnb/v1/submit_bad_signature_evidence";
   }
 }
 

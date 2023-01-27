@@ -17,11 +17,11 @@ use gravity_utils::deep_space::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const AIRDROP_PROPOSAL_TYPE_URL: &str = "/gravity.v1.AirdropProposal";
-pub const UNHALT_BRIDGE_PROPOSAL_TYPE_URL: &str = "/gravity.v1.UnhaltBridgeProposal";
+pub const AIRDROP_PROPOSAL_TYPE_URL: &str = "/arcbnb.v1.AirdropProposal";
+pub const UNHALT_BRIDGE_PROPOSAL_TYPE_URL: &str = "/arcbnb.v1.UnhaltBridgeProposal";
 pub const PARAMETER_CHANGE_PROPOSAL_TYPE_URL: &str =
     "/cosmos.params.v1beta1.ParameterChangeProposal";
-pub const IBC_METADATA_PROPOSAL_TYPE_URL: &str = "/gravity.v1.IBCMetadataProposal";
+pub const IBC_METADATA_PROPOSAL_TYPE_URL: &str = "/arcbnb.v1.IBCMetadataProposal";
 
 /// The proposal.json representation for the airdrop proposal
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -144,7 +144,7 @@ pub async fn submit_pause_bridge_proposal(
 ) -> Result<TxResponse, CosmosGrpcError> {
     let mut params_to_change = Vec::new();
     let halt = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "BridgeActive".to_string(),
         value: format!("{}", proposal.paused),
     };
