@@ -1,5 +1,5 @@
 syntax = "proto3";
-package gravity.v1;
+package arcbnb.v1;
 
 import "gogoproto/gogo.proto";
 import "google/protobuf/any.proto";

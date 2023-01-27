@@ -86,19 +86,19 @@ pub async fn reduce_slashing_window(
 ) {
     let mut params_to_change = Vec::new();
     let signed_valsets_window = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "SignedValsetsWindow".to_string(),
         value: r#""10""#.to_string(),
     };
     params_to_change.push(signed_valsets_window);
     let signed_batches_window = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "SignedBatchesWindow".to_string(),
         value: r#""10""#.to_string(),
     };
     params_to_change.push(signed_batches_window);
     let signed_logic_call_window = ParamChange {
-        subspace: "gravity".to_string(),
+        subspace: "arcbnb".to_string(),
         key: "SignedLogicCallsWindow".to_string(),
         value: r#""10""#.to_string(),
     };

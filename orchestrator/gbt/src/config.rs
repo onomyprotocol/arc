@@ -17,7 +17,7 @@ use crate::args::InitOpts;
 /// can include comments
 pub const CONFIG_NAME: &str = "config.toml";
 /// The folder name for the config
-pub const CONFIG_FOLDER: &str = ".gbt";
+pub const CONFIG_FOLDER: &str = ".arcbnbbt";
 
 /// Creates the config directory and default config file if it does
 /// not already exist

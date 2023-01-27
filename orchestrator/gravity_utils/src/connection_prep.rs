@@ -347,7 +347,7 @@ pub async fn check_for_eth(address: EthAddress, web3: &Web3) -> Result<(), Gravi
     if balance.is_zero() {
         Err(GravityError::ValidationError(
            format!("You don't have any Ethereum! You will need to send some to {} for this program to work. Dust will do for basic operations, more info about average relaying costs will be presented as the program runs \n \
-           You can disable relaying by editing your config file in $HOME/.gbt/config \n\
+           You can disable relaying by editing your config file in $HOME/.arcbnbbt/config \n\
            Even if you disable relaying you still need some dust so that the oracle can function", address),
         ))
     } else {

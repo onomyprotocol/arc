@@ -264,7 +264,7 @@ async function getLatestValset(): Promise<Valset> {
   let request_string = args["cosmos-node"] + "/abci_query"
   let params = {
     params: {
-      path: "\"/custom/gravity/currentValset/\"",
+      path: "\"/custom/arcbnb/currentValset/\"",
       height: block_height,
       prove: "false",
     }
@@ -313,7 +313,7 @@ async function getGravityId(): Promise<string> {
   let request_string = args["cosmos-node"] + "/abci_query"
   let params = {
     params: {
-      path: "\"/custom/gravity/gravityID/\"",
+      path: "\"/custom/arcbnb/gravityID/\"",
       height: block_height,
       prove: "false",
     }

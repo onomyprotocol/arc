@@ -56,10 +56,7 @@ pub async fn set_gravity_delegate_addresses(
         eth_address: delegate_eth_address.to_string(),
     };
 
-    let msg = Msg::new(
-        "/gravity.v1.MsgSetOrchestratorAddress",
-        msg_set_orch_address,
-    );
+    let msg = Msg::new("/arcbnb.v1.MsgSetOrchestratorAddress", msg_set_orch_address);
     contact
         .send_message(
             &[msg],
@@ -102,7 +99,7 @@ pub async fn send_valset_confirms(
             nonce: valset.nonce,
             signature: bytes_to_hex_str(&eth_signature.to_bytes()),
         };
-        let msg = Msg::new("/gravity.v1.MsgValsetConfirm", confirm);
+        let msg = Msg::new("/arcbnb.v1.MsgValsetConfirm", confirm);
         messages.push(msg);
     }
     let res = contact
@@ -148,7 +145,7 @@ pub async fn send_batch_confirm(
             nonce: batch.nonce,
             signature: bytes_to_hex_str(&eth_signature.to_bytes()),
         };
-        let msg = Msg::new("/gravity.v1.MsgConfirmBatch", confirm);
+        let msg = Msg::new("/arcbnb.v1.MsgConfirmBatch", confirm);
         messages.push(msg);
     }
     contact
@@ -192,7 +189,7 @@ pub async fn send_logic_call_confirm(
             invalidation_id: bytes_to_hex_str(&call.invalidation_id),
             invalidation_nonce: call.invalidation_nonce,
         };
-        let msg = Msg::new("/gravity.v1.MsgConfirmLogicCall", confirm);
+        let msg = Msg::new("/arcbnb.v1.MsgConfirmLogicCall", confirm);
         messages.push(msg);
     }
     contact
@@ -238,7 +235,7 @@ pub async fn send_ethereum_claims(
             ethereum_sender: deposit.sender.to_string(),
             orchestrator: our_address.to_string(),
         };
-        let msg = Msg::new("/gravity.v1.MsgSendToCosmosClaim", claim);
+        let msg = Msg::new("/arcbnb.v1.MsgSendToCosmosClaim", claim);
         ordered_msgs.insert(deposit.event_nonce, msg);
     }
     for withdraw in withdraws {
@@ -249,7 +246,7 @@ pub async fn send_ethereum_claims(
             batch_nonce: withdraw.batch_nonce,
             orchestrator: our_address.to_string(),
         };
-        let msg = Msg::new("/gravity.v1.MsgBatchSendToEthClaim", claim);
+        let msg = Msg::new("/arcbnb.v1.MsgBatchSendToEthClaim", claim);
         ordered_msgs.insert(withdraw.event_nonce, msg);
     }
     for deploy in erc20_deploys {
@@ -263,7 +260,7 @@ pub async fn send_ethereum_claims(
             decimals: deploy.decimals as u64,
             orchestrator: our_address.to_string(),
         };
-        let msg = Msg::new("/gravity.v1.MsgERC20DeployedClaim", claim);
+        let msg = Msg::new("/arcbnb.v1.MsgERC20DeployedClaim", claim);
         ordered_msgs.insert(deploy.event_nonce, msg);
     }
     for call in logic_calls {
@@ -274,7 +271,7 @@ pub async fn send_ethereum_claims(
             invalidation_nonce: call.invalidation_nonce,
             orchestrator: our_address.to_string(),
         };
-        let msg = Msg::new("/gravity.v1.MsgLogicCallExecutedClaim", claim);
+        let msg = Msg::new("/arcbnb.v1.MsgLogicCallExecutedClaim", claim);
         ordered_msgs.insert(call.event_nonce, msg);
     }
     for valset in valsets {
@@ -287,7 +284,7 @@ pub async fn send_ethereum_claims(
             reward_token: valset.reward_token.unwrap_or(ZERO_ADDRESS).to_string(),
             orchestrator: our_address.to_string(),
         };
-        let msg = Msg::new("/gravity.v1.MsgValsetUpdatedClaim", claim);
+        let msg = Msg::new("/arcbnb.v1.MsgValsetUpdatedClaim", claim);
         ordered_msgs.insert(valset.event_nonce, msg);
     }
 
@@ -352,7 +349,7 @@ pub async fn send_to_eth(
         bridge_fee: Some(bridge_fee.clone().into()),
     };
 
-    let msg = Msg::new("/gravity.v1.MsgSendToEth", msg_send_to_eth);
+    let msg = Msg::new("/arcbnb.v1.MsgSendToEth", msg_send_to_eth);
     contact
         .send_message(
             &[msg],
@@ -376,7 +373,7 @@ pub async fn send_request_batch(
         sender: our_address.to_string(),
         denom,
     };
-    let msg = Msg::new("/gravity.v1.MsgRequestBatch", msg_request_batch);
+    let msg = Msg::new("/arcbnb.v1.MsgRequestBatch", msg_request_batch);
 
     let fee: Vec<Coin> = match fee {
         Some(fee) => vec![fee],
@@ -413,7 +410,7 @@ pub async fn submit_bad_signature_evidence(
     };
 
     let msg = Msg::new(
-        "/gravity.v1.MsgSubmitBadSignatureEvidence",
+        "/arcbnb.v1.MsgSubmitBadSignatureEvidence",
         msg_submit_bad_signature_evidence,
     );
     contact
@@ -442,7 +439,7 @@ pub async fn cancel_send_to_eth(
         sender: our_address.to_string(),
     };
 
-    let msg = Msg::new("/gravity.v1.MsgCancelSendToEth", msg_cancel_send_to_eth);
+    let msg = Msg::new("/arcbnb.v1.MsgCancelSendToEth", msg_cancel_send_to_eth);
     contact
         .send_message(
             &[msg],
