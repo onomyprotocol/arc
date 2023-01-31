@@ -40,13 +40,11 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
 
     if erc20_balance.is_zero() {
         return Err(GravityError::UnrecoverableError(format!(
-            "You have zero {} tokens, please double check your sender and erc20 addresses!",
-            erc20_address
+            "You have zero {erc20_address} tokens, please double check your sender and erc20 addresses!"
         )));
     } else if amount > erc20_balance {
         return Err(GravityError::UnrecoverableError(format!(
-            "Insufficient balance {} > {}",
-            amount, erc20_balance
+            "Insufficient balance {amount} > {erc20_balance}"
         )));
     }
 
@@ -70,8 +68,7 @@ pub async fn eth_to_cosmos(args: EthToCosmosOpts, prefix: String) -> Result<(), 
         Ok(tx_id) => info!("Send to Cosmos txid: {:#066x}", tx_id),
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Failed to send tokens! {:?}",
-                e
+                "Failed to send tokens! {e:?}"
             )))
         }
     }

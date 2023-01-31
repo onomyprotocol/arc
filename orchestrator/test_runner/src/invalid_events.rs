@@ -35,7 +35,7 @@ pub async fn invalid_events(
     grpc_client: GravityQueryClient<Channel>,
 ) {
     let mut grpc_client = grpc_client;
-    let erc20_denom = format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address);
+    let erc20_denom = format!("{GRAVITY_DENOM_PREFIX}{erc20_address}");
 
     // figure out how many of a given erc20 we already have on startup so that we can
     // keep track of incrementation. This makes it possible to run this test again without

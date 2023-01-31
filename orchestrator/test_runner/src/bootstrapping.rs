@@ -137,7 +137,7 @@ pub async fn deploy_contracts(contact: &Contact) {
                 &format!("--eth-privkey={:#x}", *MINER_PRIVATE_KEY),
                 &format!("--contract={}", paths[1]),
                 "--test-mode=true",
-                &format!("--remote-mode={}", remote_mode),
+                &format!("--remote-mode={remote_mode}"),
             ])
             .output()
             .expect("Failed to deploy contracts!")
@@ -151,7 +151,7 @@ pub async fn deploy_contracts(contact: &Contact) {
                 &format!("--eth-privkey={:#x}", *MINER_PRIVATE_KEY),
                 &format!("--contract={}", C[1]),
                 "--test-mode=true",
-                &format!("--remote-mode={}", remote_mode),
+                &format!("--remote-mode={remote_mode}"),
             ])
             .current_dir(C[2])
             .output()

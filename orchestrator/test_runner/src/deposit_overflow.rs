@@ -177,8 +177,8 @@ pub async fn deposit_overflow_test(
     let dest2_bals = contact.get_balances(dest2).await.unwrap();
     assert!(
         dest2_bals.is_empty(),
-        "dest2 should have no coins, but they have {:?}",
-        dest2_bals
+        "{}",
+        "dest2 should have no coins, but they have {dest2_bals:?}"
     );
     info!("Successful send of Uint256 max value to cosmos user, unable to overflow the supply!");
 }

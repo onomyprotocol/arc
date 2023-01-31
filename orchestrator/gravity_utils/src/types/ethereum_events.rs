@@ -82,8 +82,7 @@ impl ValsetUpdatedEvent {
         let reward_token = EthAddress::from_slice(&reward_token_data[12..]);
         if let Err(e) = reward_token {
             return Err(GravityError::ValidationError(format!(
-                "Bad reward address, must be incorrect parsing {:?}",
-                e
+                "Bad reward address, must be incorrect parsing {e:?}",
             )));
         }
         let reward_token = reward_token.unwrap();

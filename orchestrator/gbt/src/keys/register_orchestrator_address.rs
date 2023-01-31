@@ -42,7 +42,7 @@ pub async fn register_orchestrator_address(
     if let Err(e) = res {
         return Err(GravityError::UnrecoverableError(
             format!(
-                "Failed trying to register delegate addresses error {:?}, correct the error and try again", e
+                "Failed trying to register delegate addresses error {e:?}, correct the error and try again"
             )
         ));
     }

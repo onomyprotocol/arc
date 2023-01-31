@@ -40,24 +40,21 @@ pub async fn submit_ibc_metadata(
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
                             return Err(GravityError::UnrecoverableError(format!(
-                                "Failed to submit proposal with {:?}",
-                                e
+                                "Failed to submit proposal with {e:?}"
                             )))
                         }
                     }
                 }
                 Err(e) => {
                     return Err(GravityError::UnrecoverableError(format!(
-                        "Failed to deserialize your proposal.json, check the contents! {:?}",
-                        e
+                        "Failed to deserialize your proposal.json, check the contents! {e:?}"
                     )))
                 }
             }
         }
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Failed to read your proposal.json check the file path! {:?}",
-                e
+                "Failed to read your proposal.json check the file path! {e:?}"
             )))
         }
     }
@@ -89,24 +86,21 @@ pub async fn submit_airdrop(opts: AirdropProposalOpts, prefix: String) -> Result
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
                             return Err(GravityError::UnrecoverableError(format!(
-                                "Failed to submit proposal with {:?}",
-                                e
+                                "Failed to submit proposal with {e:?}"
                             )))
                         }
                     }
                 }
                 Err(e) => {
                     return Err(GravityError::UnrecoverableError(format!(
-                        "Failed to deserialize your proposal.json, check the contents! {:?}",
-                        e
+                        "Failed to deserialize your proposal.json, check the contents! {e:?}"
                     )))
                 }
             }
         }
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Failed to read your proposal.json check the file path! {:?}",
-                e
+                "Failed to read your proposal.json check the file path! {e:?}"
             )))
         }
     }
@@ -138,24 +132,21 @@ pub async fn submit_emergency_bridge_halt(
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
                             return Err(GravityError::UnrecoverableError(format!(
-                                "Failed to submit proposal with {:?}",
-                                e
+                                "Failed to submit proposal with {e:?}"
                             )))
                         }
                     }
                 }
                 Err(e) => {
                     return Err(GravityError::UnrecoverableError(format!(
-                        "Failed to deserialize your proposal.json, check the contents! {:?}",
-                        e
+                        "Failed to deserialize your proposal.json, check the contents! {e:?}"
                     )))
                 }
             }
         }
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Failed to read your proposal.json check the file path! {:?}",
-                e
+                "Failed to read your proposal.json check the file path! {e:?}"
             )))
         }
     }
@@ -188,24 +179,21 @@ pub async fn submit_oracle_unhalt(
                         Ok(r) => info!("Successfully submitted proposal with txid {}", r.txhash),
                         Err(e) => {
                             return Err(GravityError::UnrecoverableError(format!(
-                                "Failed to submit proposal with {:?}",
-                                e
+                                "Failed to submit proposal with {e:?}"
                             )))
                         }
                     }
                 }
                 Err(e) => {
                     return Err(GravityError::UnrecoverableError(format!(
-                        "Failed to deserialize your proposal.json, check the contents! {:?}",
-                        e
+                        "Failed to deserialize your proposal.json, check the contents! {e:?}"
                     )))
                 }
             }
         }
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Failed to read your proposal.json check the file path! {:?}",
-                e
+                "Failed to read your proposal.json check the file path! {e:?}"
             )))
         }
     }

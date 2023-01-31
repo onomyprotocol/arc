@@ -306,8 +306,8 @@ pub async fn start_orchestrators(
             .expect("Failed to get Gravity Bridge module parameters!");
 
         // but that will execute all the orchestrators in our test in parallel
-        // by spwaning to tokio's future executor
-        let _ = tokio::spawn(async move {
+        // by spawning to tokio's future executor
+        drop(tokio::spawn(async move {
             let web30 =
                 gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
 
@@ -330,7 +330,7 @@ pub async fn start_orchestrators(
                 config,
             )
             .await;
-        });
+        }));
         // used to break out of the loop early to simulate one validator
         // not running an orchestrator
         count += 1;
