@@ -11,7 +11,7 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 
 	distypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/eth/x/gravity/types"
 )
 
 // Check that distKeeper implements the expected type
