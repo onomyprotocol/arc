@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestPrefixRange(t *testing.T) {
 	cases := map[string]struct {
 		src      []byte
@@ -50,7 +50,7 @@ func TestPrefixRange(t *testing.T) {
 }
 
 // Test that valset creation produces the expected normalized power values
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestCurrentValsetNormalization(t *testing.T) {
 	// Setup the overflow test
 	maxPower64 := make([]uint64, 64)             // users with max power (approx 2^63)
@@ -103,7 +103,7 @@ func TestCurrentValsetNormalization(t *testing.T) {
 	}
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestAttestationIterator(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
@@ -150,7 +150,7 @@ func TestAttestationIterator(t *testing.T) {
 	require.Len(t, atts, 2)
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestDelegateKeys(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
@@ -195,7 +195,7 @@ func TestDelegateKeys(t *testing.T) {
 	}
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestLastSlashedValsetNonce(t *testing.T) {
 	input, ctx := SetupFiveValChain(t)
 	k := input.GravityKeeper

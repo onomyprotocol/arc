@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/onomyprotocol/arc/module/config"
-	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	_ "github.com/onomyprotocol/arc/module/bnb/config"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestHandleMsgSendToEth(t *testing.T) {
 	var (
 		userCosmosAddr                   = keeper.RandomAccAddress()
@@ -95,7 +95,7 @@ func TestHandleMsgSendToEth(t *testing.T) {
 
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestMsgSendToCosmosClaim(t *testing.T) {
 	var (
 		myCosmosAddr        = keeper.RandomAccAddress()
@@ -196,7 +196,7 @@ func TestMsgSendToCosmosClaim(t *testing.T) {
 	assert.Equal(t, sdk.Coins{sdk.NewCoin(denom, amountB)}, balance)
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestMsgSendToCosmosClaimWithDenomSwap(t *testing.T) {
 	var (
 		myCosmosAddr    = keeper.RandomAccAddress()
@@ -257,7 +257,7 @@ func TestMsgSendToCosmosClaimWithDenomSwap(t *testing.T) {
 	assert.Equal(t, sdk.Coins{sdk.NewCoin(swapDenom, amountA)}, balance)
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestEthereumBlacklist(t *testing.T) {
 	var (
 		myCosmosAddr        = keeper.RandomAccAddress()
@@ -448,7 +448,7 @@ func TestMsgSendToCosmosOverflow(t *testing.T) {
 	fmt.Println("END>>>>")
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestMsgSendToCosmosClaimSpreadVotes(t *testing.T) {
 	var (
 		myCosmosAddr        = keeper.RandomAccAddress()
@@ -586,7 +586,7 @@ func TestMsgSendToCosmosForeignPrefixedAddress(t *testing.T) {
 	require.Equal(t, nativeBals, sdk.NewCoins(sdk.NewCoin(erc20Denom, expectedDoubleBalance)))
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestMsgSetOrchestratorAddresses(t *testing.T) {
 	var (
 		ethAddress, _                 = types.NewEthAddress("0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255")

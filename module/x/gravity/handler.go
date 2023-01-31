@@ -6,8 +6,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
 // NewHandler returns a handler for "Gravity" type messages.

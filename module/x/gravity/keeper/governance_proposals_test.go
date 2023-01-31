@@ -6,12 +6,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	disttypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestAirdropProposal(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
@@ -70,7 +70,7 @@ func TestAirdropProposal(t *testing.T) {
 
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestIBCMetadataProposal(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
