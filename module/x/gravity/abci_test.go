@@ -11,8 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity/keeper"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
 func TestValsetCreationIfNotAvailable(t *testing.T) {

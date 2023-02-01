@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/onomyprotocol/arc/module/eth/config"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity/keeper"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity/types"
+	_ "github.com/onomyprotocol/arc/module/bnb/config"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
 //nolint: exhaustivestruct

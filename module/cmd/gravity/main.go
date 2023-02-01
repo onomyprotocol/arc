@@ -4,8 +4,8 @@ import (
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/onomyprotocol/arc/module/eth/cmd/gravity/cmd"
-	_ "github.com/onomyprotocol/arc/module/eth/config"
+	"github.com/onomyprotocol/arc/module/bnb/cmd/gravity/cmd"
+	_ "github.com/onomyprotocol/arc/module/bnb/config"
 )
 
 func main() {

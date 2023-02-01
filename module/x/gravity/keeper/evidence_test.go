@@ -8,7 +8,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 

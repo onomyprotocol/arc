@@ -1,4 +1,4 @@
-module github.com/onomyprotocol/arc/module/eth
+module github.com/onomyprotocol/arc/module/bnb
 
 go 1.16
 

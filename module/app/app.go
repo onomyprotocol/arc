@@ -94,10 +94,10 @@ import (
 	// unnamed import of statik for swagger UI support
 	_ "github.com/cosmos/cosmos-sdk/client/docs/statik"
 
-	gravityparams "github.com/onomyprotocol/arc/module/eth/app/params"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity/keeper"
-	gravitytypes "github.com/onomyprotocol/arc/module/eth/x/gravity/types"
+	gravityparams "github.com/onomyprotocol/arc/module/bnb/app/params"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/keeper"
+	gravitytypes "github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
 const appName = "app"

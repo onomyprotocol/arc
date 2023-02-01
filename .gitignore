@@ -12,6 +12,7 @@ tests/assets/*.log
 # IDE files
 .idea/
 module/vendor
+*.iml
 
 #Hardhat files
 cache

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	_ "github.com/onomyprotocol/arc/module/eth/config"
+	_ "github.com/onomyprotocol/arc/module/bnb/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

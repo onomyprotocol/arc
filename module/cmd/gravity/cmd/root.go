@@ -31,8 +31,8 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/onomyprotocol/arc/module/eth/app"
-	"github.com/onomyprotocol/arc/module/eth/app/params"
+	"github.com/onomyprotocol/arc/module/bnb/app"
+	"github.com/onomyprotocol/arc/module/bnb/app/params"
 )
 
 // NewRootCmd creates a new root command for simd. It is called once in the

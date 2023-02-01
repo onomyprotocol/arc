@@ -9,6 +9,8 @@ This doc is written for the `bnb` chain integration, if you use another, replace
 
 ## Module
 
+* Change module version/prefix, rename in all `go` files and `go.mod` `github.com/onomyprotocol/arc/module/eth` to `github.com/onomyprotocol/arc/module/bnb`.
+
 * Change the module name in the `module/x/gravity/types/keys.go`  `ModuleName = "gravity"` to `ModuleName = "arcbnb"`.
 
 * Rename the folder `module/proto/gravity` to `module/proto/arcbnb`.
