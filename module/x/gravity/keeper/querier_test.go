@@ -50,7 +50,7 @@ func TestQueryValsetConfirm(t *testing.T) {
 		"all good": {
 			src: types.QueryValsetConfirmRequest{Nonce: 1, Address: myValidatorCosmosAddr.String()},
 
-			//expResp:  []byte(`{"type":"gravity/MsgValsetConfirm", "value":{"eth_address":"0x3232323232323232323232323232323232323232", "nonce": "1", "orchestrator": "cosmos1ees2tqhhhm9ahlhceh2zdguww9lqn2ckukn86l",  "signature": "alksdjhflkasjdfoiasjdfiasjdfoiasdj"}}`),
+			//expResp:  []byte(`{"type":"arcbnb/MsgValsetConfirm", "value":{"eth_address":"0x3232323232323232323232323232323232323232", "nonce": "1", "orchestrator": "cosmos1ees2tqhhhm9ahlhceh2zdguww9lqn2ckukn86l",  "signature": "alksdjhflkasjdfoiasjdfiasjdfoiasdj"}}`),
 			expResp: types.QueryValsetConfirmResponse{
 				Confirm: types.NewMsgValsetConfirm(1, *myValidatorEthereumAddr, myValidatorCosmosAddr, "alksdjhflkasjdfoiasjdfiasjdfoiasdj")},
 			expErr: false,

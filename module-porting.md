@@ -25,6 +25,12 @@ This doc is written for the `bnb` chain integration, if you use another, replace
 
 * Update `proto-check-breaking` goal in the `Makefile`, updated the `#branch=main` to `#branch=bnb`
 
+* Replace `gravity.v1beta1` to `arcbnb.v1beta1` in all files.
+
+* Replace `gravity/Msg` to `arcbnb/Msg` in all files.
+
+* Replace `gravity` to `arcbnb` in the `module/x/gravity/types/codec.go` file.
+
 ## Solidity
 
 * Replace `/custom/gravity` to `/custom/arcbnb` in the `solidity` folder.
