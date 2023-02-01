@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/onomyprotocol/arc/module/config"
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	_ "github.com/onomyprotocol/arc/module/eth/config"
+	"github.com/onomyprotocol/arc/module/eth/x/gravity/types"
 )
 
 func TestQueryValsetConfirm(t *testing.T) {

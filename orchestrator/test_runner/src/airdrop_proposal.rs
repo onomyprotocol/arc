@@ -115,7 +115,7 @@ async fn submit_and_pass_airdrop_proposal(
     keys: &[ValidatorKeys],
 ) -> Result<bool, CosmosGrpcError> {
     let proposal_content = AirdropProposalJson {
-        title: format!("Proposal to perform {} airdrop", denom),
+        title: format!("Proposal to perform {denom} airdrop"),
         description: "Airdrop time!".to_string(),
         denom,
         amounts: amounts.to_vec(),
@@ -166,7 +166,7 @@ async fn submit_and_fail_airdrop_proposal(
     }
 
     let proposal_content = AirdropProposalMsg {
-        title: format!("Proposal to perform {} airdrop", denom),
+        title: format!("Proposal to perform {denom} airdrop"),
         description: "Airdrop time!".to_string(),
         denom,
         amounts: amounts.to_vec(),

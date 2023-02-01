@@ -97,8 +97,8 @@ async fn setup_batch_test(
         .await;
     assert!(
         weth_acquired.is_ok(),
-        "Unable to wrap eth via web30.wrap_eth() {:?}",
-        weth_acquired
+        "{}",
+        "Unable to wrap eth via web30.wrap_eth() {weth_acquired:?}"
     );
     // Acquire 1,000 WETH worth of DAI (probably ~23,000 DAI)
     info!("Starting swap!");
@@ -131,8 +131,8 @@ async fn setup_batch_test(
     info!("Swap result is {:?}", token_acquired);
     assert!(
         token_acquired.is_ok(),
-        "Unable to give the miner 1000 WETH worth of {}",
-        erc20_contract
+        "{}",
+        "Unable to give the miner 1000 WETH worth of {erc20_contract}"
     );
 
     // Generate an address to send funds
@@ -179,7 +179,7 @@ async fn setup_batch_test(
     let cdai_held = contact
         .get_balance(
             dest_cosmos_address,
-            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_contract),
+            format!("{GRAVITY_DENOM_PREFIX}{erc20_contract}"),
         )
         .await
         .unwrap()
@@ -348,8 +348,7 @@ async fn test_good_batch(
 
     assert_eq!(
         dest_eth_bal, send_amount,
-        "destination eth balance {} != {}",
-        dest_eth_bal, send_amount,
+        "destination eth balance {dest_eth_bal} != {send_amount}",
     );
 
     info!(
@@ -405,8 +404,7 @@ async fn test_bad_batch(
 
     assert_ne!(
         dest_eth_bal, send_amount,
-        "destination eth balance {} == {}",
-        dest_eth_bal, send_amount,
+        "destination eth balance {dest_eth_bal} == {send_amount}",
     );
 
     info!(

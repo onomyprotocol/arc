@@ -52,8 +52,7 @@ pub async fn deploy_erc20_representation(
     if let Ok(val) = res {
         let erc20 = val.into_inner().erc20;
         return Err(GravityError::UnrecoverableError(format!(
-            "Asset {} already has ERC20 representation {}",
-            denom, erc20
+            "Asset {denom} already has ERC20 representation {erc20}"
         )));
     }
 
@@ -119,8 +118,7 @@ pub async fn deploy_erc20_representation(
             Ok(())
         }
         Err(e) => Err(GravityError::UnrecoverableError(format!(
-            "Unable to make metadata request, check grpc {:?}",
-            e
+            "Unable to make metadata request, check grpc {e:?}"
         ))),
     }
 }

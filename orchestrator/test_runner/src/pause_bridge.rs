@@ -113,7 +113,7 @@ pub async fn pause_bridge_test(
     let coin = contact
         .get_balance(
             user_keys.cosmos_address,
-            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address),
+            format!("{GRAVITY_DENOM_PREFIX}{erc20_address}"),
         )
         .await
         .unwrap()
@@ -187,7 +187,7 @@ pub async fn pause_bridge_test(
     let res = contact
         .get_balance(
             user_keys.cosmos_address,
-            format!("{}{}", GRAVITY_DENOM_PREFIX, erc20_address),
+            format!("{GRAVITY_DENOM_PREFIX}{erc20_address}"),
         )
         .await
         .unwrap()
