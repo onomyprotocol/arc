@@ -4,8 +4,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/eth/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/eth/x/gravity/types"
 )
 
 // EndBlocker is called at the end of every block

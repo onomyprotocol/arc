@@ -32,8 +32,7 @@ pub async fn cosmos_to_eth(
         Ok(v) => v.cosmos_originated,
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Could not lookup denom is it valid? {:?}",
-                e
+                "Could not lookup denom is it valid? {e:?}"
             )));
         }
     };
@@ -105,8 +104,7 @@ pub async fn cosmos_to_eth(
         Ok(tx_id) => info!("Send to Eth txid {}", tx_id.txhash),
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Failed to send tokens! {:?}",
-                e
+                "Failed to send tokens! {e:?}"
             )))
         }
     }

@@ -67,8 +67,7 @@ pub async fn query_airdrops(opts: AirdropQueryOpts, prefix: String) -> Result<()
         }
         Err(e) => {
             return Err(GravityError::UnrecoverableError(format!(
-                "Failed to get proposals, check your cosmos gRPC {:?}",
-                e
+                "Failed to get proposals, check your cosmos gRPC {e:?}"
             )))
         }
     }

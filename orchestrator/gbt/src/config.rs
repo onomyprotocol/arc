@@ -74,8 +74,7 @@ pub fn load_config(home_dir: &Path) -> Result<GravityBridgeToolsConfig, GravityE
     match val {
         Ok(v) => Ok(v.into()),
         Err(e) => Err(GravityError::UnrecoverableError(format!(
-            "Invalid config! {:?}",
-            e
+            "Invalid config! {e:?}"
         ))),
     }
 }
