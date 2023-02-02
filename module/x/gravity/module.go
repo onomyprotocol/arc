@@ -19,10 +19,10 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	abci "github.com/tendermint/tendermint/abci/types"
 
-	"github.com/onomyprotocol/arc/module/x/gravity/client/cli"
-	"github.com/onomyprotocol/arc/module/x/gravity/client/rest"
-	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/client/cli"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/client/rest"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/keeper"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
 // type check to ensure the interface is properly implemented

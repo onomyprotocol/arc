@@ -17,7 +17,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/tendermint/tendermint/libs/log"
 
-	"github.com/onomyprotocol/arc/module/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/bnb/x/gravity/types"
 )
 
 // Check that our expected keeper types are implemented

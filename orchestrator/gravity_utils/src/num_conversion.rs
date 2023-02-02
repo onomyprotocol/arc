@@ -22,19 +22,19 @@ pub fn fraction_to_exponent(num: f64, exponent: u8) -> Uint256 {
 pub fn print_eth(input: Uint256) -> String {
     let float: f64 = input.to_string().parse().unwrap();
     let res = float / ONE_ETH_FLOAT;
-    format!("{:.4}", res)
+    format!("{res:.4}")
 }
 
 pub fn print_nom(input: Uint256) -> String {
     let float: f64 = input.to_string().parse().unwrap();
     let res = float / ONE_NOM_FLOAT;
-    format!("{:.4}", res)
+    format!("{res:.4}")
 }
 
 pub fn print_gwei(input: Uint256) -> String {
     let float: f64 = input.to_string().parse().unwrap();
     let res = float / ONE_GWEI_FLOAT;
-    format!("{:}", res)
+    format!("{res:}")
 }
 
 #[test]

@@ -9,6 +9,8 @@ This doc is written for the `bnb` chain integration, if you use another, replace
 
 ## Module
 
+* Change module version/prefix, rename in all `go` files and `go.mod` `github.com/onomyprotocol/arc/module/eth` to `github.com/onomyprotocol/arc/module/bnb`.
+
 * Change the module name in the `module/x/gravity/types/keys.go`  `ModuleName = "gravity"` to `ModuleName = "arcbnb"`.
 
 * Rename the folder `module/proto/gravity` to `module/proto/arcbnb`.
@@ -22,6 +24,12 @@ This doc is written for the `bnb` chain integration, if you use another, replace
 * Run the tests if the `module`, open the `moduel` in the CLI and execute `make test`.
 
 * Update `proto-check-breaking` goal in the `Makefile`, updated the `#branch=main` to `#branch=bnb`
+
+* Replace `gravity.v1beta1` to `arcbnb.v1beta1` in all files.
+
+* Replace `gravity/Msg` to `arcbnb/Msg` in all files.
+
+* Replace `gravity` to `arcbnb` in the `module/x/gravity/types/codec.go` file.
 
 ## Solidity
 

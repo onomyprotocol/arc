@@ -50,9 +50,8 @@ pub async fn check_for_events(
         // do this even if `expected_delay` is zero, be extra paranoid
         if finalized_block.checked_add(expected_delay).unwrap() > unsafe_latest_block {
             return Err(GravityError::UnrecoverableError(format!(
-                "the finalized block number ({:?}) does not have the expected minimum delay \
-                ({:?}) over the latest block number ({:?})",
-                finalized_block, expected_delay, unsafe_latest_block
+                "the finalized block number ({finalized_block:?}) does not have the expected minimum delay \
+                ({expected_delay:?}) over the latest block number ({unsafe_latest_block:?})"
             )));
         }
 

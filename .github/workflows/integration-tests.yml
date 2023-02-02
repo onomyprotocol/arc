@@ -5,7 +5,6 @@ on:
     branches: [bnb]
   pull_request:
 
-# the old `action-docker-layer-caching` repo was unmaintained, found https://github.com/satackey/action-docker-layer-caching/issues/347 as an alternative
 jobs:
   # this is the standard test, which is the only one without `skip-save: true` so we don't waste a
   # lot of resources saving the same thing for every test
@@ -13,9 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: jpribyl/action-docker-layer-caching@v0.1.1
-      - name: Prune cache to keep the size down
-        run: docker builder prune -af && docker system prune -af
       - name: Run all up happy-path test
         run: tests/all-up-test.sh
   # these other tests before the matrix have special requirements
@@ -23,24 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: jpribyl/action-docker-layer-caching@v0.1.1
-        with:
-          skip-save: true
       - name: Run all up happy-path test
         run: tests/all-up-test.sh
         env:
           HARDHAT: True
-  # relay-market:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: jpribyl/action-docker-layer-caching@v0.1.1
-  #       with:
-  #         skip-save: true
-  #     - name: Run all up relay market test
-  #       run: tests/all-up-test.sh RELAY_MARKET $ALCHEMY_ID
-  #       env:
-  #         ALCHEMY_ID: ${{ secrets.ALCHEMY_ID }}
   all-up-test-matrix:
     runs-on: ubuntu-latest
     strategy:
@@ -68,8 +50,5 @@ jobs:
           ]
     steps:
       - uses: actions/checkout@v2
-      - uses: jpribyl/action-docker-layer-caching@v0.1.1
-        with:
-          skip-save: true
       - name: Run all up ${{ matrix.name }} test
         run: tests/all-up-test.sh ${{ matrix.name }}
