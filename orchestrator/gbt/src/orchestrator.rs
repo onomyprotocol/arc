@@ -11,11 +11,11 @@ use gravity_utils::{
     get_block_delay, get_expected_block_delay,
     get_with_retry::get_net_version_with_retry,
     types::{BatchRequestMode, GravityBridgeToolsConfig},
-    TEST_ETH_CHAIN_ID, USE_FINALIZATION,
+    TEST_ETH_CHAIN_ID,
 };
 use metrics_exporter::metrics_server;
 use orchestrator::main_loop::{
-    orchestrator_main_loop, ETH_ORACLE_LOOP_SPEED, ETH_SIGNER_LOOP_SPEED,
+    orchestrator_main_loop, ETH_ORACLE_LOOP_SPEED, ETH_SIGNER_LOOP_SPEED, USE_FINALIZATION,
 };
 
 use crate::{args::OrchestratorOpts, utils::print_relaying_explanation};
@@ -68,7 +68,7 @@ pub async fn orchestrator(
     if net_version == TEST_ETH_CHAIN_ID {
         warn!("Chain ID is equal to TEST_ETH_CHAIN_ID, assuming this is a local test net");
     }
-    if USE_FINALIZATION {
+    if *USE_FINALIZATION {
         info!(
             "Using finalization with expected minimum block delay {}",
             expected_block_delay

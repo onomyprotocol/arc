@@ -28,7 +28,7 @@ pub const TEST_ETH_CHAIN_ID: u64 = 1337;
 pub const BLOCK_DELAY: Uint256 = u256!(96);
 pub const TEST_BLOCK_DELAY: Uint256 = u256!(0);
 
-pub const USE_FINALIZATION: bool = true;
+pub const DEFAULT_FINALIZATION: bool = true;
 pub const EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(32);
 pub const TEST_EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(0);
 
