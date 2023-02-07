@@ -44,7 +44,7 @@ fi
 # running the test runner only to deploy the ethereum contracts
 # note that variables like GRAVITY_ADDRESS affect the binary
 pushd /gravity/orchestrator/test_runner
-DEPLOY_CONTRACTS=1 RUST_BACKTRACE=full RUST_LOG="INFO,relayer=DEBUG,orchestrator=DEBUG" PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS
+USE_FINALIZATION=false DEPLOY_CONTRACTS=1 RUST_BACKTRACE=full RUST_LOG="INFO,relayer=DEBUG,orchestrator=DEBUG" PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS
 
 # runs the test runner for real
 bash /gravity/tests/container-scripts/integration-tests.sh $TEST_TYPE

@@ -14,10 +14,11 @@ use gravity_utils::{
         TransactionBatchExecutedEvent, ValsetUpdatedEvent,
     },
     web30::{client::Web3, jsonrpc::error::Web3Error},
-    USE_FINALIZATION,
 };
 use metrics_exporter::metrics_errors_counter;
 use tonic::transport::Channel;
+
+use crate::main_loop::USE_FINALIZATION;
 
 #[derive(Clone, Copy)]
 pub struct CheckedNonces {
@@ -37,7 +38,7 @@ pub async fn check_for_events(
 ) -> Result<CheckedNonces, GravityError> {
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
 
-    let ending_block = if USE_FINALIZATION {
+    let ending_block = if *USE_FINALIZATION {
         // get this first in case inbetween the calls is a block boundary
         // don't accidentally use this variable elswhere
         let unsafe_latest_block = get_latest_block_number_with_retry(web3).await;

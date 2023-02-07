@@ -16,12 +16,13 @@ use gravity_utils::{
     get_block_delay, get_expected_block_delay,
     get_with_retry::get_net_version_with_retry,
     u64_array_bigints, TEST_DEFAULT_ETH_NODE_ENDPOINT, TEST_DEFAULT_MINER_KEY, TEST_ETH_CHAIN_ID,
-    TEST_GAS_LIMIT, TEST_RUN_BLOCK_STIMULATOR, USE_FINALIZATION,
+    TEST_GAS_LIMIT, TEST_RUN_BLOCK_STIMULATOR,
 };
 use happy_path::happy_path_test;
 use happy_path_v2::happy_path_test_v2;
 use lazy_static::lazy_static;
 use orch_keys::orch_keys;
+use orchestrator::main_loop::USE_FINALIZATION;
 use relay_market::relay_market_test;
 use remote_stress_test::remote_stress_test;
 use transaction_stress_test::transaction_stress_test;
@@ -158,7 +159,7 @@ pub async fn main() {
     if net_version != TEST_ETH_CHAIN_ID {
         warn!("Chain ID is not equal to TEST_ETH_CHAIN_ID");
     }
-    if USE_FINALIZATION {
+    if *USE_FINALIZATION {
         info!(
             "Using finalization with expected minimum block delay {}",
             expected_block_delay

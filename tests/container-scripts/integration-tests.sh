@@ -22,4 +22,4 @@ else
     RUN_ARGS=/gravity/tests/dockerfile/test-runner
 fi
 
-RUST_BACKTRACE=full TEST_TYPE=$TEST_TYPE RUST_LOG=INFO PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS
+USE_FINALIZATION=false RUST_BACKTRACE=full TEST_TYPE=$TEST_TYPE RUST_LOG=INFO PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS

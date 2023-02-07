@@ -2,7 +2,7 @@
 //! that can only be run by a validator. This single binary the 'Orchestrator' runs not only these two rules but also the untrusted role of a relayer, that does not need any permissions and has it's
 //! own crate and binary so that anyone may run it.
 
-use std::{cmp::min, time::Duration};
+use std::{cmp::min, env, time::Duration};
 
 use cosmos_gravity::{
     query::{
@@ -26,7 +26,9 @@ use gravity_utils::{
     types::GravityBridgeToolsConfig,
     u64_array_bigints,
     web30::client::Web3,
+    DEFAULT_FINALIZATION,
 };
+use lazy_static::lazy_static;
 use metrics_exporter::{metrics_errors_counter, metrics_latest, metrics_warnings_counter};
 use relayer::main_loop::relayer_main_loop;
 use tokio::time::sleep;
@@ -39,6 +41,14 @@ use crate::{ethereum_event_watcher::check_for_events, oracle_resync::get_last_ch
 /// loop except the relayer loop
 pub const ETH_SIGNER_LOOP_SPEED: Duration = Duration::from_secs(11);
 pub const ETH_ORACLE_LOOP_SPEED: Duration = Duration::from_secs(13);
+
+lazy_static! {
+    pub static ref USE_FINALIZATION: bool = {
+        env::var("USE_FINALIZATION")
+            .map(|s| if s == "false" { false } else { true })
+            .unwrap_or_else(|_| DEFAULT_FINALIZATION)
+    };
+}
 
 /// This loop combines the three major roles required to make
 /// up the 'Orchestrator', all three of these are async loops
