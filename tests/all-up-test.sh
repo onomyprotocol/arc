@@ -88,8 +88,7 @@ docker-compose -f dockerfile/docker-compose.yml down
 set +e
 docker network rm net
 set -e
-# insure everything is self contained
-docker network create --internal net
+docker network create net
 
 docker-compose -f dockerfile/docker-compose.yml build
 
