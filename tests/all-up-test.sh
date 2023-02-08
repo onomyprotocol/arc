@@ -76,7 +76,7 @@ else
    RUN_ARGS="/bin/bash /gravity/tests/container-scripts/all-up-test-internal.sh ${NODES} ${TEST_TYPE:-} ${ALCHEMY_ID:-}"
 fi
 
-export NEON_EVM_IMAGE="neonlabsorg/evm_loader:v0.15.1"
+export NEON_EVM_IMAGE="neonlabsorg/evm_loader:v0.15.2"
 export NEON_PROXY_IMAGE="neonlabsorg/proxy:v0.15.2"
 export NEON_FAUCET_IMAGE="neonlabsorg/faucet:v0.12.0"
 export USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0}
