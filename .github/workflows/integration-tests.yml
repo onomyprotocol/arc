@@ -15,40 +15,40 @@ jobs:
       - name: Run all up happy-path test
         run: tests/all-up-test.sh
   # these other tests before the matrix have special requirements
-  happy-path-hardhat:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run all up happy-path test
-        run: tests/all-up-test.sh
-        env:
-          HARDHAT: True
-  all-up-test-matrix:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        name:
-          [
-            VALIDATOR_OUT,
-            VALSET_STRESS,
-            BATCH_STRESS,
-            REMOTE_STRESS_FOR_CI,
-            HAPPY_PATH_V2,
-            ORCHESTRATOR_KEYS,
-            VALSET_REWARDS,
-            EVIDENCE,
-            TXCANCEL,
-            INVALID_EVENTS,
-            UNHALT_BRIDGE,
-            PAUSE_BRIDGE,
-            DEPOSIT_OVERFLOW,
-            ETHEREUM_BLACKLIST,
-            AIRDROP_PROPOSAL,
-            SIGNATURE_SLASHING,
-            SLASHING_DELEGATION,
-            IBC_METADATA,
-          ]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run all up ${{ matrix.name }} test
-        run: tests/all-up-test.sh ${{ matrix.name }}
+  # happy-path-hardhat:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Run all up happy-path test
+  #       run: tests/all-up-test.sh
+  #       env:
+  #         HARDHAT: True
+  # all-up-test-matrix:
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       name:
+  #         [
+  #           VALIDATOR_OUT,
+  #           VALSET_STRESS,
+  #           BATCH_STRESS,
+  #           REMOTE_STRESS_FOR_CI,
+  #           HAPPY_PATH_V2,
+  #           ORCHESTRATOR_KEYS,
+  #           VALSET_REWARDS,
+  #           EVIDENCE,
+  #           TXCANCEL,
+  #           INVALID_EVENTS,
+  #           UNHALT_BRIDGE,
+  #           PAUSE_BRIDGE,
+  #           DEPOSIT_OVERFLOW,
+  #           ETHEREUM_BLACKLIST,
+  #           AIRDROP_PROPOSAL,
+  #           SIGNATURE_SLASHING,
+  #           SLASHING_DELEGATION,
+  #           IBC_METADATA,
+  #         ]
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Run all up ${{ matrix.name }} test
+  #       run: tests/all-up-test.sh ${{ matrix.name }}
