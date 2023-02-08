@@ -76,8 +76,8 @@ else
    RUN_ARGS="/bin/bash /gravity/tests/container-scripts/all-up-test-internal.sh ${NODES} ${TEST_TYPE:-} ${ALCHEMY_ID:-}"
 fi
 
-export NEON_EVM_IMAGE="neonlabsorg/evm_loader:v0.15.2"
-export NEON_PROXY_IMAGE="neonlabsorg/proxy:v0.15.2"
+export NEON_EVM_IMAGE="neonlabsorg/evm_loader:262075a1b72dcfc3a97d2d99035205ecd5dd6e02"
+export NEON_PROXY_IMAGE="neonlabsorg/proxy:c6b5aedcf26f72cf06275d8d324f2db913609f2b"
 export NEON_FAUCET_IMAGE="neonlabsorg/faucet:v0.12.0"
 export USE_LOCAL_ARTIFACTS=${USE_LOCAL_ARTIFACTS:-0}
 export VOLUME_ARGS
@@ -93,7 +93,7 @@ docker network create net
 docker-compose -f dockerfile/docker-compose.yml build
 
 set +e
-docker-compose -f dockerfile/docker-compose.yml up -d --force-recreate
+docker-compose -f dockerfile/docker-compose.yml up --force-recreate
 set -e
 
 # the test container is run separately from the ones in `docker-compose` because of problems related
