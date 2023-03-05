@@ -199,12 +199,12 @@ var (
 
 	// TestingStakeParams is a set of staking params for testing
 	TestingStakeParams = stakingtypes.Params{
-		UnbondingTime:           100,
-		MaxValidators:           10,
-		MaxEntries:              10,
-		HistoricalEntries:       10000,
-		BondDenom:               "stake",
-		MinGlobalSelfDelegation: sdk.ZeroInt(),
+		UnbondingTime:     100,
+		MaxValidators:     10,
+		MaxEntries:        10,
+		HistoricalEntries: 10000,
+		BondDenom:         "stake",
+		// MinGlobalSelfDelegation: sdk.ZeroInt(),
 	}
 
 	// TestingGravityParams is a set of gravity params for testing
