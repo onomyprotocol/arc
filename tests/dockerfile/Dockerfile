@@ -1,4 +1,4 @@
-FROM fedora:34
+FROM fedora:37
 ARG use_local_artifacts
 ENV USE_LOCAL_ARTIFACTS=${use_local_artifacts:-0}
 ENV GOPATH=/go
