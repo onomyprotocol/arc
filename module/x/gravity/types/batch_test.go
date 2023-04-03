@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	_ "github.com/onomyprotocol/arc/module/eth/config"
+	_ "github.com/onomyprotocol/arc/module/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestOutgoingTxBatchCheckpointGold1(t *testing.T) {
 	senderAddr, err := sdk.AccAddressFromHex("527FBEE652609AB150F0AEE9D61A2F76CFC4A73E")
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestOutgoingTxBatchCheckpointGold1(t *testing.T) {
 	assert.Equal(t, goldHash, hex.EncodeToString(ourHash))
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestOutgoingLogicCallCheckpointGold1(t *testing.T) {
 	payload, err := hex.DecodeString("0x74657374696e675061796c6f6164000000000000000000000000000000000000"[2:])
 	require.NoError(t, err)

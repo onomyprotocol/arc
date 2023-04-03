@@ -8,11 +8,11 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/onomyprotocol/arc/module/eth/x/gravity/types"
+	"github.com/onomyprotocol/arc/module/x/gravity/types"
 	"github.com/stretchr/testify/require"
 )
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
@@ -70,7 +70,7 @@ func TestSubmitBadSignatureEvidenceBatchExists(t *testing.T) {
 	require.EqualError(t, err, "Checkpoint exists, cannot slash: invalid")
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestSubmitBadSignatureEvidenceValsetExists(t *testing.T) {
 	//input := CreateTestEnv(t)
 	input, ctx := SetupFiveValChain(t)
@@ -89,7 +89,7 @@ func TestSubmitBadSignatureEvidenceValsetExists(t *testing.T) {
 	require.EqualError(t, err, "Checkpoint exists, cannot slash: invalid")
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestSubmitBadSignatureEvidenceLogicCallExists(t *testing.T) {
 	input := CreateTestEnv(t)
 	ctx := input.Context
@@ -111,7 +111,7 @@ func TestSubmitBadSignatureEvidenceLogicCallExists(t *testing.T) {
 	require.EqualError(t, err, "Checkpoint exists, cannot slash: invalid")
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestSubmitBadSignatureEvidenceSlash(t *testing.T) {
 	input, ctx := SetupFiveValChain(t)
 
