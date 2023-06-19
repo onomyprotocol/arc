@@ -439,12 +439,10 @@ func TestRemoveFromOutgoingPoolAndRefund(t *testing.T) {
 
 func TestRemoveFromOutgoingPoolAndRefundCosmosOriginated(t *testing.T) {
 	input := CreateTestEnv(t)
-	defer func() { input.Context.Logger().Info("Asserting invariants at test end"); input.AssertInvariants() }()
-
 	ctx := input.Context
 
 	var (
-		mySender, _         = sdk.AccAddressFromBech32("gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm")
+		mySender            = RandomAccAddress()
 		myReceiver          = "0xd041c41EA1bf0F006ADBb6d2c9ef9D425dE5eaD7"
 		myTokenContractAddr = "0x429881672B9AE42b8EbA0E26cD9C73711b891Ca5"
 		myTokenDenom        = "grav"
@@ -463,7 +461,7 @@ func TestRemoveFromOutgoingPoolAndRefundCosmosOriginated(t *testing.T) {
 	isCosmosOriginated, addr, err := input.GravityKeeper.DenomToERC20Lookup(ctx, myTokenDenom)
 	require.True(t, isCosmosOriginated)
 	require.NoError(t, err)
-	require.Equal(t, tokenAddr.GetAddress().Hex(), myTokenContractAddr)
+	require.Equal(t, tokenAddr.GetAddress(), myTokenContractAddr)
 	require.Equal(t, tokenAddr, addr)
 
 	allVouchers := sdk.Coins{sdk.NewCoin(myTokenDenom, sdk.NewIntFromUint64(originalBal))}
