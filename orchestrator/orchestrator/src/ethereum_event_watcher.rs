@@ -38,8 +38,7 @@ pub async fn check_for_events(
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
 
     let ending_block = if USE_FINALIZATION {
-        let finalized_block = get_finalized_block_number_with_retry(web3).await;
-        finalized_block
+        get_finalized_block_number_with_retry(web3).await
     } else {
         let latest_block = get_latest_block_number_with_retry(web3).await;
         latest_block
