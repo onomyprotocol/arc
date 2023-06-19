@@ -47,3 +47,6 @@ func (h Hooks) BeforeDelegationSharesModified(ctx sdk.Context, delAddr sdk.AccAd
 }
 func (h Hooks) AfterDelegationModified(ctx sdk.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) {
 }
+func (h Hooks) AfterUnbondingInitiated(ctx sdk.Context, id uint64) error {
+	return nil
+}

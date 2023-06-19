@@ -246,7 +246,7 @@ func valsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 					// refresh validator before slashing/jailing
 					val = updateValidator(ctx, k, val.GetOperator())
 					if !val.IsJailed() {
-						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
+						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset, stakingtypes.InfractionEmpty)
 						ctx.EventManager().EmitEvent(
 							sdk.NewEvent(
 								sdk.EventTypeMessage,
@@ -291,7 +291,7 @@ func valsetSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 					// refresh validator before slashing/jailing
 					validator = updateValidator(ctx, k, validator.GetOperator())
 					if !validator.IsJailed() {
-						k.StakingKeeper.Slash(ctx, valConsAddr, ctx.BlockHeight(), validator.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset)
+						k.StakingKeeper.Slash(ctx, valConsAddr, ctx.BlockHeight(), validator.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionValset, stakingtypes.InfractionEmpty)
 						ctx.EventManager().EmitEvent(
 							sdk.NewEvent(
 								sdk.EventTypeMessage,
@@ -397,7 +397,7 @@ func batchSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 					// refresh validator before slashing/jailing
 					val = updateValidator(ctx, k, val.GetOperator())
 					if !val.IsJailed() {
-						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBatch)
+						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBatch, stakingtypes.InfractionEmpty)
 						ctx.EventManager().EmitEvent(
 							sdk.NewEvent(
 								sdk.EventTypeMessage,
@@ -473,7 +473,7 @@ func logicCallSlashing(ctx sdk.Context, k keeper.Keeper, params types.Params) {
 					// refresh validator before slashing/jailing
 					val = updateValidator(ctx, k, val.GetOperator())
 					if !val.IsJailed() {
-						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionLogicCall)
+						k.StakingKeeper.Slash(ctx, consAddr, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionLogicCall, stakingtypes.InfractionEmpty)
 						ctx.EventManager().EmitEvent(
 							sdk.NewEvent(
 								sdk.EventTypeMessage,
