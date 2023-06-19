@@ -8,6 +8,7 @@ version = "0.1.0"
 clarity = { git = "https://github.com/onomyprotocol/clarity.git", rev = "3e875b608a2d9302c8b23dd40dc8705901db230c" }
 deep_space = { git = "https://github.com/onomyprotocol/deep_space.git", rev = "36aa611a1ccfd4a48e1248d029a11cb026106254" }
 gravity_proto = { path = "../gravity_proto/" }
+lazy_static = "1"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 sha3 = "0.10"
@@ -16,7 +17,7 @@ tokio = { version = "1.17", features = ["macros", "rt-multi-thread"] }
 tonic = "0.7"
 u64_array_bigints = { version = "0.3", default-features = false, features = ["serde_support"] }
 url = "2"
-web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "e5f7eac019d9c9f2730316295564e69336ef036c", features = ["warn_on_rpc_error"]}
+web30 = { git = "https://github.com/onomyprotocol/web30.git", rev = "e5f7eac019d9c9f2730316295564e69336ef036c", features = ["warn_on_rpc_error"] }
 
 [dev_dependencies]
 rand = "0.8"

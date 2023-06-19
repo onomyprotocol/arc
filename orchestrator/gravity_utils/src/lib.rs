@@ -10,10 +10,13 @@ pub mod num_conversion;
 pub mod prices;
 pub mod types;
 
+use std::env;
+
 pub use clarity;
 use clarity::{u256, Uint256};
 pub use deep_space;
 use get_with_retry::get_net_version_with_retry;
+use lazy_static::lazy_static;
 pub use u64_array_bigints;
 pub use web30;
 use web30::client::Web3;
@@ -34,6 +37,18 @@ pub const BLOCK_DELAY: Uint256 = u256!(35);
 pub const TEST_BLOCK_DELAY: Uint256 = u256!(0);
 
 pub const USE_FINALIZATION: bool = false;
+
+pub const DEFAULT_SEND_TO_COSMOS_MAX_GAS_LIMIT: Uint256 = u256!(100_000);
+lazy_static! {
+    // puts an absolute cap on the gas limit in send_to_cosmos
+    pub static ref SEND_TO_COSMOS_MAX_GAS_LIMIT: Uint256 =
+        env::var("SEND_TO_COSMOS_MAX_GAS_LIMIT").map(
+            |s| Uint256::from_dec_or_hex_str(&s).expect(
+                "SEND_TO_COSMOS_MAX_GAS_LIMIT is not a decimal \
+                or hexadecimal string that fits in a Uint256"
+        )
+        ).unwrap_or_else(|_| DEFAULT_SEND_TO_COSMOS_MAX_GAS_LIMIT);
+}
 
 /// Only for tests, some chains are quiescent and need dummy transactions to keep block
 /// production going and not softlock tests.

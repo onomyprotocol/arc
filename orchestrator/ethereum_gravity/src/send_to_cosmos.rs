@@ -1,6 +1,6 @@
 //! Helper functions for sending tokens to Cosmos
 
-use std::time::Duration;
+use std::{cmp::min, time::Duration};
 
 use gravity_utils::{
     clarity::{
@@ -11,6 +11,7 @@ use gravity_utils::{
     error::GravityError,
     u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
+    SEND_TO_COSMOS_MAX_GAS_LIMIT,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -42,7 +43,10 @@ pub async fn send_to_cosmos(
     }
 
     if !has_gas_limit {
-        options.push(SendTxOption::GasLimit(web3.eth_gas_price().await?));
+        options.push(SendTxOption::GasLimit(min(
+            web3.eth_gas_price().await?,
+            *SEND_TO_COSMOS_MAX_GAS_LIMIT,
+        )));
     }
 
     // add nonce to options

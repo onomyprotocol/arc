@@ -11,7 +11,7 @@ use gravity_utils::{
     get_block_delay,
     get_with_retry::get_net_version_with_retry,
     types::{BatchRequestMode, GravityBridgeToolsConfig},
-    TEST_ETH_CHAIN_ID, USE_FINALIZATION,
+    SEND_TO_COSMOS_MAX_GAS_LIMIT, TEST_ETH_CHAIN_ID, USE_FINALIZATION,
 };
 use metrics_exporter::metrics_server;
 use orchestrator::main_loop::{
@@ -75,6 +75,10 @@ pub async fn orchestrator(
             block_delay
         );
     }
+    info!(
+        "SEND_TO_COSMOS_MAX_GAS_LIMIT is: {}",
+        *SEND_TO_COSMOS_MAX_GAS_LIMIT
+    );
 
     // check if the cosmos node is syncing, if so wait for it
     // we can't move any steps above this because they may fail on an incorrect
