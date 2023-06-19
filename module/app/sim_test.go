@@ -29,8 +29,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/simulation"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	ibctransfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	ibchost "github.com/cosmos/ibc-go/v3/modules/core/24-host"
+	ibctransfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
+	ibchost "github.com/cosmos/ibc-go/v4/modules/core/24-host"
 )
 
 func init() {
@@ -87,7 +87,7 @@ func TestFullAppSimulation(t *testing.T) {
 	}
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestAppImportExport(t *testing.T) {
 	config, db, dir, logger, skip, err := SetupSimulation("leveldb-app-sim", "Simulation")
 	if skip {
@@ -185,7 +185,7 @@ func TestAppImportExport(t *testing.T) {
 	}
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 func TestAppSimulationAfterImport(t *testing.T) {
 	config, db, dir, logger, skip, err := simapp.SetupSimulation("leveldb-app-sim", "Simulation")
 	if skip {

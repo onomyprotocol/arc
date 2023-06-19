@@ -3,7 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	v100 "github.com/cosmos/ibc-go/v3/modules/core/legacy/v100"
+	v100 "github.com/cosmos/ibc-go/v4/modules/core/legacy/v100"
 	tmtypes "github.com/tendermint/tendermint/types"
 	"time"
 
