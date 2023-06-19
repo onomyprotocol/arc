@@ -13,8 +13,6 @@ use gravity_utils::{
     web30::{client::Web3, types::SendTxOption},
 };
 
-pub const SEND_TO_COSMOS_GAS_LIMIT: Uint256 = u256!(100_000);
-
 #[allow(clippy::too_many_arguments)]
 pub async fn send_to_cosmos(
     erc20: Address,
@@ -44,7 +42,7 @@ pub async fn send_to_cosmos(
     }
 
     if !has_gas_limit {
-        options.push(SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT));
+        options.push(SendTxOption::GasLimit(web3.eth_gas_price().await?));
     }
 
     // add nonce to options

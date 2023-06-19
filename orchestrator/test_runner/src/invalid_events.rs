@@ -1,7 +1,6 @@
 //! This is a test for invalid string based deposits, the goal is to torture test the implementation
 //! with every possible variant of invalid data and ensure that in all cases the community pool deposit
 //! works correctly.
-use ethereum_gravity::send_to_cosmos::SEND_TO_COSMOS_GAS_LIMIT;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
     clarity::{
@@ -272,7 +271,7 @@ pub async fn send_to_cosmos_invalid(
             .unwrap();
     }
 
-    let mut options = vec![SendTxOption::GasLimit(SEND_TO_COSMOS_GAS_LIMIT)];
+    let mut options = vec![SendTxOption::GasLimit(web3.eth_gas_price().await.unwrap())];
     // if we have run an approval we should increment our nonce by one so that
     // we can be sure our actual tx can go in immediately behind
     if let Some(nonce) = approve_nonce {
