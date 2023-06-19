@@ -33,25 +33,32 @@ elif [[ ! -z "$HARDHAT" ]]; then
 # the right number of cpu cores and Geth goes crazy consuming all the processing power, on the other hand
 # hardhat doesn't work for some tests that depend on transactions waiting for blocks, so Geth is the default
 else
-    # init the genesis block
-    geth --identity "GravityTestnet" \
-        --nodiscover \
-        --networkid 15 \
-        init /gravity/tests/assets/ETHGenesis.json
+    # init the genesis block and various folders
+    geth --identity "GravityTestnet" --networkid 15 init /gravity/tests/assets/eth_genesis.json
+
+    # set up test account
+    # the private key must not have the leading "0x"
+    echo "b1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7" > /root/.ethereum/keystore/test_private_key.txt
+    echo "testpassword" > /root/.ethereum/keystore/test_password.txt
+
+    geth account import --password /root/.ethereum/keystore/test_password.txt /root/.ethereum/keystore/test_private_key.txt
 
     # etherbase is where rewards get sent
     # private key for this address is 0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7
-    geth --identity "GravityTestnet" --nodiscover \
+    geth \
+        --nodiscover \
         --networkid 15 \
+        --allow-insecure-unlock \
+        --unlock 0xBf660843528035a5A4921534E156a27e64B231fE \
+        --password /root/.ethereum/keystore/test_password.txt \
         --mine \
+        --miner.etherbase 0xBf660843528035a5A4921534E156a27e64B231fE \
         --http \
-        --http.addr="0.0.0.0" \
-        --http.vhosts="*" \
-        --http.corsdomain="*" \
-        --miner.threads=1 \
+        --http.addr "0.0.0.0" \
+        --http.vhosts "*" \
+        --http.corsdomain "*" \
         --nousb \
-        --verbosity=5 \
-        --miner.etherbase=0xBf660843528035a5A4921534E156a27e64B231fE &> /gravity/tests/assets/geth.log &
+        --verbosity=4 &> /gravity/tests/assets/geth.log &
 
     echo "waiting for geth to come online"
     until $(curl --output /dev/null --fail --silent --header "content-type: application/json" --data '{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}' http://localhost:8545); do

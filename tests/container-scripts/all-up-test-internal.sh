@@ -37,9 +37,6 @@ if [[ -z "${COSMOS_NODE_GRPC}" ]] ; then
     echo "Setting up cosmos side"
     RUN_ARGS=$RUN_ARGS bash /gravity/tests/container-scripts/setup-validators.sh $NODES
     bash /gravity/tests/container-scripts/run-gravity.sh $NODES
-    # let the cosmos chain settle before starting eth as it
-    # consumes a lot of processing power
-    sleep 10
 fi
 # running the test runner only to deploy the ethereum contracts
 # note that variables like GRAVITY_ADDRESS affect the binary
