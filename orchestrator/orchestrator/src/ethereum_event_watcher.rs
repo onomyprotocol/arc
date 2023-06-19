@@ -7,7 +7,7 @@ use gravity_utils::{
     clarity::{utils::bytes_to_hex_str, Address as EthAddress, Uint256},
     deep_space::{coin::Coin, private_key::PrivateKey as CosmosPrivateKey, Contact},
     error::GravityError,
-    get_block_delay, get_expected_block_delay,
+    get_block_delay,
     get_with_retry::{get_finalized_block_number_with_retry, get_latest_block_number_with_retry},
     types::{
         event_signatures::*, Erc20DeployedEvent, LogicCallExecutedEvent, SendToCosmosEvent,
@@ -38,23 +38,7 @@ pub async fn check_for_events(
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
 
     let ending_block = if USE_FINALIZATION {
-        // get this first in case inbetween the calls is a block boundary
-        // don't accidentally use this variable elswhere
-        let unsafe_latest_block = get_latest_block_number_with_retry(web3).await;
-
-        // NOTE: the delay can only be omitted if we are using the `finalized` version on a PoS network
         let finalized_block = get_finalized_block_number_with_retry(web3).await;
-
-        let expected_delay = get_expected_block_delay(web3).await;
-
-        // do this even if `expected_delay` is zero, be extra paranoid
-        if finalized_block.checked_add(expected_delay).unwrap() > unsafe_latest_block {
-            return Err(GravityError::UnrecoverableError(format!(
-                "the finalized block number ({finalized_block:?}) does not have the expected minimum delay \
-                ({expected_delay:?}) over the latest block number ({unsafe_latest_block:?})"
-            )));
-        }
-
         finalized_block
     } else {
         let latest_block = get_latest_block_number_with_retry(web3).await;

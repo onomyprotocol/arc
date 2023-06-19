@@ -13,7 +13,7 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
     clarity::{u256, Address as EthAddress, PrivateKey as EthPrivateKey, Uint256},
     deep_space::{coin::Coin, Contact},
-    get_block_delay, get_expected_block_delay,
+    get_block_delay,
     get_with_retry::get_net_version_with_retry,
     u64_array_bigints, DEFAULT_ADDRESS_PREFIX, GRAVITY_DENOM_PREFIX,
     TEST_DEFAULT_ETH_NODE_ENDPOINT, TEST_DEFAULT_MINER_KEY, TEST_ETH_CHAIN_ID, TEST_GAS_LIMIT,
@@ -168,7 +168,6 @@ pub async fn main() {
 
     let net_version = get_net_version_with_retry(&web30).await;
     let block_delay = get_block_delay(&web30).await;
-    let expected_block_delay = get_expected_block_delay(&web30).await;
     info!(
         "Eth chain ID is {}, Cosmos prefix is {}, denom prefix is {}",
         net_version, *ADDRESS_PREFIX, GRAVITY_DENOM_PREFIX
@@ -177,10 +176,7 @@ pub async fn main() {
         warn!("Chain ID is not equal to TEST_ETH_CHAIN_ID");
     }
     if USE_FINALIZATION {
-        info!(
-            "Using finalization with expected minimum block delay {}",
-            expected_block_delay
-        );
+        info!("Using finalization for block delays");
     } else {
         info!(
             "Using probabilistic finality with block delay {}",

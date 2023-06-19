@@ -34,8 +34,6 @@ pub const BLOCK_DELAY: Uint256 = u256!(35);
 pub const TEST_BLOCK_DELAY: Uint256 = u256!(0);
 
 pub const USE_FINALIZATION: bool = false;
-pub const EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(0);
-pub const TEST_EXPECTED_MIN_BLOCK_DELAY: Uint256 = u256!(0);
 
 /// Only for tests, some chains are quiescent and need dummy transactions to keep block
 /// production going and not softlock tests.
@@ -60,18 +58,5 @@ pub async fn get_block_delay(web3: &Web3) -> Uint256 {
     match net_version {
         TEST_ETH_CHAIN_ID => TEST_BLOCK_DELAY,
         _ => BLOCK_DELAY,
-    }
-}
-
-/// For chains with deterministic finality (`USE_FINALIZATION == true`), they sometimes
-/// have a minimum number of blocks that must be created before finalization. We should
-/// be extra paranoid and check that the finalized block is at least the expected
-/// minimum number of blocks behind the latest block
-pub async fn get_expected_block_delay(web3: &Web3) -> Uint256 {
-    let net_version = get_net_version_with_retry(web3).await;
-
-    match net_version {
-        TEST_ETH_CHAIN_ID => TEST_EXPECTED_MIN_BLOCK_DELAY,
-        _ => EXPECTED_MIN_BLOCK_DELAY,
     }
 }
