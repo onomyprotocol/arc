@@ -93,7 +93,7 @@ import (
 )
 
 const (
-	AppName              = "arc_eth"
+	AppName              = "arc_" + gravitytypes.GravityDenomPrefix
 	upgradeName          = "v0.1.0"
 	AccountAddressPrefix = "onomy"
 )
