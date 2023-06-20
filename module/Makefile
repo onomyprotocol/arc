@@ -6,6 +6,7 @@ COMMIT := $(shell git log -1 --format='%H')
 DOCKER := $(shell which docker)
 DOCKER_BUF := $(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace bufbuild/buf
 BUILDDIR ?= $(CURDIR)/build
+BUILDDIR_CONSUMER ?= $(CURDIR)/build_consumer
 LEDGER_ENABLED ?= true
 
 build_tags = netgo
@@ -205,14 +206,20 @@ build-reproducible: go.sum
 	$(DOCKER) cp -a latest-build:/home/builder/artifacts/ $(CURDIR)/
 
 clean:
-	rm -rf $(BUILDDIR)/ artifacts/
-
-BUILD_TARGETS := build
+	rm -rf $(BUILDDIR)/ $(BUILDDIR_CONSUMER)/ artifacts/
 
 build: BUILD_ARGS=-o $(BUILDDIR)/
 
-$(BUILD_TARGETS): go.sum $(BUILDDIR)/
-	go $@ -mod=readonly $(BUILD_FLAGS) $(BUILD_ARGS) ./...
+build: go.sum $(BUILDDIR)/
+	go build -mod=readonly $(BUILD_FLAGS) $(BUILD_ARGS) ./cmd/gravity
 
 $(BUILDDIR)/:
 	mkdir -p $(BUILDDIR)/
+
+build-consumer: BUILD_ARGS=-o $(BUILDDIR_CONSUMER)/
+
+build-consumer: go.sum $(BUILDDIR_CONSUMER)/
+	go build -mod=readonly $(BUILD_FLAGS) $(BUILD_ARGS) ./cmd/consumer
+
+$(BUILDDIR_CONSUMER)/:
+	mkdir -p $(BUILDDIR_CONSUMER)/

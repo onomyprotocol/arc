@@ -8,6 +8,8 @@ tests/dockerfile/test-runner
 solidity/dist
 orchestrator/bins
 tests/assets/*.log
+module/build
+module/build_consumer
 
 # IDE files
 .idea/
