@@ -292,13 +292,14 @@ func New(
 	delete(bankBlockedAddrs, authtypes.NewModuleAddress(
 		ibcconsumertypes.ConsumerToSendToProviderName).String())
 
-	app.BankKeeper = bankkeeper.NewBaseKeeper(
+	baseBankKeeper := bankkeeper.NewBaseKeeper(
 		appCodec,
 		keys[banktypes.StoreKey],
 		app.AccountKeeper,
 		app.GetSubspace(banktypes.ModuleName),
 		bankBlockedAddrs,
 	)
+	app.BankKeeper = baseBankKeeper
 	app.AuthzKeeper = authzkeeper.NewKeeper(
 		keys[authzkeeper.StoreKey],
 		appCodec,
@@ -374,16 +375,6 @@ func New(
 		scopedTransferKeeper,
 	)
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
-	ibcmodule := transfer.NewIBCModule(app.TransferKeeper)
-
-	// create static IBC router, add transfer route, then set and seal it
-	ibcRouter := porttypes.NewRouter()
-	ibcRouter.AddRoute(ibctransfertypes.ModuleName, ibcmodule)
-	ibcRouter.AddRoute(ibcconsumertypes.ModuleName, consumerModule)
-	// TODO check how consumer governance works
-	//ibcRouter.AddRoute(gravitytypes.RouterKey, gravitykeeper..NewGravityProposalHandler(gravityKeeper))
-	// gravitykeeper.RegisterProposalTypes() // this may go later
-	app.IBCKeeper.SetRouter(ibcRouter)
 
 	// create evidence keeper with router
 	evidenceKeeper := evidencekeeper.NewKeeper(
@@ -395,16 +386,29 @@ func New(
 
 	app.EvidenceKeeper = *evidenceKeeper
 
-	/*app.GravityKeeper := gravitykeeper.NewKeeper(
+	// FIXME, I think we can drop `DistKeeper` as long as we never use the airdrop feature, but we need to do something about the StakingKeeper which is needed for slashing and jailing
+	// FIXME can SlashingKeeper be used instead?
+	app.GravityKeeper = gravitykeeper.NewKeeper(
 		keys[gravitytypes.StoreKey],
 		app.GetSubspace(gravitytypes.ModuleName),
 		appCodec,
-		&app.BankKeeper,
-		&app.GravityKeeper.StakingKeeper,
+		&baseBankKeeper,
+		nil, //&app.StakingKeeper,
 		&app.SlashingKeeper,
-		&app.GravityKeeper.DistKeeper,
+		nil, //&app.DistKeeper,
 		&app.AccountKeeper,
-	)*/
+	)
+
+	ibcmodule := transfer.NewIBCModule(app.TransferKeeper)
+	// create static IBC router, add transfer route, then set and seal it
+	ibcRouter := porttypes.NewRouter()
+	ibcRouter.AddRoute(ibctransfertypes.ModuleName, ibcmodule)
+	ibcRouter.AddRoute(ibcconsumertypes.ModuleName, consumerModule)
+	// FIXME
+	//handler := gravitykeeper.NewGravityProposalHandler(app.GravityKeeper)
+	//ibcRouter.AddRoute(gravitytypes.RouterKey, handler)
+
+	app.IBCKeeper.SetRouter(ibcRouter)
 
 	skipGenesisInvariants := cast.ToBool(appOpts.Get(crisis.FlagSkipGenesisInvariants))
 
@@ -499,6 +503,8 @@ func New(
 
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.MM.RegisterServices(app.configurator)
+
+	gravitykeeper.RegisterProposalTypes()
 
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	//
