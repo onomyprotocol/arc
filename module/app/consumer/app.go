@@ -78,6 +78,11 @@ import (
 	tmos "github.com/tendermint/tendermint/libs/os"
 	dbm "github.com/tendermint/tm-db"
 
+	// this is used just for the gravity module
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	ccvstaking "github.com/cosmos/interchain-security/x/ccv/democracy/staking"
+
 	"github.com/cosmos/interchain-security/testutil/e2e"
 	ibcconsumer "github.com/cosmos/interchain-security/x/ccv/consumer"
 	ibcconsumerkeeper "github.com/cosmos/interchain-security/x/ccv/consumer/keeper"
@@ -109,6 +114,7 @@ var (
 		auth.AppModuleBasic{},
 		bank.AppModuleBasic{},
 		capability.AppModuleBasic{},
+		ccvstaking.AppModuleBasic{},
 		params.AppModuleBasic{},
 		crisis.AppModuleBasic{},
 		slashing.AppModuleBasic{},
@@ -127,6 +133,8 @@ var (
 	// module account permissions
 	maccPerms = map[string][]string{
 		authtypes.FeeCollectorName:                    nil,
+		stakingtypes.BondedPoolName:                   {authtypes.Burner, authtypes.Staking},
+		stakingtypes.NotBondedPoolName:                {authtypes.Burner, authtypes.Staking},
 		ibcconsumertypes.ConsumerRedistributeName:     nil,
 		ibcconsumertypes.ConsumerToSendToProviderName: nil,
 		ibctransfertypes.ModuleName:                   {authtypes.Minter, authtypes.Burner},
@@ -162,9 +170,12 @@ type App struct { // nolint: golint
 	CapabilityKeeper *capabilitykeeper.Keeper
 	SlashingKeeper   slashingkeeper.Keeper
 
+	// FIXME
 	// NOTE the distribution keeper should either be removed
 	// from consumer chain or set to use an independant
 	// different fee-pool from the consumer chain ConsumerKeeper
+
+	StakingKeeper stakingkeeper.Keeper
 
 	CrisisKeeper   crisiskeeper.Keeper
 	UpgradeKeeper  upgradekeeper.Keeper
@@ -226,6 +237,7 @@ func New(
 	keys := sdk.NewKVStoreKeys(
 		authtypes.StoreKey,
 		banktypes.StoreKey,
+		stakingtypes.StoreKey,
 		slashingtypes.StoreKey,
 		paramstypes.StoreKey,
 		ibchost.StoreKey,
@@ -386,14 +398,24 @@ func New(
 
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// FIXME, I think we can drop `DistKeeper` as long as we never use the airdrop feature, but we need to do something about the StakingKeeper which is needed for slashing and jailing
-	// FIXME can SlashingKeeper be used instead?
+	ccvstakingKeeper := stakingkeeper.NewKeeper(
+		appCodec,
+		keys[stakingtypes.StoreKey],
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.GetSubspace(stakingtypes.ModuleName),
+	)
+	app.StakingKeeper = *ccvstakingKeeper.SetHooks(
+		stakingtypes.NewMultiStakingHooks(app.DistrKeeper.Hooks()),
+	)
+
+	// FIXME
 	app.GravityKeeper = gravitykeeper.NewKeeper(
 		keys[gravitytypes.StoreKey],
 		app.GetSubspace(gravitytypes.ModuleName),
 		appCodec,
 		&baseBankKeeper,
-		nil, //&app.StakingKeeper,
+		&app.StakingKeeper,
 		&app.SlashingKeeper,
 		nil, //&app.DistKeeper,
 		&app.AccountKeeper,
@@ -421,6 +443,7 @@ func New(
 		capability.NewAppModule(appCodec, *app.CapabilityKeeper),
 		crisis.NewAppModule(&app.CrisisKeeper, skipGenesisInvariants),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.ConsumerKeeper),
+		ccvstaking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper),
 		upgrade.NewAppModule(app.UpgradeKeeper),
 		evidence.NewAppModule(app.EvidenceKeeper),
 		feegrantmodule.NewAppModule(appCodec, app.AccountKeeper, app.BankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
@@ -446,6 +469,7 @@ func New(
 		ibchost.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
 		authz.ModuleName,
@@ -463,6 +487,7 @@ func New(
 		ibchost.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
 		authz.ModuleName,
@@ -488,6 +513,7 @@ func New(
 		ibchost.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
 		authz.ModuleName,
@@ -808,6 +834,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 
 	paramsKeeper.Subspace(authtypes.ModuleName)
 	paramsKeeper.Subspace(banktypes.ModuleName)
+	paramsKeeper.Subspace(stakingtypes.ModuleName)
 	paramsKeeper.Subspace(slashingtypes.ModuleName)
 	paramsKeeper.Subspace(crisistypes.ModuleName)
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
