@@ -486,7 +486,6 @@ func New(
 		// upgrades should be run first
 		upgradetypes.ModuleName,
 		capabilitytypes.ModuleName,
-		crisistypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		ibchost.ModuleName,
 		authtypes.ModuleName,
@@ -501,11 +500,11 @@ func New(
 		vestingtypes.ModuleName,
 		ibcconsumertypes.ModuleName,
 		gravitytypes.ModuleName,
+		crisistypes.ModuleName,
 	)
 	app.MM.SetOrderEndBlockers(
 		upgradetypes.ModuleName,
 		capabilitytypes.ModuleName,
-		crisistypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		ibchost.ModuleName,
 		authtypes.ModuleName,
@@ -520,6 +519,7 @@ func New(
 		vestingtypes.ModuleName,
 		ibcconsumertypes.ModuleName,
 		gravitytypes.ModuleName,
+		crisistypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -532,7 +532,6 @@ func New(
 	app.MM.SetOrderInitGenesis(
 		upgradetypes.ModuleName,
 		capabilitytypes.ModuleName,
-		crisistypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		ibchost.ModuleName,
 		authtypes.ModuleName,
@@ -547,6 +546,7 @@ func New(
 		vestingtypes.ModuleName,
 		ibcconsumertypes.ModuleName,
 		gravitytypes.ModuleName,
+		crisistypes.ModuleName,
 	)
 
 	app.MM.RegisterInvariants(&app.CrisisKeeper)
