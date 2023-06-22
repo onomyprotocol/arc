@@ -78,6 +78,13 @@ import (
 	tmos "github.com/tendermint/tendermint/libs/os"
 	dbm "github.com/tendermint/tm-db"
 
+	// used just for the community pool and unneeded airdrop functionality
+	//distr "github.com/cosmos/cosmos-sdk/x/distribution"
+	//distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	ccvdistr "github.com/cosmos/interchain-security/x/ccv/democracy/distribution"
+
 	// this is used just for the gravity module
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -115,6 +122,7 @@ var (
 		bank.AppModuleBasic{},
 		capability.AppModuleBasic{},
 		ccvstaking.AppModuleBasic{},
+		ccvdistr.AppModuleBasic{},
 		params.AppModuleBasic{},
 		crisis.AppModuleBasic{},
 		slashing.AppModuleBasic{},
@@ -135,10 +143,17 @@ var (
 		authtypes.FeeCollectorName:                    nil,
 		stakingtypes.BondedPoolName:                   {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName:                {authtypes.Burner, authtypes.Staking},
+		distrtypes.ModuleName:                         nil,
 		ibcconsumertypes.ConsumerRedistributeName:     nil,
 		ibcconsumertypes.ConsumerToSendToProviderName: nil,
 		ibctransfertypes.ModuleName:                   {authtypes.Minter, authtypes.Burner},
 		gravitytypes.ModuleName:                       {authtypes.Minter, authtypes.Burner},
+	}
+
+	// module accounts that are allowed to receive tokens
+	allowedReceivingModAcc = map[string]bool{
+		distrtypes.ModuleName:                         true,
+		ibcconsumertypes.ConsumerToSendToProviderName: true,
 	}
 )
 
@@ -175,6 +190,8 @@ type App struct { // nolint: golint
 	// from consumer chain or set to use an independant
 	// different fee-pool from the consumer chain ConsumerKeeper
 
+	// used just for gravity module
+	DistrKeeper   distrkeeper.Keeper
 	StakingKeeper stakingkeeper.Keeper
 
 	CrisisKeeper   crisiskeeper.Keeper
@@ -238,6 +255,7 @@ func New(
 		authtypes.StoreKey,
 		banktypes.StoreKey,
 		stakingtypes.StoreKey,
+		distrtypes.StoreKey,
 		slashingtypes.StoreKey,
 		paramstypes.StoreKey,
 		ibchost.StoreKey,
@@ -297,19 +315,12 @@ func New(
 		maccPerms,
 	)
 
-	// Remove the fee-pool from the group of blocked recipient addresses in bank
-	// this is required for the consumer chain to be able to send tokens to
-	// the provider chain
-	bankBlockedAddrs := app.ModuleAccountAddrs()
-	delete(bankBlockedAddrs, authtypes.NewModuleAddress(
-		ibcconsumertypes.ConsumerToSendToProviderName).String())
-
 	baseBankKeeper := bankkeeper.NewBaseKeeper(
 		appCodec,
 		keys[banktypes.StoreKey],
 		app.AccountKeeper,
 		app.GetSubspace(banktypes.ModuleName),
-		bankBlockedAddrs,
+		app.BlockedAddrs(),
 	)
 	app.BankKeeper = baseBankKeeper
 	app.AuthzKeeper = authzkeeper.NewKeeper(
@@ -405,11 +416,21 @@ func New(
 		app.BankKeeper,
 		app.GetSubspace(stakingtypes.ModuleName),
 	)
+	app.DistrKeeper = distrkeeper.NewKeeper(
+		appCodec,
+		keys[distrtypes.StoreKey],
+		app.GetSubspace(distrtypes.ModuleName),
+		app.AccountKeeper,
+		app.BankKeeper,
+		&ccvstakingKeeper,
+		ibcconsumertypes.ConsumerRedistributeName,
+		app.ModuleAccountAddrs(),
+	)
 	app.StakingKeeper = *ccvstakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(app.DistrKeeper.Hooks()),
 	)
+	app.StakingKeeper = ccvstakingKeeper
 
-	// FIXME
 	app.GravityKeeper = gravitykeeper.NewKeeper(
 		keys[gravitytypes.StoreKey],
 		app.GetSubspace(gravitytypes.ModuleName),
@@ -417,7 +438,7 @@ func New(
 		&baseBankKeeper,
 		&app.StakingKeeper,
 		&app.SlashingKeeper,
-		nil, //&app.DistKeeper,
+		&app.DistrKeeper,
 		&app.AccountKeeper,
 	)
 
@@ -443,6 +464,7 @@ func New(
 		capability.NewAppModule(appCodec, *app.CapabilityKeeper),
 		crisis.NewAppModule(&app.CrisisKeeper, skipGenesisInvariants),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.ConsumerKeeper),
+		ccvdistr.NewAppModule(appCodec, app.DistrKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, authtypes.FeeCollectorName),
 		ccvstaking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper),
 		upgrade.NewAppModule(app.UpgradeKeeper),
 		evidence.NewAppModule(app.EvidenceKeeper),
@@ -469,6 +491,7 @@ func New(
 		ibchost.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		distrtypes.ModuleName,
 		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
@@ -487,6 +510,7 @@ func New(
 		ibchost.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		distrtypes.ModuleName,
 		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
@@ -513,6 +537,7 @@ func New(
 		ibchost.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		distrtypes.ModuleName,
 		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
@@ -828,12 +853,24 @@ func GetMaccPerms() map[string][]string {
 	return dupMaccPerms
 }
 
+// BlockedAddrs returns all the app's module account addresses that are not
+// allowed to receive external tokens.
+func (app *App) BlockedAddrs() map[string]bool {
+	blockedAddrs := make(map[string]bool)
+	for acc := range maccPerms {
+		blockedAddrs[authtypes.NewModuleAddress(acc).String()] = !allowedReceivingModAcc[acc]
+	}
+
+	return blockedAddrs
+}
+
 // initParamsKeeper init params keeper and its subspaces
 func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino, key, tkey sdk.StoreKey) paramskeeper.Keeper {
 	paramsKeeper := paramskeeper.NewKeeper(appCodec, legacyAmino, key, tkey)
 
 	paramsKeeper.Subspace(authtypes.ModuleName)
 	paramsKeeper.Subspace(banktypes.ModuleName)
+	paramsKeeper.Subspace(distrtypes.ModuleName)
 	paramsKeeper.Subspace(stakingtypes.ModuleName)
 	paramsKeeper.Subspace(slashingtypes.ModuleName)
 	paramsKeeper.Subspace(crisistypes.ModuleName)
