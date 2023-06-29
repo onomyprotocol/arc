@@ -46,7 +46,6 @@ import (
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
@@ -56,6 +55,9 @@ import (
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	tmversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
+
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	forwardingstakingkeeper "github.com/onomyprotocol/arc/module/x/forwarding_staking/keeper"
 
 	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
@@ -126,6 +128,14 @@ var (
 		sdk.AccAddress(AccPubKeys[2].Address()),
 		sdk.AccAddress(AccPubKeys[3].Address()),
 		sdk.AccAddress(AccPubKeys[4].Address()),
+	}
+
+	ConsAddrs = []sdk.ConsAddress{
+		sdk.ConsAddress(ConsPubKeys[0].Address()),
+		sdk.ConsAddress(ConsPubKeys[1].Address()),
+		sdk.ConsAddress(ConsPubKeys[2].Address()),
+		sdk.ConsAddress(ConsPubKeys[3].Address()),
+		sdk.ConsAddress(ConsPubKeys[4].Address()),
 	}
 
 	// ValAddrs holds the sdk.ValAddresses
@@ -232,8 +242,8 @@ func RandomAccAddress() sdk.AccAddress {
 	return sdk.AccAddress(secp256k1.GenPrivKey().PubKey().Address())
 }
 
-func RandomValAddress() sdk.ValAddress {
-	return sdk.ValAddress(secp256k1.GenPrivKey().PubKey().Address())
+func RandomValconsAddress() sdk.ConsAddress {
+	return sdk.ConsAddress(ed25519.GenPrivKey().PubKey().Address())
 }
 
 func RandomEthAddress() (string, string) {
@@ -264,16 +274,17 @@ func TestAccAddress(prefix string, data []byte) sdk.AccAddress {
 
 // TestInput stores the various keepers required to test gravity
 type TestInput struct {
-	GravityKeeper  Keeper
-	AccountKeeper  authkeeper.AccountKeeper
-	StakingKeeper  stakingkeeper.Keeper
-	SlashingKeeper slashingkeeper.Keeper
-	DistKeeper     distrkeeper.Keeper
-	BankKeeper     bankkeeper.BaseKeeper
-	GovKeeper      govkeeper.Keeper
-	Context        sdk.Context
-	Marshaler      codec.Codec
-	LegacyAmino    *codec.LegacyAmino
+	GravityKeeper           Keeper
+	AccountKeeper           authkeeper.AccountKeeper
+	StakingKeeper           stakingkeeper.Keeper
+	ForwardingStakingKeeper forwardingstakingkeeper.Keeper
+	SlashingKeeper          slashingkeeper.Keeper
+	DistKeeper              distrkeeper.Keeper
+	BankKeeper              bankkeeper.BaseKeeper
+	GovKeeper               govkeeper.Keeper
+	Context                 sdk.Context
+	Marshaler               codec.Codec
+	LegacyAmino             *codec.LegacyAmino
 }
 
 // SetupFiveValChain does all the initialization for a 5 Validator chain using the keys here
@@ -316,14 +327,14 @@ func SetupFiveValChain(t *testing.T) (TestInput, sdk.Context) {
 	staking.EndBlocker(input.Context, input.StakingKeeper)
 
 	// Register eth addresses and orchestrator address for each validator
-	for i, addr := range ValAddrs {
+	for i, consAddr := range ConsAddrs {
 		ethAddr, err := types.NewEthAddress(EthAddrs[i].String())
 		if err != nil {
 			panic("found invalid address in EthAddrs")
 		}
-		input.GravityKeeper.SetEthAddressForValidator(input.Context, addr, *ethAddr)
+		input.GravityKeeper.SetEthAddressForValcons(input.Context, consAddr, *ethAddr)
 
-		input.GravityKeeper.SetOrchestratorValidator(input.Context, addr, OrchAddrs[i])
+		input.GravityKeeper.SetOrchestratorValcons(input.Context, consAddr, OrchAddrs[i])
 	}
 
 	// Return the test input
@@ -348,6 +359,7 @@ func SetupTestChain(t *testing.T, weights []uint64, setDelegateAddresses bool) (
 		valPubKey := valPrivKey.PubKey()
 		valAddr := sdk.ValAddress(valPubKey.Address())
 		accAddr := sdk.AccAddress(valPubKey.Address())
+		consAddr := sdk.ConsAddress(consPubKey.Address())
 
 		// Initialize the account for the key
 		acc := input.AccountKeeper.NewAccount(
@@ -380,8 +392,8 @@ func SetupTestChain(t *testing.T, weights []uint64, setDelegateAddresses bool) (
 			if err != nil {
 				panic("found invalid address in EthAddrs")
 			}
-			input.GravityKeeper.SetEthAddressForValidator(input.Context, valAddr, *ethAddr)
-			input.GravityKeeper.SetOrchestratorValidator(input.Context, valAddr, accAddr)
+			input.GravityKeeper.SetEthAddressForValcons(input.Context, consAddr, *ethAddr)
+			input.GravityKeeper.SetOrchestratorValcons(input.Context, consAddr, accAddr)
 
 			// increase block height by 100 blocks
 			input.Context = input.Context.WithBlockHeight(input.Context.BlockHeight() + 100)
@@ -509,6 +521,8 @@ func CreateTestEnv(t *testing.T) TestInput {
 
 	// distribution keeper can be nil here since it won't be used for the tests
 	stakingKeeper := stakingkeeper.NewKeeper(marshaler, keyStaking, accountKeeper, bankKeeper, getSubspace(paramsKeeper, stakingtypes.ModuleName))
+	forwardingStakingKeeper := forwardingstakingkeeper.NewForwardingKeeper(&stakingKeeper, nil)
+
 	stakingKeeper.SetParams(ctx, TestingStakeParams)
 
 	distKeeper := distrkeeper.NewKeeper(marshaler, keyDistro, getSubspace(paramsKeeper, distrtypes.ModuleName), accountKeeper, bankKeeper, stakingKeeper, authtypes.FeeCollectorName, nil)
@@ -576,7 +590,7 @@ func CreateTestEnv(t *testing.T) TestInput {
 		getSubspace(paramsKeeper, slashingtypes.ModuleName).WithKeyTable(slashingtypes.ParamKeyTable()),
 	)
 
-	k := NewKeeper(gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), marshaler, &bankKeeper, &stakingKeeper, &slashingKeeper, &distKeeper, &accountKeeper)
+	k := NewKeeper(gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), marshaler, &bankKeeper, &forwardingStakingKeeper, &slashingKeeper, &distKeeper, &accountKeeper)
 
 	stakingKeeper = *stakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(
@@ -601,16 +615,17 @@ func CreateTestEnv(t *testing.T) TestInput {
 	fmt.Println(params)
 
 	return TestInput{
-		GravityKeeper:  k,
-		AccountKeeper:  accountKeeper,
-		BankKeeper:     bankKeeper,
-		StakingKeeper:  stakingKeeper,
-		SlashingKeeper: slashingKeeper,
-		DistKeeper:     distKeeper,
-		GovKeeper:      govKeeper,
-		Context:        ctx,
-		Marshaler:      marshaler,
-		LegacyAmino:    cdc,
+		GravityKeeper:           k,
+		AccountKeeper:           accountKeeper,
+		BankKeeper:              bankKeeper,
+		StakingKeeper:           stakingKeeper,
+		ForwardingStakingKeeper: forwardingStakingKeeper,
+		SlashingKeeper:          slashingKeeper,
+		DistKeeper:              distKeeper,
+		GovKeeper:               govKeeper,
+		Context:                 ctx,
+		Marshaler:               marshaler,
+		LegacyAmino:             cdc,
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
@@ -65,21 +64,22 @@ func (k Keeper) checkBadSignatureEvidenceInternal(ctx sdk.Context, subject types
 	}
 
 	// Find the offending validator by eth address
-	val, found := k.GetValidatorByEthAddress(ctx, *ethAddress)
+	consAddr, found := k.GetValconsByEthAddress(ctx, *ethAddress)
 	if !found {
-		return sdkerrors.Wrap(types.ErrInvalid, fmt.Sprintf("Did not find validator for eth address %s from signature %s with checkpoint %s and GravityID %s", ethAddress, signature, hex.EncodeToString(checkpoint), gravityID))
+		return sdkerrors.Wrap(types.ErrInvalid, fmt.Sprintf("Did not find consAddr for eth address %s from signature %s with checkpoint %s and GravityID %s", ethAddress, signature, hex.EncodeToString(checkpoint), gravityID))
 	}
 
-	// Slash the offending validator
-	cons, err := val.GetConsAddr()
-	if err != nil {
-		return sdkerrors.Wrap(err, "Could not get consensus key address for validator")
+	_, found = k.StakingKeeper.GetLastValconsPower(ctx, consAddr)
+
+	if !found {
+		panic("GetLastValconsPower could not find consAddr")
 	}
 
-	params := k.GetParams(ctx)
-	if !val.IsJailed() {
-		k.StakingKeeper.Jail(ctx, cons)
-		k.StakingKeeper.Slash(ctx, cons, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBadEthSignature, stakingtypes.DoubleSign)
+	//params := k.GetParams(ctx)
+	if !k.StakingKeeper.IsJailed(ctx, consAddr) {
+		k.StakingKeeper.Jail(ctx, consAddr)
+		// FIXME fake validator power reduction?
+		//k.StakingKeeper.Slash(ctx, valcons, ctx.BlockHeight(), val.ConsensusPower(sdk.DefaultPowerReduction), params.SlashFractionBadEthSignature, stakingtypes.DoubleSign)
 	}
 
 	return nil

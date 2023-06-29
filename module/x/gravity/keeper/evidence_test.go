@@ -131,8 +131,7 @@ func TestSubmitBadSignatureEvidenceSlash(t *testing.T) {
 	ethAddress, err := types.NewEthAddress(crypto.PubkeyToAddress(privKey.PublicKey).String())
 	require.NoError(t, err)
 
-	input.GravityKeeper.SetEthAddressForValidator(ctx, ValAddrs[0], *ethAddress)
-
+	input.GravityKeeper.SetEthAddressForValcons(ctx, ConsAddrs[0], *ethAddress)
 	ethSignature, err := types.NewEthereumSignature(checkpoint, privKey)
 	require.NoError(t, err)
 

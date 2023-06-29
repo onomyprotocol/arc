@@ -40,9 +40,10 @@ func createValsets(ctx sdk.Context, k keeper.Keeper) {
 			// this condition should only occur in the simulator
 			// ref : https://github.com/onomyprotocol/arc/issues/35
 			if err == types.ErrNoValidators {
-				ctx.Logger().Error("no bonded validators",
+				// FIXME
+				/*ctx.Logger().Error("no bonded validators",
 					"cause", err.Error(),
-				)
+				)*/
 				return
 			}
 			panic(err)
@@ -202,11 +203,11 @@ func prepValsetConfirms(ctx sdk.Context, k keeper.Keeper, nonce uint64) map[stri
 		if err != nil {
 			panic("Invalid confirm in store")
 		}
-		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
+		consAddr, foundValidator := k.GetOrchestratorValcons(ctx, confVal)
 		if !foundValidator {
 			panic("Confirm from validator we can't identify?")
 		}
-		ret[val.GetOperator().String()] = confirm
+		ret[consAddr.String()] = confirm
 	}
 	return ret
 }
@@ -324,17 +325,23 @@ func updateValidator(ctx sdk.Context, k keeper.Keeper, val sdk.ValAddress) staki
 // getUnbondingValidators gets all currently unbonding validators in groups based on
 // the block at which they will finish validating.
 func getUnbondingValidators(ctx sdk.Context, k keeper.Keeper) (addresses []string) {
-	blockTime := ctx.BlockTime().Add(k.StakingKeeper.GetParams(ctx).UnbondingTime)
-	blockHeight := ctx.BlockHeight()
-	unbondingValIterator := k.StakingKeeper.ValidatorQueueIterator(ctx, blockTime, blockHeight)
-	defer unbondingValIterator.Close()
+	// TODO is it possible to get unbonding validators from the provider
+	// This function is only used by slashing logic and is not essential for bridge security
+	if k.StakingKeeper.ConsumerKeeper == nil {
+		blockTime := ctx.BlockTime().Add(k.StakingKeeper.GetParams(ctx).UnbondingTime)
+		blockHeight := ctx.BlockHeight()
+		unbondingValIterator := k.StakingKeeper.ValidatorQueueIterator(ctx, blockTime, blockHeight)
+		defer unbondingValIterator.Close()
 
-	// All unbonding validators
-	for ; unbondingValIterator.Valid(); unbondingValIterator.Next() {
-		unbondingValidators := k.DeserializeValidatorIterator(unbondingValIterator.Value())
-		addresses = append(addresses, unbondingValidators.Addresses...)
+		// All unbonding validators
+		for ; unbondingValIterator.Valid(); unbondingValIterator.Next() {
+			unbondingValidators := k.DeserializeValidatorIterator(unbondingValIterator.Value())
+			addresses = append(addresses, unbondingValidators.Addresses...)
+		}
+		return addresses
+	} else {
+		return make([]string, 0)
 	}
-	return addresses
 }
 
 // prepBatchConfirms loads all confirmations into a hashmap indexed by validatorAddr
@@ -350,11 +357,11 @@ func prepBatchConfirms(ctx sdk.Context, k keeper.Keeper, batch types.InternalOut
 		if err != nil {
 			panic(err)
 		}
-		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
+		consAddr, foundValidator := k.GetOrchestratorValcons(ctx, confVal)
 		if !foundValidator {
 			panic("Confirm from validator we can't identify?")
 		}
-		ret[val.GetOperator().String()] = confirm
+		ret[consAddr.String()] = confirm
 	}
 	return ret
 }
@@ -427,11 +434,11 @@ func prepLogicCallConfirms(ctx sdk.Context, k keeper.Keeper, call types.Outgoing
 		if err != nil {
 			panic(err)
 		}
-		val, foundValidator := k.GetOrchestratorValidator(ctx, confVal)
+		consAddr, foundValidator := k.GetOrchestratorValcons(ctx, confVal)
 		if !foundValidator {
 			panic("Confirm from validator we can't identify?")
 		}
-		ret[val.GetOperator().String()] = &confirm
+		ret[consAddr.String()] = &confirm
 	}
 	return ret
 }

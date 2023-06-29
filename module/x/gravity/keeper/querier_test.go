@@ -649,15 +649,15 @@ func TestQueryLogicCalls(t *testing.T) {
 	// seed with valset requests and eth addresses to make validators
 	// that we will later use to lookup calls to be signed
 	for i := 0; i < 6; i++ {
-		var validators []sdk.ValAddress
+		var validators []sdk.ConsAddress
 		for j := 0; j <= i; j++ {
 			// add an validator each block
 			// TODO: replace with real SDK addresses
-			valAddr := bytes.Repeat([]byte{byte(j)}, 20)
+			consAddr := bytes.Repeat([]byte{byte(j)}, 20)
 			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
 			require.NoError(t, err)
-			input.GravityKeeper.SetEthAddressForValidator(sdkCtx, valAddr, *ethAddr)
-			validators = append(validators, valAddr)
+			input.GravityKeeper.SetEthAddressForValcons(sdkCtx, consAddr, *ethAddr)
+			validators = append(validators, consAddr)
 		}
 	}
 
@@ -707,15 +707,15 @@ func TestQueryLogicCallsConfirms(t *testing.T) {
 	// seed with valset requests and eth addresses to make validators
 	// that we will later use to lookup calls to be signed
 	for i := 0; i < 6; i++ {
-		var validators []sdk.ValAddress
+		var validators []sdk.ConsAddress
 		for j := 0; j <= i; j++ {
 			// add an validator each block
 			// TODO: replace with real SDK addresses
-			valAddr := bytes.Repeat([]byte{byte(j)}, 20)
+			consAddr := bytes.Repeat([]byte{byte(j)}, 20)
 			ethAddr, err := types.NewEthAddress(gethcommon.BytesToAddress(bytes.Repeat([]byte{byte(j + 1)}, 20)).String())
 			require.NoError(t, err)
-			input.GravityKeeper.SetEthAddressForValidator(sdkCtx, valAddr, *ethAddr)
-			validators = append(validators, valAddr)
+			input.GravityKeeper.SetEthAddressForValcons(sdkCtx, consAddr, *ethAddr)
+			validators = append(validators, consAddr)
 		}
 	}
 

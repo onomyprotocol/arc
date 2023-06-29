@@ -66,4 +66,7 @@ var WhitelistedParams = map[paramChangeKey]struct{}{
 	{Subspace: ibctransfertypes.ModuleName, Key: "SendEnabled"}:    {},
 	{Subspace: ibctransfertypes.ModuleName, Key: "ReceiveEnabled"}: {},
 	// add interchain account params(HostEnabled, AllowedMessages) once the module is added to the consumer app
+
+	// needed for Gravity
+	// FIXME
 }

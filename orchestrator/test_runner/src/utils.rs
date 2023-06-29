@@ -463,7 +463,8 @@ pub async fn vote_yes_on_proposals(
                         proposal.proposal_id,
                         VoteOption::Yes,
                         get_fee(),
-                        key.validator_key,
+                        // NOTE: this is for the forwarding_staker patch
+                        key.orch_key,
                         Some(duration),
                     )
                     .await?;

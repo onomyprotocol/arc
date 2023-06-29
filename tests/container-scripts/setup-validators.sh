@@ -13,12 +13,16 @@ pushd /gravity/orchestrator/test_runner
 ADDRESS=$(GET_TEST_ADDRESS=1 PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS)
 popd
 
+# need to init all validators so that we can get the tendermint keys
+for i in $(seq 1 $NODES);
+do
+$BIN init --home /validator$i --chain-id=$CHAIN_ID validator$i
+done
+
 # first we start a genesis.json with validator 1
 # validator 1 will also collect the gentx's once gnerated
 STARTING_VALIDATOR=1
 STARTING_VALIDATOR_HOME="--home /validator$STARTING_VALIDATOR"
-# todo add git hash to chain name
-$BIN init $STARTING_VALIDATOR_HOME --chain-id=$CHAIN_ID validator1
 
 # set the minimum gas price so that it isn't an empty string
 # note that this enforces `footoken` as the gas denom
@@ -75,12 +79,13 @@ do
 cp /genesis.json /validator$i/config/genesis.json
 GAIA_HOME="--home /validator$i"
 ARGS="$GAIA_HOME --keyring-backend test"
-ORCHESTRATOR_KEY=$($BIN keys show orchestrator$i -a $ARGS)
+CONSADDR=$($BIN $GAIA_HOME tendermint show-address)
+#ORCHESTRATOR_KEY=$($BIN keys show orchestrator$i -a $ARGS)
 ETHEREUM_KEY=$(grep address /validator-eth-keys | sed -n "$i"p | sed 's/.*://')
 # the /8 containing 7.7.7.7 is assigned to the DOD and never routable on the public internet
 # we're using it in private to prevent gaia from blacklisting it as unroutable
 # and allow local pex
-$BIN gentx $ARGS $GAIA_HOME --moniker validator$i --chain-id=$CHAIN_ID --ip 7.7.7.$i validator$i "$(seq 400 500 | sort -R | head -n 1)""000000000000000000stake" $ETHEREUM_KEY $ORCHESTRATOR_KEY
+$BIN gentx $ARGS $GAIA_HOME --moniker orchestrator$i --chain-id=$CHAIN_ID --ip 7.7.7.$i "$(seq 400 500 | sort -R | head -n 1)""000000000000000000stake" $CONSADDR $ETHEREUM_KEY orchestrator$i
 # obviously we don't need to copy validator1's gentx to itself
 if [ $i -gt 1 ]; then
 cp /validator$i/config/gentx/* /validator1/config/gentx/
@@ -91,6 +96,7 @@ done
 $BIN collect-gentxs $STARTING_VALIDATOR_HOME
 GENTXS=$(ls /validator1/config/gentx | wc -l)
 cp /validator1/config/genesis.json /genesis.json
+cp /genesis.json /gravity/tests/assets/gravity_genesis.json
 echo "Collected $GENTXS gentx"
 
 # put the now final genesis.json into the correct folders

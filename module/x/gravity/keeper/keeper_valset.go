@@ -10,7 +10,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-
 	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
 
@@ -27,6 +26,10 @@ import (
 // i.e. {"nonce": 1, "memebers": [{"eth_addr": "foo", "power": 11223}]}
 func (k Keeper) SetValsetRequest(ctx sdk.Context) types.Valset {
 	valset, err := k.GetCurrentValset(ctx)
+	// FIXME
+	if len(valset.Members) == 0 {
+		return types.Valset{}
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -256,34 +259,39 @@ func (k Keeper) IterateValsetBySlashedValsetNonce(ctx sdk.Context, lastSlashedVa
 // you should call this function, evaluate if you want to save this new valset, and discard
 // it or save
 func (k Keeper) GetCurrentValset(ctx sdk.Context) (types.Valset, error) {
-	validators := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
-	if len(validators) == 0 {
-		return types.Valset{}, types.ErrNoValidators
-	}
+	validators := k.StakingKeeper.GetAllCCValidatorsSortedByPower(ctx)
 	// allocate enough space for all validators, but len zero, we then append
 	// so that we have an array with extra capacity but the correct length depending
 	// on how many validators have keys set.
 	bridgeValidators := make([]*types.InternalBridgeValidator, 0, len(validators))
+	// ICS: Do NOT change how this is calculated, this was purposely not `GetLastTotalPower`
+	// because it should only include the power of only fully valid validators as defined
+	// in the loop below
 	totalPower := sdk.NewInt(0)
 	// TODO someone with in depth info on Cosmos staking should determine
 	// if this is doing what I think it's doing
 	for _, validator := range validators {
-		val := validator.GetOperator()
-		if err := sdk.VerifyAddressFormat(val); err != nil {
+		consAddr := k.StakingKeeper.GetConsAddrFromCCV(validator)
+		if err := sdk.VerifyAddressFormat(consAddr); err != nil {
 			return types.Valset{}, sdkerrors.Wrap(err, types.ErrInvalidValAddress.Error())
 		}
 
-		p := sdk.NewInt(k.StakingKeeper.GetLastValidatorPower(ctx, val))
+		p := sdk.NewInt(validator.Power)
 
-		if ethAddr, found := k.GetEthAddressByValidator(ctx, val); found {
+		if ethAddr, found := k.GetEthAddressByValcons(ctx, consAddr); found {
 			bv := types.BridgeValidator{Power: p.Uint64(), EthereumAddress: ethAddr.GetAddress()}
 			ibv, err := types.NewInternalBridgeValidator(bv)
 			if err != nil {
-				return types.Valset{}, sdkerrors.Wrapf(err, types.ErrInvalidEthAddress.Error(), val)
+				fmt.Println("LKJ", err)
+				return types.Valset{}, sdkerrors.Wrapf(err, types.ErrInvalidEthAddress.Error(), consAddr)
 			}
 			bridgeValidators = append(bridgeValidators, ibv)
 			totalPower = totalPower.Add(p)
 		}
+	}
+	// we do not want a total power of 0 getting into `normalizeValidatorPower`
+	if totalPower.IsZero() {
+		return types.Valset{}, types.ErrNoValidators
 	}
 	// normalize power values to the maximum bridge power which is 2^32
 	for i := range bridgeValidators {

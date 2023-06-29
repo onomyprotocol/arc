@@ -11,19 +11,19 @@ import (
 
 func TestValidateMsgSetOrchestratorAddress(t *testing.T) {
 	var (
-		ethAddress                   = "0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255"
-		cosmosAddress sdk.AccAddress = bytes.Repeat([]byte{0x1}, 20)
-		valAddress    sdk.ValAddress = bytes.Repeat([]byte{0x1}, 20)
+		ethAddress                    = "0xb462864E395d88d6bc7C5dd5F3F5eb4cc2599255"
+		cosmosAddress sdk.AccAddress  = bytes.Repeat([]byte{0x1}, 20)
+		consAddress   sdk.ConsAddress = bytes.Repeat([]byte{0x1}, 20)
 	)
 	specs := map[string]struct {
 		srcCosmosAddr sdk.AccAddress
-		srcValAddr    sdk.ValAddress
+		srcConsAddr   sdk.ConsAddress
 		srcETHAddr    string
 		expErr        bool
 	}{
 		"all good": {
 			srcCosmosAddr: cosmosAddress,
-			srcValAddr:    valAddress,
+			srcConsAddr:   consAddress,
 			srcETHAddr:    ethAddress,
 		},
 		"empty validator address": {
@@ -32,19 +32,19 @@ func TestValidateMsgSetOrchestratorAddress(t *testing.T) {
 			expErr:        true,
 		},
 		"short validator address": {
-			srcValAddr:    []byte{0x1},
+			srcConsAddr:   []byte{0x1},
 			srcCosmosAddr: cosmosAddress,
 			srcETHAddr:    ethAddress,
 			expErr:        false,
 		},
 		"empty cosmos address": {
-			srcValAddr: valAddress,
-			srcETHAddr: ethAddress,
-			expErr:     true,
+			srcConsAddr: consAddress,
+			srcETHAddr:  ethAddress,
+			expErr:      true,
 		},
 		"short cosmos address": {
 			srcCosmosAddr: []byte{0x1},
-			srcValAddr:    valAddress,
+			srcConsAddr:   consAddress,
 			srcETHAddr:    ethAddress,
 			expErr:        false,
 		},
@@ -54,7 +54,7 @@ func TestValidateMsgSetOrchestratorAddress(t *testing.T) {
 			println(fmt.Sprintf("Spec is %v", msg))
 			ethAddr, err := NewEthAddress(spec.srcETHAddr)
 			assert.NoError(t, err)
-			msg := NewMsgSetOrchestratorAddress(spec.srcValAddr, spec.srcCosmosAddr, *ethAddr)
+			msg := NewMsgSetOrchestratorAddress(spec.srcConsAddr, spec.srcCosmosAddr, *ethAddr)
 			// when
 			err = msg.ValidateBasic()
 			if spec.expErr {

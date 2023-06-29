@@ -8,6 +8,7 @@ tests/dockerfile/test-runner
 solidity/dist
 orchestrator/bins
 tests/assets/*.log
+tests/assets/gravity_genesis.json
 module/build
 module/build_consumer
 

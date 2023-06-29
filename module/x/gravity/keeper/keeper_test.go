@@ -158,12 +158,12 @@ func TestDelegateKeys(t *testing.T) {
 	length := 4
 	tmp_ethStrings := make([]string, length)
 	tmp_ethAddrs := make([]types.EthAddress, length)
-	tmp_valAddrs := make([]sdk.ValAddress, length)
+	tmp_consAddrs := make([]sdk.ConsAddress, length)
 	tmp_orchAddrs := make([]sdk.AccAddress, length)
 	for i := 0; i < length; i++ {
 		// we need the strings for both sorting and an assertion below
 		tmp_ethStrings[i] = fmt.Sprintf("0x%s", secp256k1.GenPrivKey().PubKey().Address().String())
-		tmp_valAddrs[i] = RandomValAddress()
+		tmp_consAddrs[i] = RandomValconsAddress()
 		tmp_orchAddrs[i] = RandomAccAddress()
 	}
 	sort.Strings(tmp_ethStrings)
@@ -175,21 +175,21 @@ func TestDelegateKeys(t *testing.T) {
 	var (
 		ethStrings = tmp_ethStrings
 		ethAddrs   = tmp_ethAddrs
-		valAddrs   = tmp_valAddrs
+		consAddrs  = tmp_consAddrs
 		orchAddrs  = tmp_orchAddrs
 	)
 
 	for i := range ethAddrs {
 		// set the orchestrator address
-		k.SetOrchestratorValidator(ctx, valAddrs[i], orchAddrs[i])
+		k.SetOrchestratorValcons(ctx, consAddrs[i], orchAddrs[i])
 		// set the ethereum address
-		k.SetEthAddressForValidator(ctx, valAddrs[i], ethAddrs[i])
+		k.SetEthAddressForValcons(ctx, consAddrs[i], ethAddrs[i])
 	}
 
 	addresses := k.GetDelegateKeys(ctx)
 	for i := range addresses {
 		res := addresses[i]
-		assert.Equal(t, valAddrs[i].String(), res.Validator)
+		assert.Equal(t, consAddrs[i].String(), res.Validator)
 		assert.Equal(t, orchAddrs[i].String(), res.Orchestrator)
 		assert.Equal(t, ethStrings[i], res.EthAddress)
 	}

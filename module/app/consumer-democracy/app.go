@@ -18,6 +18,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/simapp"
+	"github.com/cosmos/cosmos-sdk/std"
 	store "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -74,7 +75,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rakyll/statik/fs"
 	"github.com/spf13/cast"
-	"github.com/tendermint/spm/cosmoscmd"
 	abci "github.com/tendermint/tendermint/abci/types"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
@@ -107,13 +107,19 @@ import (
 	consumerkeeper "github.com/cosmos/interchain-security/x/ccv/consumer/keeper"
 	consumertypes "github.com/cosmos/interchain-security/x/ccv/consumer/types"
 
+	gravityparams "github.com/onomyprotocol/arc/module/app/params"
+	forwardingstakingkeeper "github.com/onomyprotocol/arc/module/x/forwarding_staking/keeper"
+	"github.com/onomyprotocol/arc/module/x/gravity"
+	gravitykeeper "github.com/onomyprotocol/arc/module/x/gravity/keeper"
+	gravitytypes "github.com/onomyprotocol/arc/module/x/gravity/types"
+
 	// unnamed import of statik for swagger UI support
 	_ "github.com/cosmos/cosmos-sdk/client/docs/statik"
 )
 
 const (
-	AppName              = "appname"
-	upgradeName          = "v0.1.0"
+	AppName              = "arc_" + gravitytypes.GravityDenomPrefix
+	upgradeName          = "v0.2.0"
 	AccountAddressPrefix = "onomy"
 )
 
@@ -147,6 +153,7 @@ var (
 		vesting.AppModuleBasic{},
 		// router.AppModuleBasic{},
 		consumer.AppModuleBasic{},
+		gravity.AppModuleBasic{},
 	)
 
 	// module account permissions
@@ -160,13 +167,13 @@ var (
 		consumertypes.ConsumerToSendToProviderName: nil,
 		ibctransfertypes.ModuleName:                {authtypes.Minter, authtypes.Burner},
 		govtypes.ModuleName:                        {authtypes.Burner},
+		gravitytypes.ModuleName:                    {authtypes.Minter, authtypes.Burner},
 	}
 )
 
 var (
 	_ simapp.App              = (*App)(nil)
 	_ servertypes.Application = (*App)(nil)
-	_ cosmoscmd.CosmosApp     = (*App)(nil)
 	_ ibctesting.TestingApp   = (*App)(nil)
 )
 
@@ -205,6 +212,8 @@ type App struct { // nolint: golint
 	AuthzKeeper      authzkeeper.Keeper
 	ConsumerKeeper   consumerkeeper.Keeper
 
+	GravityKeeper gravitykeeper.Keeper
+
 	// make scoped keepers public for test purposes
 	ScopedIBCKeeper         capabilitykeeper.ScopedKeeper
 	ScopedTransferKeeper    capabilitykeeper.ScopedKeeper
@@ -236,10 +245,10 @@ func New(
 	skipUpgradeHeights map[int64]bool,
 	homePath string,
 	invCheckPeriod uint,
-	encodingConfig cosmoscmd.EncodingConfig,
+	encodingConfig gravityparams.EncodingConfig,
 	appOpts servertypes.AppOptions,
 	baseAppOptions ...func(*baseapp.BaseApp),
-) cosmoscmd.App {
+) *App {
 	appCodec := encodingConfig.Marshaler
 	legacyAmino := encodingConfig.Amino
 	interfaceRegistry := encodingConfig.InterfaceRegistry
@@ -256,6 +265,7 @@ func New(
 		evidencetypes.StoreKey, ibctransfertypes.StoreKey,
 		capabilitytypes.StoreKey, authzkeeper.StoreKey,
 		consumertypes.StoreKey,
+		gravitytypes.StoreKey,
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
 	memKeys := sdk.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
@@ -311,13 +321,14 @@ func New(
 	delete(bankBlockedAddrs, authtypes.NewModuleAddress(
 		consumertypes.ConsumerToSendToProviderName).String())
 
-	app.BankKeeper = bankkeeper.NewBaseKeeper(
+	baseBankKeeper := bankkeeper.NewBaseKeeper(
 		appCodec,
 		keys[banktypes.StoreKey],
 		app.AccountKeeper,
 		app.GetSubspace(banktypes.ModuleName),
 		bankBlockedAddrs,
 	)
+	app.BankKeeper = baseBankKeeper
 	app.AuthzKeeper = authzkeeper.NewKeeper(
 		keys[authzkeeper.StoreKey],
 		appCodec,
@@ -378,6 +389,19 @@ func New(
 	app.StakingKeeper = *ccvstakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(app.DistrKeeper.Hooks()),
 	)
+
+	forwardingStakingKeeper := forwardingstakingkeeper.NewForwardingKeeper(&app.StakingKeeper, &app.ConsumerKeeper)
+	app.GravityKeeper = gravitykeeper.NewKeeper(
+		keys[gravitytypes.StoreKey],
+		app.GetSubspace(gravitytypes.ModuleName),
+		appCodec,
+		&baseBankKeeper,
+		&forwardingStakingKeeper,
+		&app.SlashingKeeper,
+		&app.DistrKeeper,
+		&app.AccountKeeper,
+	)
+	gravitykeeper.RegisterProposalTypes()
 
 	// register the proposal types
 	ccvgovRouter := govtypes.NewRouter()
@@ -455,6 +479,9 @@ func New(
 	ibcRouter := porttypes.NewRouter()
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, ibcmodule)
 	ibcRouter.AddRoute(consumertypes.ModuleName, consumerModule)
+	// FIXME
+	//handler := gravitykeeper.NewGravityProposalHandler(app.GravityKeeper)
+	//ibcRouter.AddRoute(gravitytypes.RouterKey, handler)
 	app.IBCKeeper.SetRouter(ibcRouter)
 
 	// create evidence keeper with router
@@ -490,6 +517,7 @@ func New(
 		ibc.NewAppModule(app.IBCKeeper),
 		transferModule,
 		consumerModule,
+		gravity.NewAppModule(app.GravityKeeper, app.BankKeeper),
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -518,6 +546,7 @@ func New(
 		ibctransfertypes.ModuleName,
 		ibchost.ModuleName,
 		consumertypes.ModuleName,
+		gravitytypes.ModuleName,
 	)
 	app.MM.SetOrderEndBlockers(
 		crisistypes.ModuleName,
@@ -538,6 +567,7 @@ func New(
 		ibctransfertypes.ModuleName,
 		ibchost.ModuleName,
 		consumertypes.ModuleName,
+		gravitytypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -565,6 +595,7 @@ func New(
 		ibchost.ModuleName,
 		ibctransfertypes.ModuleName,
 		consumertypes.ModuleName,
+		gravitytypes.ModuleName,
 	)
 
 	app.MM.RegisterInvariants(&app.CrisisKeeper)
@@ -829,7 +860,17 @@ func (app *App) GetScopedIBCKeeper() capabilitykeeper.ScopedKeeper {
 
 // GetTxConfig implements the TestingApp interface.
 func (app *App) GetTxConfig() client.TxConfig {
-	return cosmoscmd.MakeEncodingConfig(ModuleBasics).TxConfig
+	return MakeEncodingConfig().TxConfig
+}
+
+// MakeEncodingConfig creates an EncodingConfig for gravity.
+func MakeEncodingConfig() gravityparams.EncodingConfig {
+	encodingConfig := gravityparams.MakeEncodingConfig()
+	std.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	std.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	ModuleBasics.RegisterLegacyAminoCodec(encodingConfig.Amino)
+	ModuleBasics.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	return encodingConfig
 }
 
 // RegisterAPIRoutes registers all application module routes with the provided
@@ -899,6 +940,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
 	paramsKeeper.Subspace(ibchost.ModuleName)
 	paramsKeeper.Subspace(consumertypes.ModuleName)
+	paramsKeeper.Subspace(gravitytypes.ModuleName)
 
 	return paramsKeeper
 }

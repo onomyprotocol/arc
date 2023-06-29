@@ -33,7 +33,7 @@ func (k msgServer) SetOrchestratorAddress(c context.Context, msg *types.MsgSetOr
 	ctx := sdk.UnwrapSDKContext(c)
 
 	// check the following, all should be validated in validate basic
-	val, e1 := sdk.ValAddressFromBech32(msg.Validator)
+	consAddr, e1 := sdk.ConsAddressFromBech32(msg.Validator)
 	orch, e2 := sdk.AccAddressFromBech32(msg.Orchestrator)
 	addr, e3 := types.NewEthAddress(msg.EthAddress)
 	if e1 != nil || e2 != nil || e3 != nil {
@@ -41,14 +41,16 @@ func (k msgServer) SetOrchestratorAddress(c context.Context, msg *types.MsgSetOr
 	}
 
 	// check that the validator does not have an existing key
-	_, foundExistingOrchestratorKey := k.GetOrchestratorValidator(ctx, orch)
-	_, foundExistingEthAddress := k.GetEthAddressByValidator(ctx, val)
+	_, foundExistingOrchestratorKey := k.GetOrchestratorValcons(ctx, orch)
+	_, foundExistingEthAddress := k.GetEthAddressByValcons(ctx, consAddr)
 
 	// ensure that the validator exists
-	if k.Keeper.StakingKeeper.Validator(ctx, val) == nil {
-		return nil, sdkerrors.Wrap(stakingtypes.ErrNoValidatorFound, val.String())
+	// note: do not use `DoesValidatorExistAndIsBonded`
+	//if k.Keeper.StakingKeeper.Validator(ctx, val) == nil {
+	if !k.Keeper.StakingKeeper.DoesValconExist(ctx, consAddr) {
+		return nil, sdkerrors.Wrap(stakingtypes.ErrNoValidatorFound, consAddr.String())
 	} else if foundExistingOrchestratorKey || foundExistingEthAddress {
-		return nil, sdkerrors.Wrap(types.ErrResetDelegateKeys, val.String())
+		return nil, sdkerrors.Wrap(types.ErrResetDelegateKeys, consAddr.String())
 	}
 
 	// check that neither key is a duplicate
@@ -63,9 +65,9 @@ func (k msgServer) SetOrchestratorAddress(c context.Context, msg *types.MsgSetOr
 	}
 
 	// set the orchestrator address
-	k.SetOrchestratorValidator(ctx, val, orch)
+	k.SetOrchestratorValcons(ctx, consAddr, orch)
 	// set the ethereum address
-	k.SetEthAddressForValidator(ctx, val, *addr)
+	k.SetEthAddressForValcons(ctx, consAddr, *addr)
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
@@ -270,14 +272,15 @@ func (k msgServer) checkOrchestratorValidatorInSet(ctx sdk.Context, orchestrator
 	if err != nil {
 		return sdkerrors.Wrap(types.ErrInvalid, "acc address invalid")
 	}
-	validator, found := k.GetOrchestratorValidator(ctx, orchaddr)
+	consAddr, found := k.GetOrchestratorValcons(ctx, orchaddr)
 	if !found {
 		return sdkerrors.Wrap(types.ErrUnknown, "validator")
 	}
 
 	// return an error if the validator isn't in the active set
-	val := k.StakingKeeper.Validator(ctx, validator.GetOperator())
-	if val == nil || !val.IsBonded() {
+	//val := k.StakingKeeper.Validator(ctx, validator.GetOperator())
+	//if val == nil || !val.IsBonded() {
+	if !k.StakingKeeper.DoesValconExistAndIsBonded(ctx, consAddr) {
 		return sdkerrors.Wrap(sdkerrors.ErrorInvalidSigner, "validator not in active set")
 	}
 
@@ -326,15 +329,15 @@ func (k msgServer) confirmHandlerCommon(ctx sdk.Context, ethAddress string, orch
 	if err != nil {
 		return sdkerrors.Wrap(types.ErrInvalid, "acc address invalid")
 	}
-	validator, found := k.GetOrchestratorValidator(ctx, orchaddr)
+	consAddr, found := k.GetOrchestratorValcons(ctx, orchaddr)
 	if !found {
 		return sdkerrors.Wrap(types.ErrUnknown, "validator")
 	}
-	if err := sdk.VerifyAddressFormat(validator.GetOperator()); err != nil {
+	if err := sdk.VerifyAddressFormat(consAddr); err != nil {
 		return sdkerrors.Wrapf(err, "discovered invalid validator address for orchestrator %v", orchaddr)
 	}
 
-	ethAddressFromStore, found := k.GetEthAddressByValidator(ctx, validator.GetOperator())
+	ethAddressFromStore, found := k.GetEthAddressByValcons(ctx, consAddr)
 	if !found {
 		return sdkerrors.Wrap(types.ErrEmpty, "no eth address set for validator")
 	}

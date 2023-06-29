@@ -603,11 +603,11 @@ func TestMsgSetOrchestratorAddresses(t *testing.T) {
 	k := input.GravityKeeper
 	h := NewHandler(input.GravityKeeper)
 	ctx = ctx.WithBlockTime(blockTime)
-	valAddress, err := sdk.ValAddressFromBech32(input.StakingKeeper.GetValidators(ctx, 10)[0].OperatorAddress)
+	consAddr, err := input.StakingKeeper.GetValidators(ctx, 10)[0].GetConsAddr()
 	require.NoError(t, err)
 
 	// test setting keys
-	msg := types.NewMsgSetOrchestratorAddress(valAddress, cosmosAddress, *ethAddress)
+	msg := types.NewMsgSetOrchestratorAddress(consAddr, cosmosAddress, *ethAddress)
 	ctx = ctx.WithBlockTime(blockTime).WithBlockHeight(blockHeight)
 	_, err = h(ctx, msg)
 	require.NoError(t, err)
@@ -615,13 +615,13 @@ func TestMsgSetOrchestratorAddresses(t *testing.T) {
 	// test all lookup methods
 
 	// individual lookups
-	ethLookup, found := k.GetEthAddressByValidator(ctx, valAddress)
+	ethLookup, found := k.GetEthAddressByValcons(ctx, consAddr)
 	assert.True(t, found)
 	assert.Equal(t, ethLookup, ethAddress)
 
-	valLookup, found := k.GetOrchestratorValidator(ctx, cosmosAddress)
+	consLookup, found := k.GetOrchestratorValcons(ctx, cosmosAddress)
 	assert.True(t, found)
-	assert.Equal(t, valLookup.GetOperator(), valAddress)
+	assert.Equal(t, consLookup, consAddr)
 
 	// query endpoints
 	queryO := types.QueryDelegateKeysByOrchestratorAddress{
@@ -638,7 +638,7 @@ func TestMsgSetOrchestratorAddresses(t *testing.T) {
 
 	// try to set values again. This should fail see issue #344 for why allowing this
 	// would require keeping a history of all validators delegate keys forever
-	msg = types.NewMsgSetOrchestratorAddress(valAddress, cosmosAddress2, *ethAddress2)
+	msg = types.NewMsgSetOrchestratorAddress(consAddr, cosmosAddress2, *ethAddress2)
 	ctx = ctx.WithBlockTime(blockTime2).WithBlockHeight(blockHeight2)
 	_, err = h(ctx, msg)
 	require.Error(t, err)
@@ -668,7 +668,7 @@ func TestMsgValsetConfirm(t *testing.T) {
 	vs.Height = uint64(1)
 	vs.Nonce = uint64(1)
 	k.StoreValset(ctx, vs)
-	k.SetEthAddressForValidator(input.Context, keeper.ValAddrs[0], *ethAddressParsed)
+	k.SetEthAddressForValcons(input.Context, keeper.ConsAddrs[0], *ethAddressParsed)
 
 	// try wrong eth address
 	msg := &types.MsgValsetConfirm{

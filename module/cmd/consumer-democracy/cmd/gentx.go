@@ -45,7 +45,7 @@ func GenTxCmd(mbm module.BasicManager, txEncCfg client.TxEncodingConfig, genBalI
 
 	//nolint: exhaustivestruct
 	cmd := &cobra.Command{
-		Use:   "gentx [key_name] [amount] [eth-address] [orchestrator-address]",
+		Use:   "gentx [amount] [consAddr] [eth-address] [orchestrator_name]",
 		Short: "Generate a genesis tx carrying a self delegation, oracle key delegation and orchestrator key delegation",
 		Args:  cobra.ExactArgs(4),
 		Long: fmt.Sprintf(`Generate a genesis transaction that creates a validator with a self-delegation, oracle key 
@@ -55,7 +55,7 @@ priv_validator.json file. The following default parameters are included:
     %s
 
 Example:
-$ %s gentx my-key-name 1000000stake 0x033030FEeBd93E3178487c35A9c8cA80874353C9 cosmos1ahx7f8wyertuus9r20284ej0asrs085case3kn --home=/path/to/home/dir --keyring-backend=os --chain-id=test-chain-1 \
+$ %s gentx 1000000stake onomyvalcons1qsnrn6y8tu9mksuemy8uryma5j5mnpmj4esply 0x033030FEeBd93E3178487c35A9c8cA80874353C9 my-orchestrator-name --home=/path/to/home/dir --keyring-backend=os --chain-id=test-chain-1 \
     --moniker="myvalidator" \
     --commission-max-change-rate=0.01 \
     --commission-max-rate=1.0 \
@@ -115,22 +115,18 @@ $ %s gentx my-key-name 1000000stake 0x033030FEeBd93E3178487c35A9c8cA80874353C9 c
 
 			inBuf := bufio.NewReader(cmd.InOrStdin())
 
-			name := args[0]
-			key, err := clientCtx.Keyring.Key(name)
-			if err != nil {
-				return errors.Wrapf(err, "failed to fetch '%s' from the keyring", name)
-			}
-
 			ethAddress := args[2]
 
 			if err := gravitytypes.ValidateEthAddress(ethAddress); err != nil {
 				return errors.Wrapf(err, "invalid ethereum address")
 			}
 
-			orchAddress, err := sdk.AccAddressFromBech32(args[3])
+			name := args[3]
+			key, err := clientCtx.Keyring.Key(name)
 			if err != nil {
-				return errors.Wrapf(err, "failed to parse orchAddress(%s)", args[3])
+				return errors.Wrapf(err, "failed to fetch '%s' from the keyring", name)
 			}
+			orchAddress := key.GetAddress()
 
 			moniker := config.Moniker
 			if m, _ := cmd.Flags().GetString(cli.FlagMoniker); m != "" {
@@ -143,7 +139,7 @@ $ %s gentx my-key-name 1000000stake 0x033030FEeBd93E3178487c35A9c8cA80874353C9 c
 				return errors.Wrap(err, "error creating configuration to create validator msg")
 			}
 
-			amount := args[1]
+			amount := args[0]
 			coins, err := sdk.ParseCoinsNormalized(amount)
 			if err != nil {
 				return errors.Wrap(err, "failed to parse coins")
@@ -180,8 +176,13 @@ $ %s gentx my-key-name 1000000stake 0x033030FEeBd93E3178487c35A9c8cA80874353C9 c
 				return errors.Wrap(err, "failed to build create-validator message")
 			}
 
+			consAddr, err := sdk.ConsAddressFromBech32(args[1])
+			if err != nil {
+				return errors.Wrapf(err, "failed to parse consAddr(%s)", args[1])
+			}
+
 			delegateKeySetMsg := &gravitytypes.MsgSetOrchestratorAddress{
-				Validator:    sdk.ValAddress(key.GetAddress()).String(),
+				Validator:    consAddr.String(),
 				Orchestrator: orchAddress.String(),
 				EthAddress:   ethAddress,
 			}

@@ -262,14 +262,11 @@ func (k Keeper) LastEventNonceByAddr(
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, req.Address)
 	}
-	validator, found := k.GetOrchestratorValidator(ctx, addr)
+	consAddr, found := k.GetOrchestratorValcons(ctx, addr)
 	if !found {
 		return nil, sdkerrors.Wrap(types.ErrUnknown, "address")
 	}
-	if err := sdk.VerifyAddressFormat(validator.GetOperator()); err != nil {
-		return nil, sdkerrors.Wrap(err, "invalid validator address")
-	}
-	lastEventNonce := k.GetLastEventNonceByValidator(ctx, validator.GetOperator())
+	lastEventNonce := k.GetLastEventNonceByValcons(ctx, consAddr)
 	ret.EventNonce = lastEventNonce
 	return &ret, nil
 }

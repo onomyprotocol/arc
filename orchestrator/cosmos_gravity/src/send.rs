@@ -32,6 +32,8 @@ pub const TIMEOUT: Duration = Duration::from_secs(60);
 /// Cosmos address. The sending Cosmos address should be a validator
 /// this can only be called once! Key rotation code is possible but
 /// not currently implemented
+#[allow(unreachable_code)]
+#[allow(unused_variables)]
 pub async fn set_gravity_delegate_addresses(
     contact: &Contact,
     delegate_eth_address: EthAddress,
@@ -39,6 +41,8 @@ pub async fn set_gravity_delegate_addresses(
     private_key: PrivateKey,
     fee: Coin,
 ) -> Result<TxResponse, CosmosGrpcError> {
+    // need to use valcons and orchestrator signing
+    todo!();
     trace!("Updating Gravity Delegate addresses");
     let our_valoper_address = private_key
         .to_address(&contact.get_prefix())

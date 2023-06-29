@@ -13,7 +13,8 @@ import (
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	forwardingstakingkeeper "github.com/onomyprotocol/arc/module/x/forwarding_staking/keeper"
+	//stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/tendermint/tendermint/libs/log"
 
@@ -21,7 +22,7 @@ import (
 )
 
 // Check that our expected keeper types are implemented
-var _ types.StakingKeeper = (*stakingkeeper.Keeper)(nil)
+var _ types.StakingKeeper = (*forwardingstakingkeeper.Keeper)(nil)
 var _ types.SlashingKeeper = (*slashingkeeper.Keeper)(nil)
 var _ types.DistributionKeeper = (*distrkeeper.Keeper)(nil)
 
@@ -34,7 +35,7 @@ type Keeper struct {
 	// NOTE: If you add anything to this struct, add a nil check to ValidateMembers below!
 	cdc            codec.BinaryCodec // The wire codec for binary encoding/decoding.
 	bankKeeper     *bankkeeper.BaseKeeper
-	StakingKeeper  *stakingkeeper.Keeper
+	StakingKeeper  *forwardingstakingkeeper.Keeper
 	SlashingKeeper *slashingkeeper.Keeper
 	DistKeeper     *distrkeeper.Keeper
 	accountKeeper  *authkeeper.AccountKeeper
@@ -69,7 +70,7 @@ func NewKeeper(
 	paramSpace paramtypes.Subspace,
 	cdc codec.BinaryCodec,
 	bankKeeper *bankkeeper.BaseKeeper,
-	stakingKeeper *stakingkeeper.Keeper,
+	stakingKeeper *forwardingstakingkeeper.Keeper,
 	slashingKeeper *slashingkeeper.Keeper,
 	distKeeper *distrkeeper.Keeper,
 	accKeeper *authkeeper.AccountKeeper,
@@ -211,11 +212,11 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []types.MsgSetOrchestratorAddre
 		if err != nil {
 			panic(sdkerrors.Wrapf(err, "found invalid ethAddress %v under key %v", string(value), key))
 		}
-		valAddress := sdk.ValAddress(key)
-		if err := sdk.VerifyAddressFormat(valAddress); err != nil {
-			panic(sdkerrors.Wrapf(err, "invalid valAddress in key %v", valAddress))
+		consAddr := sdk.ConsAddress(key)
+		if err := sdk.VerifyAddressFormat(consAddr); err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid consAddr in key %v", consAddr))
 		}
-		ethAddresses[valAddress.String()] = ethAddress.GetAddress()
+		ethAddresses[consAddr.String()] = ethAddress.GetAddress()
 	}
 
 	store = ctx.KVStore(k.storeKey)
@@ -232,18 +233,18 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []types.MsgSetOrchestratorAddre
 		if err := sdk.VerifyAddressFormat(orchAddress); err != nil {
 			panic(sdkerrors.Wrapf(err, "invalid orchAddress in key %v", orchAddresses))
 		}
-		valAddress := sdk.ValAddress(value)
-		if err := sdk.VerifyAddressFormat(valAddress); err != nil {
-			panic(sdkerrors.Wrapf(err, "invalid val address stored for orchestrator %s", valAddress.String()))
+		consAddr := sdk.ConsAddress(value)
+		if err := sdk.VerifyAddressFormat(consAddr); err != nil {
+			panic(sdkerrors.Wrapf(err, "invalid consAddr stored for orchestrator %s", consAddr.String()))
 		}
 
-		orchAddresses[valAddress.String()] = orchAddress.String()
+		orchAddresses[consAddr.String()] = orchAddress.String()
 	}
 
 	var result []types.MsgSetOrchestratorAddress
 
-	for valAddr, ethAddr := range ethAddresses {
-		orch, ok := orchAddresses[valAddr]
+	for consAddr, ethAddr := range ethAddresses {
+		orch, ok := orchAddresses[consAddr]
 		if !ok {
 			// this should never happen unless the store
 			// is somehow inconsistent
@@ -251,7 +252,7 @@ func (k Keeper) GetDelegateKeys(ctx sdk.Context) []types.MsgSetOrchestratorAddre
 		}
 		result = append(result, types.MsgSetOrchestratorAddress{
 			Orchestrator: orch,
-			Validator:    valAddr,
+			Validator:    consAddr,
 			EthAddress:   ethAddr,
 		})
 

@@ -21,13 +21,9 @@ func (k Keeper) Attest(
 	if err := sdk.VerifyAddressFormat(claim.GetClaimer()); err != nil {
 		return nil, sdkerrors.Wrap(err, "invalid claimer address")
 	}
-	val, found := k.GetOrchestratorValidator(ctx, claim.GetClaimer())
+	consAddr, found := k.GetOrchestratorValcons(ctx, claim.GetClaimer())
 	if !found {
-		panic("Could not find ValAddr for delegate key, should be checked by now")
-	}
-	valAddr := val.GetOperator()
-	if err := sdk.VerifyAddressFormat(valAddr); err != nil {
-		return nil, sdkerrors.Wrap(err, "invalid orchestrator validator address")
+		panic("Could not find consAddr for delegate key, should be checked by now")
 	}
 	// Check that the nonce of this event is exactly one higher than the last nonce stored by this validator.
 	// We check the event nonce in processAttestation as well,
@@ -35,7 +31,7 @@ func (k Keeper) Attest(
 	// and prevents validators from submitting two claims with the same nonce.
 	// This prevents there being two attestations with the same nonce that get 2/3s of the votes
 	// in the endBlocker.
-	lastEventNonce := k.GetLastEventNonceByValidator(ctx, valAddr)
+	lastEventNonce := k.GetLastEventNonceByValcons(ctx, consAddr)
 	if claim.GetEventNonce() != lastEventNonce+1 {
 		return nil, types.ErrNonContiguousEventNonce
 	}
@@ -58,10 +54,10 @@ func (k Keeper) Attest(
 	}
 
 	// Add the validator's vote to this attestation
-	att.Votes = append(att.Votes, valAddr.String())
+	att.Votes = append(att.Votes, consAddr.String())
 
 	k.SetAttestation(ctx, claim.GetEventNonce(), hash, att)
-	k.SetLastEventNonceByValidator(ctx, valAddr, claim.GetEventNonce())
+	k.SetLastEventNonceByValcons(ctx, consAddr, claim.GetEventNonce())
 
 	return att, nil
 }
@@ -87,11 +83,15 @@ func (k Keeper) TryAttestation(ctx sdk.Context, att *types.Attestation) {
 		requiredPower := types.AttestationVotesPowerThreshold.Mul(totalPower).Quo(sdk.NewInt(100))
 		attestationPower := sdk.NewInt(0)
 		for _, validator := range att.Votes {
-			val, err := sdk.ValAddressFromBech32(validator)
+			consAddr, err := sdk.ConsAddressFromBech32(validator)
 			if err != nil {
 				panic(err)
 			}
-			validatorPower := k.StakingKeeper.GetLastValidatorPower(ctx, val)
+			validatorPower, found := k.StakingKeeper.GetLastValconsPower(ctx, consAddr)
+			if !found {
+				fmt.Println(consAddr)
+				panic("TryAttestation: consAddr not found")
+			}
 			// Add it to the attestation power's sum
 			attestationPower = attestationPower.Add(sdk.NewInt(validatorPower))
 			// If the power of all the validators that have voted on the attestation is higher or equal to the threshold,
@@ -358,12 +358,12 @@ func (k Keeper) setLastObservedEventNonce(ctx sdk.Context, nonce uint64) {
 }
 
 // GetLastEventNonceByValidator returns the latest event nonce for a given validator
-func (k Keeper) GetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress) uint64 {
-	if err := sdk.VerifyAddressFormat(validator); err != nil {
+func (k Keeper) GetLastEventNonceByValcons(ctx sdk.Context, consAddr sdk.ConsAddress) uint64 {
+	if err := sdk.VerifyAddressFormat(consAddr); err != nil {
 		panic(sdkerrors.Wrap(err, "invalid validator address"))
 	}
 	store := ctx.KVStore(k.storeKey)
-	bytes := store.Get([]byte(types.GetLastEventNonceByValidatorKey(validator)))
+	bytes := store.Get([]byte(types.GetLastEventNonceByValconsKey(consAddr)))
 
 	if len(bytes) == 0 {
 		// in the case that we have no existing value this is the first
@@ -381,10 +381,10 @@ func (k Keeper) GetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValA
 }
 
 // setLastEventNonceByValidator sets the latest event nonce for a give validator
-func (k Keeper) SetLastEventNonceByValidator(ctx sdk.Context, validator sdk.ValAddress, nonce uint64) {
-	if err := sdk.VerifyAddressFormat(validator); err != nil {
+func (k Keeper) SetLastEventNonceByValcons(ctx sdk.Context, consAddr sdk.ConsAddress, nonce uint64) {
+	if err := sdk.VerifyAddressFormat(consAddr); err != nil {
 		panic(sdkerrors.Wrap(err, "invalid validator address"))
 	}
 	store := ctx.KVStore(k.storeKey)
-	store.Set([]byte(types.GetLastEventNonceByValidatorKey(validator)), types.UInt64Bytes(nonce))
+	store.Set([]byte(types.GetLastEventNonceByValconsKey(consAddr)), types.UInt64Bytes(nonce))
 }

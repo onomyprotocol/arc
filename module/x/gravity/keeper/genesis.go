@@ -109,13 +109,13 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		// while all attestations have already been cleaned up we can do this instead and
 		// not carry around every validators event nonce counter forever.
 		for _, vote := range att.Votes {
-			val, err := sdk.ValAddressFromBech32(vote)
+			consAddr, err := sdk.ConsAddressFromBech32(vote)
 			if err != nil {
 				panic(err)
 			}
-			last := k.GetLastEventNonceByValidator(ctx, val)
+			last := k.GetLastEventNonceByValcons(ctx, consAddr)
 			if claim.GetEventNonce() > last {
-				k.SetLastEventNonceByValidator(ctx, val, claim.GetEventNonce())
+				k.SetLastEventNonceByValcons(ctx, consAddr, claim.GetEventNonce())
 			}
 		}
 	}
@@ -129,7 +129,7 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		if err != nil {
 			panic("Invalid delegate key in Genesis!")
 		}
-		val, err := sdk.ValAddressFromBech32(keys.Validator)
+		consAddr, err := sdk.ConsAddressFromBech32(keys.Validator)
 		if err != nil {
 			panic(err)
 		}
@@ -144,9 +144,9 @@ func InitGenesis(ctx sdk.Context, k Keeper, data types.GenesisState) {
 		}
 
 		// set the orchestrator address
-		k.SetOrchestratorValidator(ctx, val, orch)
+		k.SetOrchestratorValcons(ctx, consAddr, orch)
 		// set the ethereum address
-		k.SetEthAddressForValidator(ctx, val, *ethAddr)
+		k.SetEthAddressForValcons(ctx, consAddr, *ethAddr)
 	}
 
 	// populate state with cosmos originated denom-erc20 mapping

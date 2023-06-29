@@ -136,20 +136,20 @@ func GetOrchestratorAddressKey(orc sdk.AccAddress) string {
 	return KeyOrchestratorAddress + string(orc.Bytes())
 }
 
-// GetEthAddressByValidatorKey returns the following key format
+// GetEthAddressByValconsKey returns the following key format (but with valcons)
 // prefix              cosmos-validator
 // [0x0][gravityvaloper1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm]
-func GetEthAddressByValidatorKey(validator sdk.ValAddress) string {
-	if err := sdk.VerifyAddressFormat(validator); err != nil {
-		panic(sdkerrors.Wrap(err, "invalid validator address"))
+func GetEthAddressByValconsKey(consAddr sdk.ConsAddress) string {
+	if err := sdk.VerifyAddressFormat(consAddr); err != nil {
+		panic(sdkerrors.Wrap(err, "invalid consAddr address"))
 	}
-	return EthAddressByValidatorKey + string(validator.Bytes())
+	return EthAddressByValidatorKey + string(consAddr.Bytes())
 }
 
-// GetValidatorByEthAddressKey returns the following key format
+// GetValconsByEthAddressKey returns the following key format
 // prefix              cosmos-validator
 // [0xf9][0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B]
-func GetValidatorByEthAddressKey(ethAddress EthAddress) string {
+func GetValconsByEthAddressKey(ethAddress EthAddress) string {
 	return ValidatorByEthAddressKey + string([]byte(ethAddress.GetAddress()))
 }
 
@@ -264,15 +264,15 @@ func GetBatchConfirmKey(tokenContract EthAddress, batchNonce uint64, validator s
 	return c
 }
 
-// GetLastEventNonceByValidatorKey indexes lateset event nonce by validator
-// GetLastEventNonceByValidatorKey returns the following key format
+// GetLastEventNonceByValconsKey indexes lateset event nonce by validator
+// GetLastEventNonceByValconsKey returns the following key format
 // prefix              cosmos-validator
 // [0x0][gravity1ahx7f8wyertuus9r20284ej0asrs085ceqtfnm]
-func GetLastEventNonceByValidatorKey(validator sdk.ValAddress) string {
-	if err := sdk.VerifyAddressFormat(validator); err != nil {
+func GetLastEventNonceByValconsKey(consAddr sdk.ConsAddress) string {
+	if err := sdk.VerifyAddressFormat(consAddr); err != nil {
 		panic(sdkerrors.Wrap(err, "invalid validator address"))
 	}
-	return LastEventNonceByValidatorKey + string(validator.Bytes())
+	return LastEventNonceByValidatorKey + string(consAddr.Bytes())
 }
 
 func GetDenomToERC20Key(denom string) string {

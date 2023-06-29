@@ -9,7 +9,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/tmhash"
 )
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 var (
 	_ sdk.Msg = &MsgSetOrchestratorAddress{}
 	_ sdk.Msg = &MsgValsetConfirm{}
@@ -27,9 +27,9 @@ var (
 )
 
 // NewMsgSetOrchestratorAddress returns a new msgSetOrchestratorAddress
-func NewMsgSetOrchestratorAddress(val sdk.ValAddress, oper sdk.AccAddress, eth EthAddress) *MsgSetOrchestratorAddress {
+func NewMsgSetOrchestratorAddress(consAddr sdk.ConsAddress, oper sdk.AccAddress, eth EthAddress) *MsgSetOrchestratorAddress {
 	return &MsgSetOrchestratorAddress{
-		Validator:    val.String(),
+		Validator:    consAddr.String(),
 		Orchestrator: oper.String(),
 		EthAddress:   eth.GetAddress(),
 	}
@@ -43,7 +43,7 @@ func (msg *MsgSetOrchestratorAddress) Type() string { return "set_operator_addre
 
 // ValidateBasic performs stateless checks
 func (msg *MsgSetOrchestratorAddress) ValidateBasic() (err error) {
-	if _, err = sdk.ValAddressFromBech32(msg.Validator); err != nil {
+	if _, err = sdk.ConsAddressFromBech32(msg.Validator); err != nil {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidAddress, msg.Validator)
 	}
 	if _, err = sdk.AccAddressFromBech32(msg.Orchestrator); err != nil {
@@ -62,7 +62,7 @@ func (msg *MsgSetOrchestratorAddress) GetSignBytes() []byte {
 
 // GetSigners defines whose signature is required
 func (msg *MsgSetOrchestratorAddress) GetSigners() []sdk.AccAddress {
-	acc, err := sdk.ValAddressFromBech32(msg.Validator)
+	acc, err := sdk.AccAddressFromBech32(msg.Orchestrator)
 	if err != nil {
 		panic(err)
 	}
@@ -312,7 +312,7 @@ type EthereumClaim interface {
 	ClaimHash() ([]byte, error)
 }
 
-//nolint: exhaustivestruct
+// nolint: exhaustivestruct
 var (
 	_ EthereumClaim = &MsgSendToCosmosClaim{}
 	_ EthereumClaim = &MsgBatchSendToEthClaim{}
