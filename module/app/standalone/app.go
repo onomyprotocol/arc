@@ -95,6 +95,8 @@ import (
 	// unnamed import of statik for swagger UI support
 	_ "github.com/cosmos/cosmos-sdk/client/docs/statik"
 
+	forwardingstakingkeeper "github.com/onomyprotocol/arc/module/x/forwarding_staking/keeper"
+
 	gravityparams "github.com/onomyprotocol/arc/module/app/params"
 	"github.com/onomyprotocol/arc/module/x/gravity"
 	"github.com/onomyprotocol/arc/module/x/gravity/keeper"
@@ -189,22 +191,23 @@ type Gravity struct {
 
 	// keepers
 	// NOTE: If you add anything to this struct, add a nil check to ValidateMembers below!
-	accountKeeper     *authkeeper.AccountKeeper
-	authzKeeper       *authzkeeper.Keeper
-	bankKeeper        *bankkeeper.BaseKeeper
-	capabilityKeeper  *capabilitykeeper.Keeper
-	stakingKeeper     *stakingkeeper.Keeper
-	slashingKeeper    *slashingkeeper.Keeper
-	mintKeeper        *mintkeeper.Keeper
-	distrKeeper       *distrkeeper.Keeper
-	govKeeper         *govkeeper.Keeper
-	crisisKeeper      *crisiskeeper.Keeper
-	upgradeKeeper     *upgradekeeper.Keeper
-	paramsKeeper      *paramskeeper.Keeper
-	ibcKeeper         *ibckeeper.Keeper
-	evidenceKeeper    *evidencekeeper.Keeper
-	ibcTransferKeeper *ibctransferkeeper.Keeper
-	gravityKeeper     *keeper.Keeper
+	accountKeeper           *authkeeper.AccountKeeper
+	authzKeeper             *authzkeeper.Keeper
+	bankKeeper              *bankkeeper.BaseKeeper
+	capabilityKeeper        *capabilitykeeper.Keeper
+	stakingKeeper           *stakingkeeper.Keeper
+	forwardingStakingKeeper *forwardingstakingkeeper.Keeper
+	slashingKeeper          *slashingkeeper.Keeper
+	mintKeeper              *mintkeeper.Keeper
+	distrKeeper             *distrkeeper.Keeper
+	govKeeper               *govkeeper.Keeper
+	crisisKeeper            *crisiskeeper.Keeper
+	upgradeKeeper           *upgradekeeper.Keeper
+	paramsKeeper            *paramskeeper.Keeper
+	ibcKeeper               *ibckeeper.Keeper
+	evidenceKeeper          *evidencekeeper.Keeper
+	ibcTransferKeeper       *ibctransferkeeper.Keeper
+	gravityKeeper           *keeper.Keeper
 
 	// make scoped keepers public for test purposes
 	// NOTE: If you add anything to this struct, add a nil check to ValidateMembers below!
@@ -417,12 +420,15 @@ func NewGravityApp(
 	)
 	app.slashingKeeper = &slashingKeeper
 
+	forwardingStakingKeeper := forwardingstakingkeeper.NewForwardingKeeper(&stakingKeeper, nil)
+	app.forwardingStakingKeeper = &forwardingStakingKeeper
+
 	gravityKeeper := keeper.NewKeeper(
 		keys[gravitytypes.StoreKey],
 		app.GetSubspace(gravitytypes.ModuleName),
 		appCodec,
 		&bankKeeper,
-		&stakingKeeper,
+		&forwardingStakingKeeper,
 		&slashingKeeper,
 		&distrKeeper,
 		&accountKeeper,

@@ -46,7 +46,6 @@ import (
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
@@ -56,6 +55,9 @@ import (
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	tmversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	dbm "github.com/tendermint/tm-db"
+
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	forwardingstakingkeeper "github.com/onomyprotocol/arc/module/x/forwarding_staking/keeper"
 
 	"github.com/onomyprotocol/arc/module/x/gravity/types"
 )
@@ -264,16 +266,17 @@ func TestAccAddress(prefix string, data []byte) sdk.AccAddress {
 
 // TestInput stores the various keepers required to test gravity
 type TestInput struct {
-	GravityKeeper  Keeper
-	AccountKeeper  authkeeper.AccountKeeper
-	StakingKeeper  stakingkeeper.Keeper
-	SlashingKeeper slashingkeeper.Keeper
-	DistKeeper     distrkeeper.Keeper
-	BankKeeper     bankkeeper.BaseKeeper
-	GovKeeper      govkeeper.Keeper
-	Context        sdk.Context
-	Marshaler      codec.Codec
-	LegacyAmino    *codec.LegacyAmino
+	GravityKeeper           Keeper
+	AccountKeeper           authkeeper.AccountKeeper
+	StakingKeeper           stakingkeeper.Keeper
+	ForwardingStakingKeeper forwardingstakingkeeper.Keeper
+	SlashingKeeper          slashingkeeper.Keeper
+	DistKeeper              distrkeeper.Keeper
+	BankKeeper              bankkeeper.BaseKeeper
+	GovKeeper               govkeeper.Keeper
+	Context                 sdk.Context
+	Marshaler               codec.Codec
+	LegacyAmino             *codec.LegacyAmino
 }
 
 // SetupFiveValChain does all the initialization for a 5 Validator chain using the keys here
@@ -509,6 +512,8 @@ func CreateTestEnv(t *testing.T) TestInput {
 
 	// distribution keeper can be nil here since it won't be used for the tests
 	stakingKeeper := stakingkeeper.NewKeeper(marshaler, keyStaking, accountKeeper, bankKeeper, getSubspace(paramsKeeper, stakingtypes.ModuleName))
+	forwardingStakingKeeper := forwardingstakingkeeper.NewForwardingKeeper(&stakingKeeper, nil)
+
 	stakingKeeper.SetParams(ctx, TestingStakeParams)
 
 	distKeeper := distrkeeper.NewKeeper(marshaler, keyDistro, getSubspace(paramsKeeper, distrtypes.ModuleName), accountKeeper, bankKeeper, stakingKeeper, authtypes.FeeCollectorName, nil)
@@ -576,7 +581,7 @@ func CreateTestEnv(t *testing.T) TestInput {
 		getSubspace(paramsKeeper, slashingtypes.ModuleName).WithKeyTable(slashingtypes.ParamKeyTable()),
 	)
 
-	k := NewKeeper(gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), marshaler, &bankKeeper, &stakingKeeper, &slashingKeeper, &distKeeper, &accountKeeper)
+	k := NewKeeper(gravityKey, getSubspace(paramsKeeper, types.DefaultParamspace), marshaler, &bankKeeper, &forwardingStakingKeeper, &slashingKeeper, &distKeeper, &accountKeeper)
 
 	stakingKeeper = *stakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(
@@ -601,16 +606,17 @@ func CreateTestEnv(t *testing.T) TestInput {
 	fmt.Println(params)
 
 	return TestInput{
-		GravityKeeper:  k,
-		AccountKeeper:  accountKeeper,
-		BankKeeper:     bankKeeper,
-		StakingKeeper:  stakingKeeper,
-		SlashingKeeper: slashingKeeper,
-		DistKeeper:     distKeeper,
-		GovKeeper:      govKeeper,
-		Context:        ctx,
-		Marshaler:      marshaler,
-		LegacyAmino:    cdc,
+		GravityKeeper:           k,
+		AccountKeeper:           accountKeeper,
+		BankKeeper:              bankKeeper,
+		StakingKeeper:           stakingKeeper,
+		ForwardingStakingKeeper: forwardingStakingKeeper,
+		SlashingKeeper:          slashingKeeper,
+		DistKeeper:              distKeeper,
+		GovKeeper:               govKeeper,
+		Context:                 ctx,
+		Marshaler:               marshaler,
+		LegacyAmino:             cdc,
 	}
 }
 

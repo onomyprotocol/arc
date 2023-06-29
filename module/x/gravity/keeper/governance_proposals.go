@@ -79,7 +79,7 @@ func pruneAttestationsAfterNonce(ctx sdk.Context, k Keeper, nonceCutoff uint64) 
 
 	// Discover all affected validators whose LastEventNonce must be reset to nonceCutoff
 
-	numValidators := len(k.StakingKeeper.GetBondedValidatorsByPower(ctx))
+	numValidators := len(k.StakingKeeper.GetValidatorUpdatesSortedByPower(ctx))
 	// void and setMember are necessary for sets to work
 	type void struct{}
 	var setMember void

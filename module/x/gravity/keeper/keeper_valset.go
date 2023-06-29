@@ -256,7 +256,7 @@ func (k Keeper) IterateValsetBySlashedValsetNonce(ctx sdk.Context, lastSlashedVa
 // you should call this function, evaluate if you want to save this new valset, and discard
 // it or save
 func (k Keeper) GetCurrentValset(ctx sdk.Context) (types.Valset, error) {
-	validators := k.StakingKeeper.GetBondedValidatorsByPower(ctx)
+	validators := k.StakingKeeper.GetCCValidatorUpdatesSortedByPower(ctx)
 	if len(validators) == 0 {
 		return types.Valset{}, types.ErrNoValidators
 	}

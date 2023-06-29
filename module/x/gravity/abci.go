@@ -324,17 +324,22 @@ func updateValidator(ctx sdk.Context, k keeper.Keeper, val sdk.ValAddress) staki
 // getUnbondingValidators gets all currently unbonding validators in groups based on
 // the block at which they will finish validating.
 func getUnbondingValidators(ctx sdk.Context, k keeper.Keeper) (addresses []string) {
-	blockTime := ctx.BlockTime().Add(k.StakingKeeper.GetParams(ctx).UnbondingTime)
-	blockHeight := ctx.BlockHeight()
-	unbondingValIterator := k.StakingKeeper.ValidatorQueueIterator(ctx, blockTime, blockHeight)
-	defer unbondingValIterator.Close()
+	// TODO is it possible to get unbonding validators from the provider
+	if k.StakingKeeper.ConsumerKeeper == nil {
+		blockTime := ctx.BlockTime().Add(k.StakingKeeper.GetParams(ctx).UnbondingTime)
+		blockHeight := ctx.BlockHeight()
+		unbondingValIterator := k.StakingKeeper.ValidatorQueueIterator(ctx, blockTime, blockHeight)
+		defer unbondingValIterator.Close()
 
-	// All unbonding validators
-	for ; unbondingValIterator.Valid(); unbondingValIterator.Next() {
-		unbondingValidators := k.DeserializeValidatorIterator(unbondingValIterator.Value())
-		addresses = append(addresses, unbondingValidators.Addresses...)
+		// All unbonding validators
+		for ; unbondingValIterator.Valid(); unbondingValIterator.Next() {
+			unbondingValidators := k.DeserializeValidatorIterator(unbondingValIterator.Value())
+			addresses = append(addresses, unbondingValidators.Addresses...)
+		}
+		return addresses
+	} else {
+		return make([]string, 0)
 	}
-	return addresses
 }
 
 // prepBatchConfirms loads all confirmations into a hashmap indexed by validatorAddr

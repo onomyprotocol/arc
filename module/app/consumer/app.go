@@ -89,6 +89,7 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	ccvstaking "github.com/cosmos/interchain-security/x/ccv/democracy/staking"
+	forwardingstakingkeeper "github.com/onomyprotocol/arc/module/x/forwarding_staking/keeper"
 
 	"github.com/cosmos/interchain-security/testutil/e2e"
 	ibcconsumer "github.com/cosmos/interchain-security/x/ccv/consumer"
@@ -191,8 +192,9 @@ type App struct { // nolint: golint
 	// different fee-pool from the consumer chain ConsumerKeeper
 
 	// used just for gravity module
-	DistrKeeper   distrkeeper.Keeper
-	StakingKeeper stakingkeeper.Keeper
+	DistrKeeper             distrkeeper.Keeper
+	ForwardingStakingKeeper forwardingstakingkeeper.Keeper
+	StakingKeeper           stakingkeeper.Keeper
 
 	CrisisKeeper   crisiskeeper.Keeper
 	UpgradeKeeper  upgradekeeper.Keeper
@@ -431,12 +433,14 @@ func New(
 	)
 	app.StakingKeeper = ccvstakingKeeper
 
+	app.ForwardingStakingKeeper = forwardingstakingkeeper.NewForwardingKeeper(&app.StakingKeeper, &app.ConsumerKeeper)
+
 	app.GravityKeeper = gravitykeeper.NewKeeper(
 		keys[gravitytypes.StoreKey],
 		app.GetSubspace(gravitytypes.ModuleName),
 		appCodec,
 		&baseBankKeeper,
-		&app.StakingKeeper,
+		&app.ForwardingStakingKeeper,
 		&app.SlashingKeeper,
 		&app.DistrKeeper,
 		&app.AccountKeeper,

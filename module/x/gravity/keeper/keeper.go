@@ -13,7 +13,8 @@ import (
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	forwardingstakingkeeper "github.com/onomyprotocol/arc/module/x/forwarding_staking/keeper"
+	//stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/tendermint/tendermint/libs/log"
 
@@ -21,7 +22,7 @@ import (
 )
 
 // Check that our expected keeper types are implemented
-var _ types.StakingKeeper = (*stakingkeeper.Keeper)(nil)
+var _ types.StakingKeeper = (*forwardingstakingkeeper.Keeper)(nil)
 var _ types.SlashingKeeper = (*slashingkeeper.Keeper)(nil)
 var _ types.DistributionKeeper = (*distrkeeper.Keeper)(nil)
 
@@ -34,7 +35,7 @@ type Keeper struct {
 	// NOTE: If you add anything to this struct, add a nil check to ValidateMembers below!
 	cdc            codec.BinaryCodec // The wire codec for binary encoding/decoding.
 	bankKeeper     *bankkeeper.BaseKeeper
-	StakingKeeper  *stakingkeeper.Keeper
+	StakingKeeper  *forwardingstakingkeeper.Keeper
 	SlashingKeeper *slashingkeeper.Keeper
 	DistKeeper     *distrkeeper.Keeper
 	accountKeeper  *authkeeper.AccountKeeper
@@ -69,7 +70,7 @@ func NewKeeper(
 	paramSpace paramtypes.Subspace,
 	cdc codec.BinaryCodec,
 	bankKeeper *bankkeeper.BaseKeeper,
-	stakingKeeper *stakingkeeper.Keeper,
+	stakingKeeper *forwardingstakingkeeper.Keeper,
 	slashingKeeper *slashingkeeper.Keeper,
 	distKeeper *distrkeeper.Keeper,
 	accKeeper *authkeeper.AccountKeeper,
