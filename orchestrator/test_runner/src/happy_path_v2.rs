@@ -49,10 +49,10 @@ pub async fn happy_path_test_v2(
     let token_to_send_to_eth = footoken_metadata(contact).await.base;
 
     // one foo token
-    let amount_to_bridge = u256!(1_000_000);
+    let amount_to_bridge = u256!(1_000_000_000_000);
     let send_to_user_coin = Coin {
         denom: token_to_send_to_eth.clone(),
-        amount: amount_to_bridge.checked_add(u256!(100)).unwrap(),
+        amount: amount_to_bridge.checked_add(u256!(1_000_000_000)).unwrap(),
     };
     let send_to_eth_coin = Coin {
         denom: token_to_send_to_eth.clone(),

@@ -7,7 +7,7 @@ CHAIN_ID="gravity-test"
 
 NODES=$1
 
-ALLOCATION="10000000000000000000000stake,10000000000footoken,10000000000ibc/nometadatatoken"
+ALLOCATION="100000000000000000000000stake,100000000000000000000000footoken,100000000000000000000000ibc/nometadatatoken"
 pushd /gravity/orchestrator/test_runner
 # note that the gravity address here is the sha256 hash of 'distribution'
 ADDRESS=$(GET_TEST_ADDRESS=1 PATH=$PATH:$HOME/.cargo/bin $RUN_ARGS)
@@ -21,7 +21,8 @@ STARTING_VALIDATOR_HOME="--home /validator$STARTING_VALIDATOR"
 $BIN init $STARTING_VALIDATOR_HOME --chain-id=$CHAIN_ID validator1
 
 # set the minimum gas price so that it isn't an empty string
-sed -c -i "s/\(minimum-gas-prices *= *\).*/\1\"1stake\"/" /validator1/config/app.toml
+# note that this enforces `footoken` as the gas denom
+sed -c -i "s/\(minimum-gas-prices *= *\).*/\1\"1footoken\"/" /validator1/config/app.toml
 # reset the chain id for cases where Cosmos-SDK does not do it properly
 sed -c -i "s/\(chain-id *= *\).*/\1\"$CHAIN_ID\"/" /validator1/config/client.toml
 
