@@ -20,13 +20,19 @@ STARTING_VALIDATOR_HOME="--home /validator$STARTING_VALIDATOR"
 # todo add git hash to chain name
 $BIN init $STARTING_VALIDATOR_HOME --chain-id=$CHAIN_ID validator1
 
+# set the minimum gas price so that it isn't an empty string
+sed -c -i "s/\(minimum-gas-prices *= *\).*/\1\"1stake\"/" /validator1/config/app.toml
+# reset the chain id for cases where Cosmos-SDK does not do it properly
+sed -c -i "s/\(chain-id *= *\).*/\1\"$CHAIN_ID\"/" /validator1/config/client.toml
 
 ## Modify generated genesis.json to our liking by editing fields using jq
 ## we could keep a hardcoded genesis file around but that would prevent us from
 ## testing the generated one with the default values provided by the module.
 
+jq ".chain_id = \"$CHAIN_ID\"" /validator$STARTING_VALIDATOR/config/genesis.json > /edited-genesis.json
+
 # add in denom metadata for both native tokens
-jq '.app_state.bank.denom_metadata += [{"name": "Foo Token", "symbol": "FOO", "base": "footoken", display: "mfootoken", "description": "A non-staking test token", "denom_units": [{"denom": "footoken", "exponent": 0}, {"denom": "mfootoken", "exponent": 6}]},{"name": "Stake Token", "symbol": "STEAK", "base": "stake", display: "mstake", "description": "A staking test token", "denom_units": [{"denom": "stake", "exponent": 0}, {"denom": "mstake", "exponent": 6}]}]' /validator$STARTING_VALIDATOR/config/genesis.json > /metadata-genesis.json
+jq '.app_state.bank.denom_metadata += [{"name": "Foo Token", "symbol": "FOO", "base": "footoken", display: "mfootoken", "description": "A non-staking test token", "denom_units": [{"denom": "footoken", "exponent": 0}, {"denom": "mfootoken", "exponent": 6}]},{"name": "Stake Token", "symbol": "STEAK", "base": "stake", display: "mstake", "description": "A staking test token", "denom_units": [{"denom": "stake", "exponent": 0}, {"denom": "mstake", "exponent": 6}]}]' /edited-genesis.json > /metadata-genesis.json
 
 # a 60 second voting period to allow us to pass governance proposals in the tests
 jq '.app_state.gov.voting_params.voting_period = "60s"' /metadata-genesis.json > /community-pool-genesis.json
