@@ -331,8 +331,8 @@ pub async fn send_to_eth(
                 })?;
             if balance.amount < total_amount {
                 return Err(CosmosGrpcError::BadInput(format!(
-                    "Insufficient balance of {} to send {}",
-                    amount.denom, total_amount,
+                    "Insufficient balance of {} (account has {}) to send {}",
+                    amount.denom, balance.amount, total_amount,
                 )));
             }
             found = true;

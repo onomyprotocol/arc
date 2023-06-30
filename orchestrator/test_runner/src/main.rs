@@ -104,7 +104,7 @@ lazy_static! {
 pub fn get_fee() -> Coin {
     Coin {
         denom: get_test_token_name(),
-        amount: u256!(1),
+        amount: u256!(10000000),
     }
 }
 
