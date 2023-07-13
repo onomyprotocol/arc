@@ -8,17 +8,16 @@ use ethereum_gravity::{send_to_cosmos::send_to_cosmos, utils::get_tx_batch_nonce
 use futures::future::join_all;
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{u256, Address as EthAddress},
+    clarity::Address as EthAddress,
     deep_space::{coin::Coin, Contact},
-    u64_array_bigints,
     web30::{client::Web3, types::SendTxOption},
-    TESTS_BATCH_NUM_USERS,
+    TESTS_BATCH_NUM_USERS, TEST_FEE_AMOUNT,
 };
 use rand::seq::SliceRandom;
 use tokio::time::sleep;
 use tonic::transport::Channel;
 
-use crate::{get_fee, utils::*, ONE_ETH, ONE_HUNDRED_ETH, TOTAL_TIMEOUT};
+use crate::{get_fee, get_fee_amount, utils::*, ONE_ETH, ONE_HUNDRED_ETH, TOTAL_TIMEOUT};
 
 const TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -53,6 +52,19 @@ pub async fn transaction_stress_test(
     let mut user_keys = Vec::new();
     for _ in 0..NUM_USERS {
         user_keys.push(get_user_key());
+    }
+    // send what will be used for fees
+    for user in &user_keys {
+        contact
+            .send_coins(
+                get_fee(),
+                Some(get_fee()),
+                user.cosmos_address,
+                Some(TOTAL_TIMEOUT),
+                keys[0].validator_key,
+            )
+            .await
+            .unwrap();
     }
     // the sending eth addresses need Ethereum to send ERC20 tokens to the bridge
     let sending_eth_addresses: Vec<EthAddress> = user_keys.iter().map(|i| i.eth_address).collect();
@@ -150,7 +162,8 @@ pub async fn transaction_stress_test(
         );
     }
 
-    let send_amount = ONE_HUNDRED_ETH.checked_sub(u256!(500)).unwrap();
+    // send back less than we sent over to account for fees we need to pay
+    let send_amount = ONE_HUNDRED_ETH.checked_sub(get_fee_amount(9)).unwrap();
 
     let mut denoms = HashSet::new();
     for token in erc20_addresses.iter() {
@@ -171,16 +184,16 @@ pub async fn transaction_stress_test(
             }
             let mut send_coin = send_coin.unwrap();
             send_coin.amount = send_amount;
-            let send_fee = Coin {
+            let bridge_fee = Coin {
                 denom: send_coin.denom.clone(),
-                amount: u256!(1),
+                amount: TEST_FEE_AMOUNT,
             };
             let res = send_to_eth(
                 c_key,
                 e_dest_addr,
                 send_coin,
-                send_fee.clone(),
-                send_fee,
+                bridge_fee,
+                get_fee(),
                 contact,
             );
             futs.push(res);
@@ -207,21 +220,11 @@ pub async fn transaction_stress_test(
     assert!(pending.transfers_in_batches.is_empty());
     assert!(!pending.unbatched_transfers.is_empty());
 
-    let denom = denoms.iter().next().unwrap().clone();
-    let bridge_fee = Coin {
-        denom,
-        amount: u256!(1),
-    };
     // cancel all outgoing transactions for this user
     for tx in pending.unbatched_transfers {
-        let res = cancel_send_to_eth(
-            user_who_cancels.cosmos_key,
-            bridge_fee.clone(),
-            contact,
-            tx.id,
-        )
-        .await
-        .unwrap();
+        let res = cancel_send_to_eth(user_who_cancels.cosmos_key, get_fee(), contact, tx.id)
+            .await
+            .unwrap();
         info!("{:?}", res);
     }
 
@@ -248,13 +251,7 @@ pub async fn transaction_stress_test(
         .unwrap();
     // try to cancel the victims transactions and ensure failure
     for tx in pending.unbatched_transfers {
-        let res = cancel_send_to_eth(
-            user_who_cancels.cosmos_key,
-            bridge_fee.clone(),
-            contact,
-            tx.id,
-        )
-        .await;
+        let res = cancel_send_to_eth(user_who_cancels.cosmos_key, get_fee(), contact, tx.id).await;
         info!("{:?}", res);
     }
 

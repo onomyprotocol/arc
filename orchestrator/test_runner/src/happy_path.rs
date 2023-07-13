@@ -22,14 +22,14 @@ use gravity_utils::{
     types::SendToCosmosEvent,
     u64_array_bigints,
     web30::client::Web3,
-    GRAVITY_DENOM_PREFIX,
+    GRAVITY_DENOM_PREFIX, TEST_FEE_AMOUNT,
 };
 use prost::Message;
 use tokio::time::sleep;
 use tonic::transport::Channel;
 
 use crate::{
-    get_fee,
+    get_fee, get_fee_amount, get_test_token_name,
     utils::{check_erc20_balance, *},
     MINER_ADDRESS, MINER_PRIVATE_KEY, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
 };
@@ -72,8 +72,22 @@ pub async fn happy_path_test(
         wait_for_nonzero_valset(web30, gravity_address).await;
     }
 
-    // generate an address for coin sending tests, this ensures test imdepotency
+    // generate an address for coin sending tests, this ensures test idempotency
     let user_keys = get_user_key();
+    // send fees
+    contact
+        .send_coins(
+            Coin {
+                denom: get_test_token_name(),
+                amount: get_fee_amount(10),
+            },
+            Some(get_fee()),
+            user_keys.cosmos_address,
+            Some(TOTAL_TIMEOUT),
+            keys[0].validator_key,
+        )
+        .await
+        .unwrap();
 
     info!("testing erc20 deposit");
     // the denom and amount of the token bridged from Ethereum -> Cosmos
@@ -87,7 +101,7 @@ pub async fn happy_path_test(
             user_keys.cosmos_address,
             gravity_address,
             erc20_address,
-            u256!(100),
+            get_fee_amount(3),
             None,
             None,
         )
@@ -541,9 +555,8 @@ async fn test_batch(
 
     let bridge_denom_fee = Coin {
         denom: token_name.clone(),
-        amount: u256!(1),
+        amount: TEST_FEE_AMOUNT,
     };
-    let amount = amount.checked_sub(u256!(5)).unwrap();
     info!(
         "Sending {}{} from {} on Cosmos back to Ethereum",
         amount, token_name, dest_cosmos_address
@@ -554,10 +567,10 @@ async fn test_batch(
         dest_eth_address,
         Coin {
             denom: token_name.clone(),
-            amount,
+            amount: get_fee_amount(2),
         },
         bridge_denom_fee.clone(),
-        bridge_denom_fee.clone(),
+        get_fee(),
         contact,
     )
     .await
@@ -612,7 +625,7 @@ async fn test_batch(
                 // we have to send this address one eth so that it can perform contract calls
                 send_one_eth(dest_eth_address, web30).await;
             }
-            check_erc20_balance(erc20_contract, amount, dest_eth_address, web30).await;
+            check_erc20_balance(erc20_contract, u256!(1), dest_eth_address, web30).await;
             info!(
                 "Successfully updated txbatch nonce to {} and sent {}{} tokens to Ethereum!",
                 current_eth_batch_nonce, amount, token_name

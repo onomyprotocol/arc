@@ -17,14 +17,14 @@ use gravity_utils::{
     deep_space::{coin::Coin, Contact},
     u64_array_bigints,
     web30::client::Web3,
-    GRAVITY_DENOM_PREFIX,
+    GRAVITY_DENOM_PREFIX, TEST_FEE_AMOUNT,
 };
 use tokio::time::sleep;
 use tonic::transport::Channel;
 
 use crate::{
     airdrop_proposal::wait_for_proposals_to_execute,
-    get_fee,
+    get_fee, get_fee_amount, get_test_token_name,
     happy_path::{test_erc20_deposit_panic, test_erc20_deposit_result},
     utils::*,
     MINER_ADDRESS, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
@@ -53,6 +53,20 @@ pub async fn pause_bridge_test(
 
     // generate an address for coin sending tests, this ensures test imdepotency
     let user_keys = get_user_key();
+    // send the user some footoken
+    contact
+        .send_coins(
+            Coin {
+                denom: get_test_token_name(),
+                amount: get_fee_amount(9),
+            },
+            Some(get_fee()),
+            user_keys.cosmos_address,
+            Some(TOTAL_TIMEOUT),
+            keys[0].validator_key,
+        )
+        .await
+        .unwrap();
 
     // send some tokens to Cosmos, so that we can try to send them back later
     // this won't complete until the tokens cross the bridge
@@ -63,7 +77,7 @@ pub async fn pause_bridge_test(
         user_keys.cosmos_address,
         gravity_address,
         erc20_address,
-        u256!(100),
+        get_fee_amount(9),
         None,
         None,
     )
@@ -98,7 +112,7 @@ pub async fn pause_bridge_test(
         user_keys.cosmos_address,
         gravity_address,
         erc20_address,
-        u256!(100),
+        get_fee_amount(1),
         Some(OPERATION_TIMEOUT),
         None,
     )
@@ -119,22 +133,20 @@ pub async fn pause_bridge_test(
         .unwrap()
         .unwrap();
     let token_name = coin.denom;
-    let amount = coin.amount;
-
     let bridge_denom_fee = Coin {
         denom: token_name.clone(),
-        amount: u256!(1),
+        amount: TEST_FEE_AMOUNT,
     };
-    let amount = amount.checked_sub(u256!(5)).unwrap();
+
     send_to_eth(
         user_keys.cosmos_key,
         user_keys.eth_address,
         Coin {
             denom: token_name.clone(),
-            amount,
+            amount: TEST_FEE_AMOUNT,
         },
         bridge_denom_fee.clone(),
-        bridge_denom_fee.clone(),
+        get_fee(),
         contact,
     )
     .await
@@ -192,9 +204,9 @@ pub async fn pause_bridge_test(
         .await
         .unwrap()
         .unwrap();
-    // check that our balance is equal to 200 (two deposits) minus 95 (sent to eth) - 1 (fee) - 1 (fee for batch request)
-    // NOTE this makes the test not imdepotent but it's not anyways, a crash may leave the bridge halted
-    assert_eq!(res.amount, u256!(103));
+    // check that our balance is equal to 8*TEST_FEE_AMOUNT accounting for amounts sent and fees
+    // NOTE this makes the test not idempotent but it's not anyways, a crash may leave the bridge halted
+    assert_eq!(res.amount, TEST_FEE_AMOUNT.checked_mul(u256!(8)).unwrap());
 
     let mut current_eth_batch_nonce =
         get_tx_batch_nonce(gravity_address, erc20_address, *MINER_ADDRESS, web30)
