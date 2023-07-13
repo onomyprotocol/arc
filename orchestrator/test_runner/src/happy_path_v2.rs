@@ -18,7 +18,7 @@ use tokio::time::sleep;
 use tonic::transport::Channel;
 
 use crate::{
-    get_fee,
+    get_fee, get_fee_amount,
     utils::{
         create_default_test_config, footoken_metadata, get_decimals, get_erc20_balance_safe,
         get_event_nonce_safe, get_user_key, send_one_eth, start_orchestrators, ValidatorKeys,
@@ -52,7 +52,7 @@ pub async fn happy_path_test_v2(
     let amount_to_bridge = u256!(1_000_000_000_000);
     let send_to_user_coin = Coin {
         denom: token_to_send_to_eth.clone(),
-        amount: amount_to_bridge.checked_add(u256!(1_000_000_000)).unwrap(),
+        amount: amount_to_bridge.checked_add(get_fee_amount(9)).unwrap(),
     };
     let send_to_eth_coin = Coin {
         denom: token_to_send_to_eth.clone(),

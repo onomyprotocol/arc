@@ -56,6 +56,7 @@ pub const TEST_RUN_BLOCK_STIMULATOR: bool = false;
 pub const TEST_DEFAULT_MINER_KEY: &str =
     "0xb1bab011e03a9862664706fc3bbaa1b16651528e5f0e7fbfcbfdd8be302a13e7";
 pub const TEST_DEFAULT_ETH_NODE_ENDPOINT: &str = "http://localhost:8545";
+pub const TEST_FEE_AMOUNT: Uint256 = u256!(1_000_000_000);
 pub const TEST_GAS_LIMIT: Uint256 = u256!(200_000);
 pub const TEST_INVALID_EVENTS_GAS_LIMIT: Uint256 = u256!(7_000_000);
 /// When debugging `BATCH_STRESS` or `REMOTE_STRESS` it may be useful to reduce this,

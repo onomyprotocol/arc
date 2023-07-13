@@ -16,8 +16,8 @@ use gravity_utils::{
     get_block_delay,
     get_with_retry::get_net_version_with_retry,
     u64_array_bigints, DEFAULT_ADDRESS_PREFIX, GRAVITY_DENOM_PREFIX,
-    TEST_DEFAULT_ETH_NODE_ENDPOINT, TEST_DEFAULT_MINER_KEY, TEST_ETH_CHAIN_ID, TEST_GAS_LIMIT,
-    TEST_RUN_BLOCK_STIMULATOR, USE_FINALIZATION,
+    TEST_DEFAULT_ETH_NODE_ENDPOINT, TEST_DEFAULT_MINER_KEY, TEST_ETH_CHAIN_ID, TEST_FEE_AMOUNT,
+    TEST_GAS_LIMIT, TEST_RUN_BLOCK_STIMULATOR, USE_FINALIZATION,
 };
 use happy_path::happy_path_test;
 use happy_path_v2::happy_path_test_v2;
@@ -101,11 +101,19 @@ lazy_static! {
 /// and FOOTOKEN balances by default, one footoken is sufficient for any Cosmos tx fee except
 /// fees for send_to_eth messages which have to be of the same bridged denom so that the relayers
 /// on the Ethereum side can be paid in that token.
+///
+/// In cases where we are sending back and forth, and we need to send more than we send back, the argument allows multiplying the returned amount
 pub fn get_fee() -> Coin {
     Coin {
         denom: get_test_token_name(),
-        amount: u256!(10000000),
+        amount: TEST_FEE_AMOUNT,
     }
+}
+
+pub fn get_fee_amount(multiplier: u64) -> Uint256 {
+    TEST_FEE_AMOUNT
+        .checked_mul(Uint256::from_u64(multiplier))
+        .unwrap()
 }
 
 pub fn get_deposit() -> Coin {

@@ -23,6 +23,7 @@ use tokio::time::sleep;
 use tonic::transport::Channel;
 
 use crate::{
+    get_fee_amount,
     happy_path::test_erc20_deposit_panic,
     utils::{get_erc20_balance_safe, send_one_eth, start_orchestrators, ValidatorKeys},
     ADDRESS_PREFIX, MINER_ADDRESS, MINER_PRIVATE_KEY, ONE_ETH, ONE_HUNDRED_ETH, OPERATION_TIMEOUT,
@@ -293,7 +294,7 @@ async fn test_good_batch(
     gravity_address: EthAddress,
     erc20_contract: EthAddress,
 ) {
-    let bridge_fee_amount = ONE_ETH.checked_mul(u256!(10)).unwrap();
+    let bridge_fee_amount = get_fee_amount(9);
     let (
         cdai_held,
         send_amount,
