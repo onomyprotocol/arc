@@ -14,7 +14,7 @@ use gravity_utils::{
 use lazy_static::lazy_static;
 use tokio::time::sleep;
 
-use crate::{utils::*, ONE_ETH, TOTAL_TIMEOUT};
+use crate::{get_fee, get_fee_amount, utils::*, ONE_ETH, TOTAL_TIMEOUT};
 
 const TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -62,6 +62,19 @@ pub async fn remote_stress_test(
     let mut user_keys = Vec::new();
     for _ in 0..*NUM_USERS {
         user_keys.push(get_user_key());
+    }
+    // send what will be used for fees
+    for user in &user_keys {
+        contact
+            .send_coins(
+                get_fee(),
+                Some(get_fee()),
+                user.cosmos_address,
+                Some(TOTAL_TIMEOUT),
+                keys[0].validator_key,
+            )
+            .await
+            .unwrap();
     }
 
     // the sending eth addresses need Ethereum to send ERC20 tokens to the bridge
@@ -196,7 +209,10 @@ pub async fn remote_stress_test(
     );
 
     info!("Sending from Cosmos to Ethereum");
-    let send_to_eth_amount = send_to_cosmos_amount.checked_sub(u256!(500)).unwrap(); // a bit less to keep some for fee
+    // send back less than we sent over to account for fees we need to pay
+    let send_to_eth_amount = send_to_cosmos_amount
+        .checked_sub(get_fee_amount(9))
+        .unwrap();
     let send_to_eth_amount_total = send_to_eth_amount
         .checked_mul(Uint256::from_usize(*NUM_OF_SEND_ITERATIONS))
         .unwrap();

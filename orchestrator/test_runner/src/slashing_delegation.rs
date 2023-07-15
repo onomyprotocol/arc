@@ -4,15 +4,14 @@
 
 use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
-    clarity::{u256, Address as EthAddress},
+    clarity::Address as EthAddress,
     deep_space::{Coin, Contact},
-    u64_array_bigints,
     web30::client::Web3,
 };
 use tonic::transport::Channel;
 
 use crate::{
-    get_fee,
+    get_fee, get_fee_amount, get_test_token_name,
     happy_path::test_valset_update,
     signature_slashing::{reduce_slashing_window, wait_for_height},
     utils::{
@@ -33,14 +32,16 @@ pub async fn slashing_delegation_test(
 
     let amount_to_delegate = Coin {
         denom: STAKING_TOKEN.clone(),
-        amount: u256!(100_000_000),
+        amount: get_fee_amount(10),
     };
     let amount_to_unbond = Coin {
         denom: STAKING_TOKEN.clone(),
-        amount: u256!(50_000_000),
+        amount: get_fee_amount(5),
     };
-    let mut fee_send = get_fee();
-    fee_send.amount = fee_send.amount.checked_mul(u256!(1000)).unwrap();
+    let fee_send = Coin {
+        denom: get_test_token_name(),
+        amount: get_fee_amount(9),
+    };
 
     // create a user and send them some coins to delegate
     // things we are testing
