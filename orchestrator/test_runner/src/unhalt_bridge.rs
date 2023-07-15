@@ -13,6 +13,7 @@ use gravity_utils::{
     deep_space::{private_key::PrivateKey as CosmosPrivateKey, Contact, Fee},
     u64_array_bigints,
     web30::client::Web3,
+    TEST_GAS_LIMIT,
 };
 use prost::Message;
 use tokio::time::sleep;
@@ -52,7 +53,7 @@ pub async fn unhalt_bridge_test(
     .await;
     let fee = Fee {
         amount: vec![get_fee()],
-        gas_limit: 500_000_000u64,
+        gas_limit: TEST_GAS_LIMIT.try_resize_to_u64().unwrap(),
         granter: None,
         payer: None,
     };
