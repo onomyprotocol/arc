@@ -35,5 +35,5 @@ do
     LOG_LEVEL="--log_level info"
     INVARIANTS_CHECK="--inv-check-period 1"
     ARGS="$GAIA_HOME $LISTEN_ADDRESS $RPC_ADDRESS $GRPC_ADDRESS $GRPC_WEB_ADDRESS $LOG_LEVEL $INVARIANTS_CHECK $P2P_ADDRESS"
-    $BIN $ARGS start &> /validator$i/logs &
+    $BIN $ARGS start &> /gravity/tests/assets/gravity_validator$i.log &
 done
