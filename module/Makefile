@@ -216,10 +216,10 @@ build: go.sum $(BUILDDIR)/
 $(BUILDDIR)/:
 	mkdir -p $(BUILDDIR)/
 
-build-consumer: BUILD_ARGS=-o $(BUILDDIR_CONSUMER)/
+build-consumer-democracy: BUILD_ARGS=-o $(BUILDDIR_CONSUMER)/
 
-build-consumer: go.sum $(BUILDDIR_CONSUMER)/
-	go build -mod=readonly $(BUILD_FLAGS) $(BUILD_ARGS) ./cmd/consumer
+build-consumer-democracy: go.sum $(BUILDDIR_CONSUMER)/
+	go build -mod=readonly $(BUILD_FLAGS) $(BUILD_ARGS) ./cmd/consumer-democracy
 
 $(BUILDDIR_CONSUMER)/:
 	mkdir -p $(BUILDDIR_CONSUMER)/

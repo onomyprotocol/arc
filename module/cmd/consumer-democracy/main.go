@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/onomyprotocol/arc/module/cmd/consumer/cmd"
+	"github.com/onomyprotocol/arc/module/cmd/consumer-democracy/cmd"
 	_ "github.com/onomyprotocol/arc/module/config"
 )
 

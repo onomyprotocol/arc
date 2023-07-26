@@ -31,7 +31,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	dbm "github.com/tendermint/tm-db"
 
-	app "github.com/onomyprotocol/arc/module/app/consumer"
+	app "github.com/onomyprotocol/arc/module/app/consumer-democracy"
 	"github.com/onomyprotocol/arc/module/app/params"
 )
 
