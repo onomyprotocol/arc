@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "cosmos_gravity",
     "ethereum_gravity",
