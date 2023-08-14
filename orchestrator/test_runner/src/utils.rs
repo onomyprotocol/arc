@@ -6,7 +6,7 @@ use futures::future::join_all;
 use gravity_proto::{
     cosmos_sdk_proto::cosmos::{
         bank::v1beta1::Metadata,
-        gov::v1beta1::VoteOption,
+        gov::v1beta1::{Proposal, VoteOption},
         params::v1beta1::{ParamChange, ParameterChangeProposal},
         staking::v1beta1::QueryValidatorsRequest,
     },
@@ -449,22 +449,40 @@ pub async fn vote_yes_on_proposals(
         .unwrap();
     trace!("Found proposals: {:?}", proposals.proposals);
     for proposal in proposals.proposals {
+        // do this in parallel to help avoid going over the voting period
+        let mut handles = Vec::new();
         for key in keys.iter() {
-            let res = contact
-                .vote_on_gov_proposal(
-                    proposal.proposal_id,
-                    VoteOption::Yes,
-                    get_fee(),
-                    key.validator_key,
-                    Some(duration),
-                )
-                .await
-                .unwrap();
-            let res = contact.wait_for_tx(res, TOTAL_TIMEOUT).await.unwrap();
-            info!(
-                "Voting yes on governance proposal costing {} gas",
-                res.gas_used
-            );
+            async fn vote(
+                contact: Contact,
+                key: ValidatorKeys,
+                proposal: Proposal,
+                duration: Duration,
+            ) -> Result<(), CosmosGrpcError> {
+                let res = contact
+                    .vote_on_gov_proposal(
+                        proposal.proposal_id,
+                        VoteOption::Yes,
+                        get_fee(),
+                        key.validator_key,
+                        Some(duration),
+                    )
+                    .await?;
+                let res = contact.wait_for_tx(res, TOTAL_TIMEOUT).await?;
+                info!(
+                    "Voting yes on governance proposal costing {} gas",
+                    res.gas_used
+                );
+                Ok(())
+            }
+            handles.push(tokio::spawn(vote(
+                contact.clone(),
+                *key,
+                proposal.clone(),
+                duration,
+            )));
+        }
+        for handle in handles {
+            handle.await.unwrap().unwrap();
         }
     }
 }

@@ -35,8 +35,8 @@ jq ".chain_id = \"$CHAIN_ID\"" /validator$STARTING_VALIDATOR/config/genesis.json
 # add in denom metadata for both native tokens
 jq '.app_state.bank.denom_metadata += [{"name": "Foo Token", "symbol": "FOO", "base": "footoken", display: "mfootoken", "description": "A non-staking test token", "denom_units": [{"denom": "footoken", "exponent": 0}, {"denom": "mfootoken", "exponent": 6}]},{"name": "Stake Token", "symbol": "STEAK", "base": "stake", display: "mstake", "description": "A staking test token", "denom_units": [{"denom": "stake", "exponent": 0}, {"denom": "mstake", "exponent": 6}]}]' /edited-genesis.json > /metadata-genesis.json
 
-# a 60 second voting period to allow us to pass governance proposals in the tests
-jq '.app_state.gov.voting_params.voting_period = "60s"' /metadata-genesis.json > /community-pool-genesis.json
+# a 30 second voting period to allow us to pass governance proposals in the tests
+jq '.app_state.gov.voting_params.voting_period = "30s"' /metadata-genesis.json > /community-pool-genesis.json
 
 # Add some funds to the community pool to test Airdrops
 jq '.app_state.distribution.fee_pool.community_pool = [{"denom": "stake", "amount": "10000000000.0"}]' /community-pool-genesis.json > /community-pool2-genesis.json
