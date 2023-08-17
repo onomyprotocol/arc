@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "orchestrator/cosmos_gravity",
+    "orchestrator/ethereum_gravity",
+    "orchestrator/gbt",
+    "orchestrator/gravity_proto",
+    "orchestrator/gravity_utils",
+    "orchestrator/metrics_exporter",
+    "orchestrator/orchestrator",
+    "orchestrator/proto_build",
+    "orchestrator/relayer",
+    "orchestrator/test_runner",
+    "tests",
+]
+
+[patch.crates-io]

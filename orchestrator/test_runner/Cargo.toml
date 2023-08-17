@@ -4,6 +4,10 @@ edition = "2018"
 name = "test_runner"
 version = "0.1.0"
 
+[lib]
+name = "test_runner"
+path = "src/lib.rs"
+
 # only becuase I like - more in names
 [[bin]]
 name = "test-runner"
@@ -28,6 +32,6 @@ prost-types = "0.10"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.28", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tonic = "0.7"
 url = "2"

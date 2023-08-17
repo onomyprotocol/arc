@@ -1,0 +1,21 @@
+[package]
+name = "tests"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "common"
+path = "src/lib/common.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+log = "0.4"
+onomy_test_lib = { path = "../../onomy_tests/onomy_test_lib" }
+serde_json = "1.0"
+tokio = { version = "1", default-features = false }
+gravity_utils = { path = "../orchestrator/gravity_utils" }
+test_runner = { path = "../orchestrator/test_runner" }
+
+[features]
+default = []
