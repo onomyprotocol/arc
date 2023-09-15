@@ -1,13 +1,12 @@
 use std::time::Duration;
 
-use common::DOWNLOAD_GETH;
+use common::{gravity_standalone_setup, DOWNLOAD_GETH};
 use gravity_utils::web30::client::Web3;
 use log::info;
 use onomy_test_lib::{
     cosmovisor::{cosmovisor_start, CosmovisorOptions},
     dockerfiles::{onomy_std_cosmos_daemon, ONOMY_STD},
     onomy_std_init,
-    setups::gravity_standalone_setup,
     super_orchestrator::{
         docker::{Container, ContainerNetwork, Dockerfile},
         net_message::NetMessenger,
@@ -24,12 +23,12 @@ use tokio::time::sleep;
 async fn main() -> Result<()> {
     let args = onomy_std_init()?;
 
-    let num_nodes = 4;
+    let num_nodes = 4u64;
 
     if let Some(ref s) = args.entry_name {
         match s.as_str() {
             "geth" => geth_runner().await,
-            "test" => test_runner(num_nodes).await,
+            "test" => test_runner(&args, num_nodes).await,
             "validator" => cosmos_validator(&args).await,
             _ => Err(Error::from(format!("entry_name \"{s}\" is not recognized"))),
         }
@@ -37,12 +36,17 @@ async fn main() -> Result<()> {
         // TODO test that this works on Mac M1 and Windows
 
         // build Golang
-        let mut vendor = Command::new("go mod vendor", &[]).ci_mode(true);
-        vendor.cwd = Some("./module".to_owned());
-        let comres = vendor.run_to_completion().await.stack()?;
-        comres.assert_success()?;
-        let mut make = Command::new("make build-linux-amd64", &[]).ci_mode(true);
-        make.cwd = Some("./module".to_owned());
+        Command::new("go mod vendor", &[])
+            .ci_mode(true)
+            .cwd("./module")
+            .run_to_completion()
+            .await
+            .stack()?
+            .assert_success()
+            .stack()?;
+        let mut make = Command::new("make build-linux-amd64", &[])
+            .ci_mode(true)
+            .cwd("./module");
         make.envs = vec![
             ("LEDGER_ENABLED".to_string(), "false".to_string()),
             (
@@ -50,22 +54,30 @@ async fn main() -> Result<()> {
                 "./../tests/dockerfiles/dockerfile_resources/".to_owned(),
             ),
         ];
-        let comres = make.run_to_completion().await.stack()?;
-        comres.assert_success()?;
+        make.run_to_completion()
+            .await
+            .stack()?
+            .assert_success()
+            .stack()?;
 
         // build NPM artifacts
 
         if !args.skip_npm {
-            let mut npm = Command::new("npm ci", &[]).ci_mode(true);
-            npm.cwd = Some("./solidity".to_owned());
+            let mut npm = Command::new("npm ci", &[]).ci_mode(true).cwd("./solidity");
             npm.envs = vec![("HUSKY_SKIP_INSTALL".to_string(), "1".to_string())];
-            let comres = npm.run_to_completion().await.stack()?;
-            comres.assert_success()?;
+            npm.run_to_completion()
+                .await
+                .stack()?
+                .assert_success()
+                .stack()?;
 
-            let mut typechain = Command::new("npm run typechain", &[]);
-            typechain.cwd = Some("./solidity".to_owned());
-            let comres = typechain.run_to_completion().await.stack()?;
-            comres.assert_success()?;
+            Command::new("npm run typechain", &[])
+                .cwd("./solidity")
+                .run_to_completion()
+                .await
+                .stack()?
+                .assert_success()
+                .stack()?;
         }
 
         container_runner(&args, num_nodes).await
@@ -115,7 +127,7 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
     ];
     for i in 0..num_nodes {
         containers.push(Container::new(
-            &format!("validator{i}"),
+            &format!("validator_{i}"),
             Dockerfile::Contents(onomy_std_cosmos_daemon(
                 "gravityd", ".gravity", "v0.1.0", "gravityd",
             )),
@@ -124,23 +136,28 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
         ));
     }
 
-    let mut cn = ContainerNetwork::new("test", containers, Some(dockerfiles_dir), true, logs_dir)
-        .stack()?
-        .add_common_volumes(&[(logs_dir, "/logs")]);
+    let mut cn =
+        ContainerNetwork::new("test", containers, Some(dockerfiles_dir), true, logs_dir).stack()?;
+    cn.add_common_volumes(&[(logs_dir, "/logs")]);
+    let uuid = cn.uuid_as_string();
+    cn.add_common_entrypoint_args(&["--uuid", &uuid]);
+
     cn.run_all(true).await.stack()?;
     cn.wait_with_timeout_all(true, TIMEOUT).await.stack()?;
+    cn.terminate_all().await;
     Ok(())
 }
 
-async fn test_runner(num_nodes: u64) -> Result<()> {
-    let mut nm_geth = NetMessenger::connect(STD_TRIES, STD_DELAY, "geth:26000")
+async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
+    let uuid = &args.uuid;
+    let mut nm_geth = NetMessenger::connect(STD_TRIES, STD_DELAY, &format!("geth_{uuid}:26000"))
         .await
         .stack()?;
 
     let mut nm_validators = vec![];
     for i in 0..num_nodes {
         nm_validators.push(
-            NetMessenger::connect(STD_TRIES, STD_DELAY, &format!("validator{i}:26000"))
+            NetMessenger::connect(STD_TRIES, STD_DELAY, &format!("validator_{i}_{uuid}:26000"))
                 .await
                 .stack()?,
         );
@@ -297,20 +314,21 @@ async fn geth_runner() -> Result<()> {
 }
 
 async fn cosmos_validator(args: &Args) -> Result<()> {
+    let daemon_home = args.daemon_home.as_ref().stack()?;
+    let validator_i = args.i.stack()?;
+
     let mut nm_test = NetMessenger::listen_single_connect("0.0.0.0:26000", TIMEOUT)
         .await
         .stack()?;
 
-    let daemon_home = args.daemon_home.as_ref().stack()?;
-    let validator_i = args.i.stack()?;
-    gravity_standalone_setup(daemon_home, false, ADDRESS_PREFIX.as_str())
+    gravity_standalone_setup(daemon_home, ADDRESS_PREFIX.as_str())
         .await
         .stack()?;
     let options = CosmovisorOptions::default();
     //options.
     sleep(TIMEOUT).await;
     let mut cosmovisor_runner =
-        cosmovisor_start(&format!("gravity_runner{validator_i}.log"), Some(options))
+        cosmovisor_start(&format!("gravity_runner_{validator_i}.log"), Some(options))
             .await
             .stack()?;
 
