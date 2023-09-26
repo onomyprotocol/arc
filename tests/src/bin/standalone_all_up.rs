@@ -1,12 +1,16 @@
 use std::time::Duration;
 
 use common::{
-    build, gravity_standalone_central_setup, gravity_standalone_presetup, GentxInfo, DOWNLOAD_GETH,
+    build, get_peer_info, gravity_standalone_central_setup, gravity_standalone_presetup, GentxInfo,
+    DOWNLOAD_GETH,
 };
 use gravity_utils::web30::client::Web3;
 use log::info;
 use onomy_test_lib::{
-    cosmovisor::{cosmovisor_start, sh_cosmovisor, sh_cosmovisor_no_dbg, CosmovisorOptions},
+    cosmovisor::{
+        cosmovisor_start, set_persistent_peers, sh_cosmovisor, sh_cosmovisor_no_dbg,
+        CosmovisorOptions,
+    },
     dockerfiles::{onomy_std_cosmos_daemon, ONOMY_STD},
     onomy_std_init,
     super_orchestrator::{
@@ -143,8 +147,10 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         .await
         .stack()?;
     let mut genesis: Value = serde_json::from_str(&genesis_s).stack()?;
+    let mut peers = vec![];
     for nm_validator in &mut nm_validators {
-        let gentx_info = nm_validator.recv::<GentxInfo>().await.stack()?;
+        let (gentx_info, peer_info) = nm_validator.recv::<(GentxInfo, String)>().await.stack()?;
+        peers.push(peer_info);
         // I want to make a position independent version of this, but `tar` is the most finicky command there is
         Command::new(&format!("tar --extract -f -"), &[])
             .run_with_input_to_completion(gentx_info.gentx_tar.as_bytes())
@@ -179,8 +185,13 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         .await
         .stack()?;
 
+    // send complete genesis and peers
+    let tmp = (genesis, peers);
     for nm_validator in &mut nm_validators {
-        nm_validator.send::<String>(&genesis).await.stack()?;
+        nm_validator
+            .send::<(String, Vec<String>)>(&tmp)
+            .await
+            .stack()?;
     }
 
     // manual HTTP request
@@ -236,6 +247,7 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
 
 async fn cosmos_validator(args: &Args) -> Result<()> {
     let daemon_home = args.daemon_home.as_ref().stack()?;
+    let uuid = &args.uuid;
     let validator_i = args.i.stack()?;
 
     let mut nm_test = NetMessenger::listen_single_connect("0.0.0.0:26000", TIMEOUT)
@@ -243,13 +255,22 @@ async fn cosmos_validator(args: &Args) -> Result<()> {
         .stack()?;
 
     let gentx_info = gravity_standalone_presetup(daemon_home).await.stack()?;
+    let peer_info = get_peer_info(&format!("validator_{validator_i}_{uuid}"), "26656")
+        .await
+        .stack()?;
 
-    nm_test.send::<GentxInfo>(&gentx_info).await.stack()?;
+    // send out info about self
+    nm_test
+        .send::<(GentxInfo, String)>(&(gentx_info, peer_info))
+        .await
+        .stack()?;
 
-    let genesis = nm_test.recv::<String>().await.stack()?;
+    // recieve information needed to start network
+    let (genesis, peers) = nm_test.recv::<(String, Vec<String>)>().await.stack()?;
     FileOptions::write_str(&format!("{daemon_home}/config/genesis.json"), &genesis)
         .await
         .stack()?;
+    set_persistent_peers(daemon_home, &peers).await.stack()?;
 
     let options = CosmovisorOptions::default();
     //options.

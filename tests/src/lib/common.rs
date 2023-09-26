@@ -81,6 +81,27 @@ pub async fn build(args: &Args) -> Result<()> {
     Ok(())
 }
 
+pub async fn get_peer_info(hostname_of_self: &str, port: &str) -> Result<String> {
+    let node_id = sh_cosmovisor_no_dbg("tendermint show-node-id", &[])
+        .await
+        .stack()?;
+    let node_id = node_id.trim();
+    let mut ip = None;
+    let hosts = FileOptions::read_to_string("/etc/hosts").await.stack()?;
+    for line in hosts.lines() {
+        let mut columns = line.split_whitespace();
+        if let Some(first) = columns.next() {
+            for column in columns {
+                if column == hostname_of_self {
+                    ip = Some(first);
+                }
+            }
+        }
+    }
+    let ip = ip.stack_err(|| "could not find `hostname_of_self`")?;
+    Ok(format!("{node_id}@{ip}:{port}"))
+}
+
 /// Information needed for `collect-gentx`
 #[derive(Serialize, Deserialize)]
 pub struct GentxInfo {
