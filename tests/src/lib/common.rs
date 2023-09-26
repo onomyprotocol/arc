@@ -1,7 +1,9 @@
+use std::time::Duration;
+
 use onomy_test_lib::{
     cosmovisor::{
-        cosmovisor_get_addr, fast_block_times, set_minimum_gas_price, sh_cosmovisor,
-        sh_cosmovisor_no_dbg,
+        cosmovisor_get_addr, fast_block_times, force_chain_id, force_chain_id_no_genesis,
+        set_minimum_gas_price, sh_cosmovisor, sh_cosmovisor_no_dbg,
     },
     reprefix_bech32,
     super_orchestrator::{
@@ -14,6 +16,11 @@ use onomy_test_lib::{
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::time::sleep;
+
+async fn _unused() {
+    sleep(Duration::ZERO).await;
+    sleep(TIMEOUT).await;
+}
 
 #[rustfmt::skip]
 pub const DOWNLOAD_GETH: &str = r#"ADD https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.12.0-e501b3b0.tar.gz /tmp/geth.tar.gz
@@ -96,10 +103,9 @@ pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo>
         .await
         .stack()?;
 
-    // TODO?
-    /*force_chain_id(daemon_home, &mut genesis, chain_id)
-    .await
-    .stack()?;*/
+    force_chain_id_no_genesis(daemon_home, chain_id)
+        .await
+        .stack()?;
     fast_block_times(daemon_home).await.stack()?;
     set_minimum_gas_price(daemon_home, "1footoken")
         .await
@@ -204,10 +210,9 @@ pub async fn gravity_standalone_central_setup(
         .stack()?;
     let mut genesis: Value = serde_json::from_str(&genesis_s).stack()?;
 
-    // TODO?
-    /*force_chain_id(daemon_home, &mut genesis, chain_id)
-    .await
-    .stack()?;*/
+    force_chain_id(daemon_home, &mut genesis, chain_id)
+        .await
+        .stack()?;
 
     let denom_metadata = json!([
         {"name": "Foo Token", "symbol": "FOO", "base": "footoken", "display": "mfootoken",

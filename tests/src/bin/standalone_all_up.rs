@@ -175,7 +175,7 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         .await
         .stack()?;
 
-    let genesis = gravity_standalone_central_setup(&daemon_home, chain_id, &ADDRESS_PREFIX)
+    let genesis = gravity_standalone_central_setup(daemon_home, chain_id, &ADDRESS_PREFIX)
         .await
         .stack()?;
 
