@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use common::{gravity_standalone_setup, DOWNLOAD_GETH};
+use common::{build, gravity_standalone_presetup, DOWNLOAD_GETH};
 use gravity_utils::web30::client::Web3;
 use log::info;
 use onomy_test_lib::{
@@ -10,7 +10,7 @@ use onomy_test_lib::{
     super_orchestrator::{
         docker::{Container, ContainerNetwork, Dockerfile},
         net_message::NetMessenger,
-        sh,
+        sh, sh_no_dbg,
         stacked_errors::{Error, Result, StackableErr},
         wait_for_ok, Command, FileOptions, STD_DELAY, STD_TRIES,
     },
@@ -33,53 +33,7 @@ async fn main() -> Result<()> {
             _ => Err(Error::from(format!("entry_name \"{s}\" is not recognized"))),
         }
     } else {
-        // TODO test that this works on Mac M1 and Windows
-
-        // build Golang
-        Command::new("go mod vendor", &[])
-            .ci_mode(true)
-            .cwd("./module")
-            .run_to_completion()
-            .await
-            .stack()?
-            .assert_success()
-            .stack()?;
-        let mut make = Command::new("make build-linux-amd64", &[])
-            .ci_mode(true)
-            .cwd("./module");
-        make.envs = vec![
-            ("LEDGER_ENABLED".to_string(), "false".to_string()),
-            (
-                "BIN_PATH".to_owned(),
-                "./../tests/dockerfiles/dockerfile_resources/".to_owned(),
-            ),
-        ];
-        make.run_to_completion()
-            .await
-            .stack()?
-            .assert_success()
-            .stack()?;
-
-        // build NPM artifacts
-
-        if !args.skip_npm {
-            let mut npm = Command::new("npm ci", &[]).ci_mode(true).cwd("./solidity");
-            npm.envs = vec![("HUSKY_SKIP_INSTALL".to_string(), "1".to_string())];
-            npm.run_to_completion()
-                .await
-                .stack()?
-                .assert_success()
-                .stack()?;
-
-            Command::new("npm run typechain", &[])
-                .cwd("./solidity")
-                .run_to_completion()
-                .await
-                .stack()?
-                .assert_success()
-                .stack()?;
-        }
-
+        build(&args).await.stack()?;
         container_runner(&args, num_nodes).await
     }
 }
@@ -109,10 +63,15 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
             Dockerfile::Contents(format!("{ONOMY_STD} {DOWNLOAD_GETH}")),
             entrypoint,
             &["--entry-name", "geth"],
-        ),
+            // TODO it seems the URI error isn't actually url related
+        )
+        .no_uuid_for_host_name(),
         Container::new(
             "test",
-            Dockerfile::Contents(ONOMY_STD.to_owned()),
+            // this is used just for the common gentx
+            Dockerfile::Contents(onomy_std_cosmos_daemon(
+                "gravityd", ".gravity", "v0.1.0", "gravityd",
+            )),
             entrypoint,
             &["--entry-name", "test"],
         ),
@@ -150,7 +109,8 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
 
 async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
     let uuid = &args.uuid;
-    let mut nm_geth = NetMessenger::connect(STD_TRIES, STD_DELAY, &format!("geth_{uuid}:26000"))
+    let geth_host = &format!("geth");
+    let mut nm_geth = NetMessenger::connect(STD_TRIES, STD_DELAY, &format!("{geth_host}:26000"))
         .await
         .stack()?;
 
@@ -162,6 +122,18 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
                 .stack()?,
         );
     }
+
+    for nm_validator in &mut nm_validators {
+        let gentx_tar = nm_validator.recv::<String>().await.stack()?;
+        Command::new("tar --extract -f -", &[])
+            .run_with_input_to_completion(gentx_tar.as_bytes())
+            .await
+            .stack()?
+            .assert_success()
+            .stack()?;
+    }
+
+    //gravity_standalone_central_setup()
 
     // manual HTTP request
     /*
@@ -188,13 +160,17 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
     */
 
     // requests using the `web30` crate
-    let web3 = Web3::new("http://geth:8545", Duration::from_secs(30));
+    let web3 = Web3::new("http://{geth_host}:8545", Duration::from_secs(30));
+
+    // TODO
+    sleep(TIMEOUT).await;
+
     // `Web3::new` only waits for initial handshakes, we need to wait for Tcp and
     // syncing
     async fn is_eth_up(web3: &Web3) -> Result<()> {
         web3.eth_syncing().await.map(|_| ()).stack()
     }
-    wait_for_ok(STD_TRIES, STD_DELAY, || is_eth_up(&web3))
+    wait_for_ok(30, STD_DELAY, || is_eth_up(&web3))
         .await
         .stack()?;
     info!("geth is running");
@@ -206,6 +182,46 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         nm.send::<()>(&()).await.stack()?;
     }
     nm_geth.send::<()>(&()).await.stack()?;
+
+    Ok(())
+}
+
+async fn cosmos_validator(args: &Args) -> Result<()> {
+    let daemon_home = args.daemon_home.as_ref().stack()?;
+    let validator_i = args.i.stack()?;
+
+    let mut nm_test = NetMessenger::listen_single_connect("0.0.0.0:26000", TIMEOUT)
+        .await
+        .stack()?;
+
+    gravity_standalone_presetup(daemon_home).await.stack()?;
+
+    nm_test
+        .send::<String>(
+            &sh_no_dbg(
+                &format!("tar --create --to-stdout {daemon_home}/config/gentx"),
+                &[],
+            )
+            .await
+            .stack()?,
+        )
+        .await
+        .stack()?;
+
+    sleep(TIMEOUT).await;
+    //tar --create --to-stdout ./config/gentx | tar --extract -f -
+
+    let options = CosmovisorOptions::default();
+    //options.
+    let mut cosmovisor_runner =
+        cosmovisor_start(&format!("gravity_runner_{validator_i}.log"), Some(options))
+            .await
+            .stack()?;
+
+    // terminate
+    nm_test.recv::<()>().await.stack()?;
+    sleep(Duration::ZERO).await;
+    cosmovisor_runner.terminate(TIMEOUT).await.stack()?;
 
     Ok(())
 }
@@ -310,32 +326,5 @@ async fn geth_runner() -> Result<()> {
     nm_test.recv::<()>().await.stack()?;
 
     geth_runner.terminate().await.stack()?;
-    Ok(())
-}
-
-async fn cosmos_validator(args: &Args) -> Result<()> {
-    let daemon_home = args.daemon_home.as_ref().stack()?;
-    let validator_i = args.i.stack()?;
-
-    let mut nm_test = NetMessenger::listen_single_connect("0.0.0.0:26000", TIMEOUT)
-        .await
-        .stack()?;
-
-    gravity_standalone_setup(daemon_home, ADDRESS_PREFIX.as_str())
-        .await
-        .stack()?;
-    let options = CosmovisorOptions::default();
-    //options.
-    sleep(TIMEOUT).await;
-    let mut cosmovisor_runner =
-        cosmovisor_start(&format!("gravity_runner_{validator_i}.log"), Some(options))
-            .await
-            .stack()?;
-
-    // terminate
-    nm_test.recv::<()>().await.stack()?;
-    sleep(Duration::ZERO).await;
-    cosmovisor_runner.terminate(TIMEOUT).await.stack()?;
-
     Ok(())
 }

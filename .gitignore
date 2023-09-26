@@ -23,3 +23,5 @@ artifacts
 
 #build artifacts
 /module/artifacts
+
+.cargo/config.toml

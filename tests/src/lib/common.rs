@@ -1,7 +1,7 @@
 use onomy_test_lib::{
     cosmovisor::{
-        cosmovisor_get_addr, fast_block_times, force_chain_id, set_minimum_gas_price,
-        sh_cosmovisor, sh_cosmovisor_no_dbg,
+        cosmovisor_get_addr, fast_block_times, set_minimum_gas_price, sh_cosmovisor,
+        sh_cosmovisor_no_dbg,
     },
     reprefix_bech32,
     super_orchestrator::{
@@ -73,7 +73,101 @@ pub async fn build(args: &Args) -> Result<()> {
 }
 
 // NOTE: this uses the local tendermint consAddr for the bridge power
-pub async fn gravity_standalone_setup(daemon_home: &str, address_prefix: &str) -> Result<()> {
+pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<()> {
+    let chain_id = "gravity";
+    sh_cosmovisor("config chain-id", &[chain_id])
+        .await
+        .stack()?;
+    sh_cosmovisor("config keyring-backend test", &[])
+        .await
+        .stack()?;
+    sh_cosmovisor_no_dbg("init --overwrite", &[chain_id])
+        .await
+        .stack()?;
+
+    // TODO?
+    /*force_chain_id(daemon_home, &mut genesis, chain_id)
+    .await
+    .stack()?;*/
+    fast_block_times(daemon_home).await.stack()?;
+    set_minimum_gas_price(daemon_home, "1footoken")
+        .await
+        .stack()?;
+
+    // we need the stderr to get the mnemonic
+    let comres = Command::new("cosmovisor run keys add validator", &[])
+        .run_to_completion()
+        .await
+        .stack()?;
+    comres.assert_success().stack()?;
+    let _mnemonic = comres
+        .stderr_as_utf8()
+        .stack()?
+        .trim()
+        .lines()
+        .last()
+        .stack_err(|| "no last line")?
+        .trim()
+        .to_owned();
+
+    let comres = Command::new("cosmovisor run keys add orchestrator", &[])
+        .run_to_completion()
+        .await
+        .stack()?;
+    comres.assert_success().stack()?;
+    let _mnemonic = comres
+        .stderr_as_utf8()
+        .stack()?
+        .trim()
+        .lines()
+        .last()
+        .stack_err(|| "no last line")?
+        .trim()
+        .to_owned();
+
+    let allocation = "100000000000000000000000stake,100000000000000000000000footoken,100000000000000000000000ibc/nometadatatoken";
+    // TODO for unknown reasons, add-genesis-account cannot find the keys
+    let addr = cosmovisor_get_addr("validator").await.stack()?;
+    sh_cosmovisor("add-genesis-account", &[&addr, allocation])
+        .await
+        .stack()?;
+
+    let orch_addr = &cosmovisor_get_addr("orchestrator").await.stack()?;
+    sh_cosmovisor("add-genesis-account", &[&orch_addr, allocation])
+        .await
+        .stack()?;
+
+    let eth_keys = sh_cosmovisor("eth_keys add", &[]).await.stack()?;
+    let eth_addr = &get_separated_val(&eth_keys, "\n", "address", ":").stack()?;
+
+    //let consaddr = sh_cosmovisor("tendermint show-address", &[]).await?;
+    //let consaddr = consaddr.trim();
+
+    sh_cosmovisor(
+        "gentx",
+        &[
+            "validator",
+            "1000000000000000000000stake",
+            eth_addr,
+            orch_addr,
+            "--chain-id",
+            chain_id,
+            "--min-self-delegation",
+            "1",
+        ],
+    )
+    .await
+    .stack()?;
+
+    Ok(())
+}
+
+/// Assembles all the gentxs together and makes the genesis file changes
+pub async fn gravity_standalone_central_setup(
+    daemon_home: &str,
+    address_prefix: &str,
+    gentxs: Vec<String>,
+) -> Result<String> {
     let chain_id = "gravity";
     sh_cosmovisor("config chain-id", &[chain_id])
         .await
@@ -91,9 +185,10 @@ pub async fn gravity_standalone_setup(daemon_home: &str, address_prefix: &str) -
         .stack()?;
     let mut genesis: Value = serde_json::from_str(&genesis_s).stack()?;
 
-    force_chain_id(daemon_home, &mut genesis, chain_id)
-        .await
-        .stack()?;
+    // TODO?
+    /*force_chain_id(daemon_home, &mut genesis, chain_id)
+    .await
+    .stack()?;*/
 
     let denom_metadata = json!([
         {"name": "Foo Token", "symbol": "FOO", "base": "footoken", "display": "mfootoken",
@@ -144,85 +239,15 @@ pub async fn gravity_standalone_setup(daemon_home: &str, address_prefix: &str) -
         .await
         .stack()?;
 
-    fast_block_times(daemon_home).await.stack()?;
-    set_minimum_gas_price(daemon_home, "1footoken")
-        .await
-        .stack()?;
-
-    // we need the stderr to get the mnemonic
-    let comres = Command::new("cosmovisor run keys add validator", &[])
-        .run_to_completion()
-        .await
-        .stack()?;
-    comres.assert_success().stack()?;
-    let mnemonic = comres
-        .stderr_as_utf8()
-        .stack()?
-        .trim()
-        .lines()
-        .last()
-        .stack_err(|| "no last line")?
-        .trim()
-        .to_owned();
-
-    let comres = Command::new("cosmovisor run keys add orchestrator", &[])
-        .run_to_completion()
-        .await
-        .stack()?;
-    comres.assert_success().stack()?;
-    let mnemonic = comres
-        .stderr_as_utf8()
-        .stack()?
-        .trim()
-        .lines()
-        .last()
-        .stack_err(|| "no last line")?
-        .trim()
-        .to_owned();
-
-    let allocation = "100000000000000000000000stake,100000000000000000000000footoken,100000000000000000000000ibc/nometadatatoken";
-    // TODO for unknown reasons, add-genesis-account cannot find the keys
-    let addr = cosmovisor_get_addr("validator").await.stack()?;
-    sh_cosmovisor("add-genesis-account", &[&addr, allocation])
-        .await
-        .stack()?;
-
-    let orch_addr = &cosmovisor_get_addr("orchestrator").await.stack()?;
-    sh_cosmovisor("add-genesis-account", &[&orch_addr, allocation])
-        .await
-        .stack()?;
-
-    let eth_keys = sh_cosmovisor("eth_keys add", &[]).await.stack()?;
-    let eth_addr = &get_separated_val(&eth_keys, "\n", "address", ":").stack()?;
-
-    //let consaddr = sh_cosmovisor("tendermint show-address", &[]).await?;
-    //let consaddr = consaddr.trim();
-
-    sh_cosmovisor(
-        "gentx",
-        &[
-            "validator",
-            "1000000000000000000000stake",
-            eth_addr,
-            orch_addr,
-            "--chain-id",
-            chain_id,
-            "--min-self-delegation",
-            "1",
-        ],
-    )
-    .await
-    .stack()?;
     sh_cosmovisor_no_dbg("collect-gentxs", &[]).await.stack()?;
 
-    FileOptions::write_str(
-        &format!("/logs/{chain_id}_genesis.json"),
-        &FileOptions::read_to_string(&genesis_file_path)
-            .await
-            .stack()?,
-    )
-    .await
-    .stack()?;
+    let complete_genesis = FileOptions::read_to_string(&genesis_file_path)
+        .await
+        .stack()?;
 
-    Ok(())
+    FileOptions::write_str(&format!("/logs/{chain_id}_genesis.json"), &complete_genesis)
+        .await
+        .stack()?;
+
+    Ok(complete_genesis)
 }
