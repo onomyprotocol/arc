@@ -5,13 +5,15 @@ use onomy_test_lib::{
     },
     reprefix_bech32,
     super_orchestrator::{
-        get_separated_val,
+        get_separated_val, sh_no_dbg,
         stacked_errors::{Result, StackableErr},
         Command, FileOptions,
     },
-    Args,
+    Args, TIMEOUT,
 };
+use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tokio::time::sleep;
 
 #[rustfmt::skip]
 pub const DOWNLOAD_GETH: &str = r#"ADD https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.12.0-e501b3b0.tar.gz /tmp/geth.tar.gz
@@ -72,8 +74,17 @@ pub async fn build(args: &Args) -> Result<()> {
     Ok(())
 }
 
+/// Information needed for `collect-gentx`
+#[derive(Serialize, Deserialize)]
+pub struct GentxInfo {
+    pub gentx_tar: String,
+    // `Value` has `WontImplement` serialization
+    pub accounts: String,
+    pub balances: String,
+}
+
 // NOTE: this uses the local tendermint consAddr for the bridge power
-pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<()> {
+pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo> {
     let chain_id = "gravity";
     sh_cosmovisor("config chain-id", &[chain_id])
         .await
@@ -159,26 +170,34 @@ pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<()> {
     .await
     .stack()?;
 
-    Ok(())
+    // this is not the multi validator genesis, but `add-genesis-account` added some information that we need
+    let genesis_s = FileOptions::read_to_string(&format!("{daemon_home}/config/genesis.json"))
+        .await
+        .stack()?;
+    let genesis: Value = serde_json::from_str(&genesis_s).stack()?;
+    let accounts = genesis["app_state"]["auth"]["accounts"].to_string();
+    let balances = genesis["app_state"]["bank"]["balances"].to_string();
+
+    let gentx_tar = sh_no_dbg(
+        &format!("tar --create --to-stdout {daemon_home}/config/gentx"),
+        &[],
+    )
+    .await
+    .stack()?;
+
+    Ok(GentxInfo {
+        gentx_tar,
+        accounts,
+        balances,
+    })
 }
 
 /// Assembles all the gentxs together and makes the genesis file changes
 pub async fn gravity_standalone_central_setup(
     daemon_home: &str,
+    chain_id: &str,
     address_prefix: &str,
-    gentxs: Vec<String>,
 ) -> Result<String> {
-    let chain_id = "gravity";
-    sh_cosmovisor("config chain-id", &[chain_id])
-        .await
-        .stack()?;
-    sh_cosmovisor("config keyring-backend test", &[])
-        .await
-        .stack()?;
-    sh_cosmovisor_no_dbg("init --overwrite", &[chain_id])
-        .await
-        .stack()?;
-
     let genesis_file_path = format!("{daemon_home}/config/genesis.json");
     let genesis_s = FileOptions::read_to_string(&genesis_file_path)
         .await

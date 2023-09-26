@@ -1,10 +1,12 @@
 use std::time::Duration;
 
-use common::{build, gravity_standalone_presetup, DOWNLOAD_GETH};
+use common::{
+    build, gravity_standalone_central_setup, gravity_standalone_presetup, GentxInfo, DOWNLOAD_GETH,
+};
 use gravity_utils::web30::client::Web3;
 use log::info;
 use onomy_test_lib::{
-    cosmovisor::{cosmovisor_start, CosmovisorOptions},
+    cosmovisor::{cosmovisor_start, sh_cosmovisor, sh_cosmovisor_no_dbg, CosmovisorOptions},
     dockerfiles::{onomy_std_cosmos_daemon, ONOMY_STD},
     onomy_std_init,
     super_orchestrator::{
@@ -16,6 +18,7 @@ use onomy_test_lib::{
     },
     Args, TIMEOUT,
 };
+use serde_json::Value;
 use test_runner::{run_test, ADDRESS_PREFIX};
 use tokio::time::sleep;
 
@@ -108,6 +111,7 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
 }
 
 async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
+    let daemon_home = args.daemon_home.as_ref().stack()?;
     let uuid = &args.uuid;
     let geth_host = &format!("geth");
     let mut nm_geth = NetMessenger::connect(STD_TRIES, STD_DELAY, &format!("{geth_host}:26000"))
@@ -123,17 +127,61 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         );
     }
 
+    // gather the gentxs
+    let chain_id = "gravity";
+    sh_cosmovisor("config chain-id", &[chain_id])
+        .await
+        .stack()?;
+    sh_cosmovisor_no_dbg("init --overwrite", &[chain_id])
+        .await
+        .stack()?;
+    sh_no_dbg(&format!("mkdir {daemon_home}/config/gentx"), &[])
+        .await
+        .stack()?;
+    let genesis_file_path = format!("{daemon_home}/config/genesis.json");
+    let genesis_s = FileOptions::read_to_string(&genesis_file_path)
+        .await
+        .stack()?;
+    let mut genesis: Value = serde_json::from_str(&genesis_s).stack()?;
     for nm_validator in &mut nm_validators {
-        let gentx_tar = nm_validator.recv::<String>().await.stack()?;
-        Command::new("tar --extract -f -", &[])
-            .run_with_input_to_completion(gentx_tar.as_bytes())
+        let gentx_info = nm_validator.recv::<GentxInfo>().await.stack()?;
+        // I want to make a position independent version of this, but `tar` is the most finicky command there is
+        Command::new(&format!("tar --extract -f -"), &[])
+            .run_with_input_to_completion(gentx_info.gentx_tar.as_bytes())
             .await
             .stack()?
             .assert_success()
             .stack()?;
+        let accounts = serde_json::from_str::<Value>(&gentx_info.accounts)
+            .stack()?
+            .as_array()
+            .unwrap()
+            .clone();
+        let balances = serde_json::from_str::<Value>(&gentx_info.balances)
+            .stack()?
+            .as_array()
+            .unwrap()
+            .clone();
+        genesis["app_state"]["auth"]["accounts"]
+            .as_array_mut()
+            .unwrap()
+            .extend(accounts.into_iter());
+        genesis["app_state"]["bank"]["balances"]
+            .as_array_mut()
+            .unwrap()
+            .extend(balances.into_iter());
     }
+    FileOptions::write_str(&genesis_file_path, &genesis.to_string())
+        .await
+        .stack()?;
 
-    //gravity_standalone_central_setup()
+    let genesis = gravity_standalone_central_setup(&daemon_home, chain_id, &ADDRESS_PREFIX)
+        .await
+        .stack()?;
+
+    for nm_validator in &mut nm_validators {
+        nm_validator.send::<String>(&genesis).await.stack()?;
+    }
 
     // manual HTTP request
     /*
@@ -194,22 +242,14 @@ async fn cosmos_validator(args: &Args) -> Result<()> {
         .await
         .stack()?;
 
-    gravity_standalone_presetup(daemon_home).await.stack()?;
+    let gentx_info = gravity_standalone_presetup(daemon_home).await.stack()?;
 
-    nm_test
-        .send::<String>(
-            &sh_no_dbg(
-                &format!("tar --create --to-stdout {daemon_home}/config/gentx"),
-                &[],
-            )
-            .await
-            .stack()?,
-        )
+    nm_test.send::<GentxInfo>(&gentx_info).await.stack()?;
+
+    let genesis = nm_test.recv::<String>().await.stack()?;
+    FileOptions::write_str(&format!("{daemon_home}/config/genesis.json"), &genesis)
         .await
         .stack()?;
-
-    sleep(TIMEOUT).await;
-    //tar --create --to-stdout ./config/gentx | tar --extract -f -
 
     let options = CosmovisorOptions::default();
     //options.
