@@ -310,12 +310,8 @@ pub async fn run_test(
             .await;
             return;
         } else if test_type == "BATCH_STRESS" {
-            let contact = Contact::new(
-                COSMOS_NODE_GRPC.as_str(),
-                TOTAL_TIMEOUT,
-                ADDRESS_PREFIX.as_str(),
-            )
-            .unwrap();
+            let contact =
+                Contact::new(cosmos_node_grpc, TOTAL_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
             transaction_stress_test(
                 &web30,
                 &contact,
@@ -327,12 +323,8 @@ pub async fn run_test(
             .await;
             return;
         } else if test_type == "REMOTE_STRESS" {
-            let contact = Contact::new(
-                COSMOS_NODE_GRPC.as_str(),
-                TOTAL_TIMEOUT,
-                ADDRESS_PREFIX.as_str(),
-            )
-            .unwrap();
+            let contact =
+                Contact::new(cosmos_node_grpc, TOTAL_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
             remote_stress_test(&web30, &contact, keys, gravity_address, erc20_addresses).await;
             return;
         } else if test_type == "VALSET_STRESS" {

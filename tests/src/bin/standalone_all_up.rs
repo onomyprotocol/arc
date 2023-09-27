@@ -359,6 +359,8 @@ async fn geth_runner() -> Result<()> {
         "geth",
         &[
             "--nodiscover",
+            "--networkid",
+            "15",
             "--allow-insecure-unlock",
             "--unlock",
             "0xBf660843528035a5A4921534E156a27e64B231fE",

@@ -29,8 +29,8 @@ use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
 use crate::{
-    get_deposit, get_fee, ADDRESS_PREFIX, COSMOS_NODE_GRPC, MINER_ADDRESS, MINER_PRIVATE_KEY,
-    ONE_ETH, ONE_HUNDRED_ETH, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
+    get_deposit, get_fee, ADDRESS_PREFIX, MINER_ADDRESS, MINER_PRIVATE_KEY, ONE_ETH,
+    ONE_HUNDRED_ETH, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
 };
 
 /// returns the required denom metadata for deployed the Footoken
@@ -301,7 +301,7 @@ pub async fn start_orchestrators(
             k.orch_key.to_address(&ADDRESS_PREFIX).unwrap(),
             get_operator_address(k.validator_key),
         );
-        let mut grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())
+        let mut grpc_client = GravityQueryClient::connect(contact.get_url())
             .await
             .unwrap();
         let params = get_gravity_params(&mut grpc_client)
