@@ -24,12 +24,14 @@ pub async fn main() {
     }
 
     let keys = get_keys();
+    let test_type = env::var("TEST_TYPE").unwrap();
 
     run_test(
         COSMOS_NODE_GRPC.as_str(),
         COSMOS_NODE_ABCI.as_str(),
         ETH_NODE.as_str(),
         keys,
+        &test_type,
     )
     .await;
 }

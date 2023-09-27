@@ -85,6 +85,29 @@ pub async fn build(args: &Args) -> Result<()> {
     Ok(())
 }
 
+pub const TEST_TYPES: [&str; 20] = [
+    "HAPPY_PATH",
+    "VALIDATOR_OUT",
+    "BATCH_STRESS",
+    "VALSET_STRESS",
+    "VALSET_REWARDS",
+    "HAPPY_PATH_V2",
+    "RELAY_MARKET",
+    "ORCHESTRATOR_KEYS",
+    "EVIDENCE",
+    "TXCANCEL",
+    "INVALID_EVENTS",
+    "UNHALT_BRIDGE",
+    "PAUSE_BRIDGE",
+    "DEPOSIT_OVERFLOW",
+    "ETHEREUM_BLACKLIST",
+    "AIRDROP_PROPOSAL",
+    "SIGNATURE_SLASHING",
+    "SLASHING_DELEGATION",
+    "IBC_METADATA",
+    "REMOTE_STRESS",
+];
+
 pub async fn get_self_ip(hostname_of_self: &str) -> Result<String> {
     let mut ip = None;
     let hosts = FileOptions::read_to_string("/etc/hosts").await.stack()?;

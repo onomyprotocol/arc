@@ -142,6 +142,7 @@ pub async fn run_test(
     cosmos_node_abci: &str,
     eth_node: &str,
     keys: Vec<ValidatorKeys>,
+    test_type: &str,
 ) {
     info!("Starting Gravity test-runner");
     let contact =
@@ -293,10 +294,22 @@ pub async fn run_test(
     // V2_HAPPY_PATH runs the happy path tests but focusing on moving Cosmos assets to Ethereum
     // ARBITRARY_LOGIC tests the arbitrary logic functionality, where an arbitrary contract call
     //                 is created and deployed vai the bridge.
-    let test_type = env::var("TEST_TYPE");
-    info!("Starting tests with {:?}", test_type);
-    if let Ok(test_type) = test_type {
-        if test_type == "VALIDATOR_OUT" {
+    info!("Starting tests with test_type {:?}", test_type);
+    match test_type {
+        "HAPPY_PATH" => {
+            info!("Starting Happy path test");
+            happy_path_test(
+                &web30,
+                grpc_client,
+                &contact,
+                keys,
+                gravity_address,
+                erc20_addresses[0],
+                false,
+            )
+            .await;
+        }
+        "VALIDATOR_OUT" => {
             info!("Starting Validator out test");
             happy_path_test(
                 &web30,
@@ -309,7 +322,8 @@ pub async fn run_test(
             )
             .await;
             return;
-        } else if test_type == "BATCH_STRESS" {
+        }
+        "BATCH_STRESS" => {
             let contact =
                 Contact::new(cosmos_node_grpc, TOTAL_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
             transaction_stress_test(
@@ -322,36 +336,44 @@ pub async fn run_test(
             )
             .await;
             return;
-        } else if test_type == "REMOTE_STRESS" {
+        }
+        "REMOTE_STRESS" => {
             let contact =
                 Contact::new(cosmos_node_grpc, TOTAL_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
             remote_stress_test(&web30, &contact, keys, gravity_address, erc20_addresses).await;
             return;
-        } else if test_type == "VALSET_STRESS" {
+        }
+        "VALSET_STRESS" => {
             info!("Starting Valset update stress test");
             validator_set_stress_test(&web30, grpc_client, &contact, keys, gravity_address).await;
             return;
-        } else if test_type == "VALSET_REWARDS" {
+        }
+        "VALSET_REWARDS" => {
             info!("Starting Valset rewards test");
             valset_rewards_test(&web30, grpc_client, &contact, keys, gravity_address).await;
             return;
-        } else if test_type == "V2_HAPPY_PATH" || test_type == "HAPPY_PATH_V2" {
+        }
+        "HAPPY_PATH_V2" => {
             info!("Starting happy path for Gravity v2");
             happy_path_test_v2(&web30, grpc_client, &contact, keys, gravity_address, false).await;
             return;
-        } else if test_type == "RELAY_MARKET" {
+        }
+        "RELAY_MARKET" => {
             info!("Starting relay market tests!");
             relay_market_test(&web30, grpc_client, &contact, keys, gravity_address).await;
             return;
-        } else if test_type == "ORCHESTRATOR_KEYS" {
+        }
+        "ORCHESTRATOR_KEYS" => {
             info!("Starting orchestrator key update tests!");
             orch_keys(grpc_client, &contact, keys).await;
             return;
-        } else if test_type == "EVIDENCE" {
+        }
+        "EVIDENCE" => {
             info!("Starting evidence based slashing tests!");
             evidence_based_slashing(&web30, &contact, keys, gravity_address).await;
             return;
-        } else if test_type == "TXCANCEL" {
+        }
+        "TXCANCEL" => {
             info!("Starting SendToEth cancellation test!");
             send_to_eth_and_cancel(
                 &contact,
@@ -363,7 +385,8 @@ pub async fn run_test(
             )
             .await;
             return;
-        } else if test_type == "INVALID_EVENTS" {
+        }
+        "INVALID_EVENTS" => {
             info!("Starting invalid events test!");
             invalid_events(
                 &web30,
@@ -375,7 +398,8 @@ pub async fn run_test(
             )
             .await;
             return;
-        } else if test_type == "UNHALT_BRIDGE" {
+        }
+        "UNHALT_BRIDGE" => {
             info!("Starting unhalt bridge tests");
             unhalt_bridge_test(
                 &web30,
@@ -387,7 +411,8 @@ pub async fn run_test(
             )
             .await;
             return;
-        } else if test_type == "PAUSE_BRIDGE" {
+        }
+        "PAUSE_BRIDGE" => {
             info!("Starting pause bridge tests");
             pause_bridge_test(
                 &web30,
@@ -399,43 +424,37 @@ pub async fn run_test(
             )
             .await;
             return;
-        } else if test_type == "DEPOSIT_OVERFLOW" {
+        }
+        "DEPOSIT_OVERFLOW" => {
             info!("Starting deposit overflow test!");
             deposit_overflow_test(&web30, &contact, keys, erc20_addresses, grpc_client).await;
             return;
-        } else if test_type == "ETHEREUM_BLACKLIST" {
+        }
+        "ETHEREUM_BLACKLIST" => {
             info!("Starting ethereum blacklist test");
             ethereum_blacklist_test(grpc_client, &contact, keys).await;
             return;
-        } else if test_type == "AIRDROP_PROPOSAL" {
+        }
+        "AIRDROP_PROPOSAL" => {
             info!("Starting airdrop governance proposal test");
             airdrop_proposal_test(&contact, keys).await;
             return;
-        } else if test_type == "SIGNATURE_SLASHING" {
+        }
+        "SIGNATURE_SLASHING" => {
             info!("Starting Signature Slashing test");
             signature_slashing_test(&web30, grpc_client, &contact, keys, gravity_address).await;
             return;
-        } else if test_type == "SLASHING_DELEGATION" {
+        }
+        "SLASHING_DELEGATION" => {
             info!("Starting Slashing Delegation test");
             slashing_delegation_test(&web30, grpc_client, &contact, keys, gravity_address).await;
             return;
-        } else if test_type == "IBC_METADATA" {
+        }
+        "IBC_METADATA" => {
             info!("Starting IBC metadata proposal test");
             ibc_metadata_proposal_test(gravity_address, keys, grpc_client, &contact, &web30).await;
             return;
-        } else if !test_type.is_empty() {
-            panic!("Err Unknown test type")
         }
+        _ => panic!("Err Unknown test type"),
     }
-    info!("Starting Happy path test");
-    happy_path_test(
-        &web30,
-        grpc_client,
-        &contact,
-        keys,
-        gravity_address,
-        erc20_addresses[0],
-        false,
-    )
-    .await;
 }

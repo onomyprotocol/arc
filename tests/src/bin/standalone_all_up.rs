@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use common::{
     build, get_self_peer_info, gravity_standalone_central_setup, gravity_standalone_presetup,
-    GentxInfo, DOWNLOAD_GETH,
+    GentxInfo, DOWNLOAD_GETH, TEST_TYPES,
 };
 use gravity_utils::web30::client::Web3;
 use log::info;
@@ -235,7 +235,16 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
 
     info!("all parts are ready");
 
-    run_test(cosmos_node_grpc, cosmos_node_abci, eth_node, validator_keys).await;
+    for test_type in TEST_TYPES {
+        run_test(
+            cosmos_node_grpc,
+            cosmos_node_abci,
+            eth_node,
+            validator_keys.clone(),
+            test_type,
+        )
+        .await;
+    }
 
     // terminate
     for mut nm in nm_validators {
