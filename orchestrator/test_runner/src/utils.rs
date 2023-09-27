@@ -25,11 +25,12 @@ use gravity_utils::{
 };
 use orchestrator::main_loop::orchestrator_main_loop;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
 use crate::{
-    get_deposit, get_fee, ADDRESS_PREFIX, COSMOS_NODE_GRPC, ETH_NODE, MINER_ADDRESS,
-    MINER_PRIVATE_KEY, ONE_ETH, ONE_HUNDRED_ETH, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
+    get_deposit, get_fee, ADDRESS_PREFIX, COSMOS_NODE_GRPC, MINER_ADDRESS, MINER_PRIVATE_KEY,
+    ONE_ETH, ONE_HUNDRED_ETH, OPERATION_TIMEOUT, STAKING_TOKEN, TOTAL_TIMEOUT,
 };
 
 /// returns the required denom metadata for deployed the Footoken
@@ -265,7 +266,7 @@ pub struct BridgeUserKey {
     pub eth_dest_key: EthPrivateKey,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ValidatorKeys {
     /// The Ethereum key used by this validator to sign Gravity bridge messages
     pub eth_key: EthPrivateKey,
@@ -279,6 +280,8 @@ pub struct ValidatorKeys {
 /// This function pays the piper for the strange concurrency model that we use for the tests
 /// we spwan a thread, create a tokio executor and then start the orchestrator within that scope
 pub async fn start_orchestrators(
+    contact: &Contact,
+    web30: &Web3,
     keys: Vec<ValidatorKeys>,
     gravity_address: EthAddress,
     validator_out: bool,
@@ -307,16 +310,13 @@ pub async fn start_orchestrators(
 
         // but that will execute all the orchestrators in our test in parallel
         // by spawning to tokio's future executor
+        let grpc_url = contact.get_url();
+        let eth_node = web30.get_url();
         drop(tokio::spawn(async move {
-            let web30 =
-                gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
+            let web30 = Web3::new(&eth_node, OPERATION_TIMEOUT);
 
-            let contact = Contact::new(
-                COSMOS_NODE_GRPC.as_str(),
-                OPERATION_TIMEOUT,
-                ADDRESS_PREFIX.as_str(),
-            )
-            .unwrap();
+            let contact =
+                Contact::new(&grpc_url, OPERATION_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
 
             let _ = orchestrator_main_loop(
                 k.orch_key,

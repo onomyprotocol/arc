@@ -124,9 +124,9 @@ async function deploy() {
     var erc20_a_path: string
     var erc20_b_path: string
     var erc20_c_path: string
-    const main_location_a = "/gravity/solidity/artifacts/contracts/TestERC20A.sol/TestERC20A.json"
-    const main_location_b = "/gravity/solidity/artifacts/contracts/TestERC20B.sol/TestERC20B.json"
-    const main_location_c = "/gravity/solidity/artifacts/contracts/TestERC20C.sol/TestERC20C.json"
+    const main_location_a = "/solidity/artifacts/contracts/TestERC20A.sol/TestERC20A.json"
+    const main_location_b = "/solidity/artifacts/contracts/TestERC20B.sol/TestERC20B.json"
+    const main_location_c = "/solidity/artifacts/contracts/TestERC20C.sol/TestERC20C.json"
     const alt_location_1_a = "/solidity/TestERC20A.json"
     const alt_location_1_b = "/solidity/TestERC20B.json"
     const alt_location_1_c = "/solidity/TestERC20C.json"

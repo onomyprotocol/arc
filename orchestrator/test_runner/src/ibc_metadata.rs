@@ -120,6 +120,7 @@ pub async fn ibc_metadata_proposal_test(
         web30,
         Some(keys),
         &mut grpc_client,
+        contact,
         false,
         found,
     )

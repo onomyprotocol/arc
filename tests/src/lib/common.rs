@@ -1,5 +1,8 @@
 use std::time::Duration;
 
+use gravity_utils::{
+    clarity::PrivateKey as EthPrivateKey, deep_space::private_key::PrivateKey as CosmosPrivateKey,
+};
 use onomy_test_lib::{
     cosmovisor::{
         cosmovisor_get_addr, fast_block_times, force_chain_id, force_chain_id_no_genesis,
@@ -15,6 +18,7 @@ use onomy_test_lib::{
 };
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use test_runner::ValidatorKeys;
 use tokio::time::sleep;
 
 async fn _unused() {
@@ -81,11 +85,7 @@ pub async fn build(args: &Args) -> Result<()> {
     Ok(())
 }
 
-pub async fn get_peer_info(hostname_of_self: &str, port: &str) -> Result<String> {
-    let node_id = sh_cosmovisor_no_dbg("tendermint show-node-id", &[])
-        .await
-        .stack()?;
-    let node_id = node_id.trim();
+pub async fn get_self_ip(hostname_of_self: &str) -> Result<String> {
     let mut ip = None;
     let hosts = FileOptions::read_to_string("/etc/hosts").await.stack()?;
     for line in hosts.lines() {
@@ -98,7 +98,17 @@ pub async fn get_peer_info(hostname_of_self: &str, port: &str) -> Result<String>
             }
         }
     }
-    let ip = ip.stack_err(|| "could not find `hostname_of_self`")?;
+    let ip =
+        ip.stack_err(|| format!("could not find `hostname_of_self == \"{hostname_of_self}\"`"))?;
+    Ok(ip.to_owned())
+}
+
+pub async fn get_self_peer_info(hostname_of_self: &str, port: &str) -> Result<String> {
+    let node_id = sh_cosmovisor_no_dbg("tendermint show-node-id", &[])
+        .await
+        .stack()?;
+    let node_id = node_id.trim();
+    let ip = get_self_ip(hostname_of_self).await.stack()?;
     Ok(format!("{node_id}@{ip}:{port}"))
 }
 
@@ -112,7 +122,7 @@ pub struct GentxInfo {
 }
 
 // NOTE: this uses the local tendermint consAddr for the bridge power
-pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo> {
+pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<(GentxInfo, ValidatorKeys)> {
     let chain_id = "gravity";
     sh_cosmovisor("config chain-id", &[chain_id])
         .await
@@ -138,7 +148,7 @@ pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo>
         .await
         .stack()?;
     comres.assert_success().stack()?;
-    let _mnemonic = comres
+    let validator_mnemonic = comres
         .stderr_as_utf8()
         .stack()?
         .trim()
@@ -153,7 +163,7 @@ pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo>
         .await
         .stack()?;
     comres.assert_success().stack()?;
-    let _mnemonic = comres
+    let orch_mnemonic = comres
         .stderr_as_utf8()
         .stack()?
         .trim()
@@ -176,7 +186,8 @@ pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo>
         .stack()?;
 
     let eth_keys = sh_cosmovisor("eth_keys add", &[]).await.stack()?;
-    let eth_addr = &get_separated_val(&eth_keys, "\n", "address", ":").stack()?;
+    let eth_prv_key = get_separated_val(&eth_keys, "\n", "private", ":").stack()?;
+    let eth_addr = get_separated_val(&eth_keys, "\n", "address", ":").stack()?;
 
     //let consaddr = sh_cosmovisor("tendermint show-address", &[]).await?;
     //let consaddr = consaddr.trim();
@@ -186,7 +197,7 @@ pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo>
         &[
             "validator",
             "1000000000000000000000stake",
-            eth_addr,
+            &eth_addr,
             orch_addr,
             "--chain-id",
             chain_id,
@@ -212,11 +223,21 @@ pub async fn gravity_standalone_presetup(daemon_home: &str) -> Result<GentxInfo>
     .await
     .stack()?;
 
-    Ok(GentxInfo {
-        gentx_tar,
-        accounts,
-        balances,
-    })
+    let eth_key: std::result::Result<EthPrivateKey, _> = eth_prv_key.parse();
+    let eth_key = eth_key.stack()?;
+
+    Ok((
+        GentxInfo {
+            gentx_tar,
+            accounts,
+            balances,
+        },
+        ValidatorKeys {
+            eth_key,
+            orch_key: CosmosPrivateKey::from_phrase(&orch_mnemonic, "").stack()?,
+            validator_key: CosmosPrivateKey::from_phrase(&validator_mnemonic, "").stack()?,
+        },
+    ))
 }
 
 /// Assembles all the gentxs together and makes the genesis file changes

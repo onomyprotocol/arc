@@ -71,11 +71,11 @@ ETH_NODE=$ETH_NODE \
 GRAVITY_ADDRESS=$GRAVITY_ADDRESS \
 WEI_PER_USER=1000000000000000 \
 NUM_OF_SEND_ITERATIONS=5 \
-./target/release/test-runner 
+./target/release/test-runner
  
 ```
 
-The last "run" step might be launched almost unlimited numer of times, since when we `deploy`ed ERC20 contracts 
+The last "run" step might be launched almost unlimited numer of times, since when we `deploy`ed ERC20 contracts
 with 100000000000000000000000000 minted coins.
 
 At that step, we can also build the new testrunner docker and run multiple instances in parallel with retry.
@@ -83,5 +83,5 @@ We need the retry because at the first steps the minter sends ETH and ERC20 toke
 it might cause an issue in case we execute it in parallel.
 
 Also pay attention that the WEI_PER_USER should cover NUM_OF_SEND_ITERATIONS * ERC20_ADDRESSES operations,
-so if you increase those params you must increase the WEI_PER_USER as well. The symptom of the misconfiguration of 
+so if you increase those params you must increase the WEI_PER_USER as well. The symptom of the misconfiguration of
 that param is the error with the wait tx timeouts.

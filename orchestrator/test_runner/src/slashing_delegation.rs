@@ -81,7 +81,15 @@ pub async fn slashing_delegation_test(
     let no_relay_market_config = create_default_test_config();
     // by setting validator out to true, the last validator will not have an orchestrator, will not submit
     // signatures and is sure to be slashed
-    start_orchestrators(keys.clone(), gravity_address, true, no_relay_market_config).await;
+    start_orchestrators(
+        contact,
+        web30,
+        keys.clone(),
+        gravity_address,
+        true,
+        no_relay_market_config,
+    )
+    .await;
     // below logic does not work for a single validator
     assert!(keys.len() > 1);
     let slashed_validator = keys.iter().last().unwrap();

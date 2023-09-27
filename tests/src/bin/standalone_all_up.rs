@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use common::{
-    build, get_peer_info, gravity_standalone_central_setup, gravity_standalone_presetup, GentxInfo,
-    DOWNLOAD_GETH,
+    build, get_self_peer_info, gravity_standalone_central_setup, gravity_standalone_presetup,
+    GentxInfo, DOWNLOAD_GETH,
 };
 use gravity_utils::web30::client::Web3;
 use log::info;
@@ -23,7 +23,7 @@ use onomy_test_lib::{
     Args, TIMEOUT,
 };
 use serde_json::Value;
-use test_runner::{run_test, ADDRESS_PREFIX};
+use test_runner::{deploy_contracts, run_test, ValidatorKeys, ADDRESS_PREFIX};
 use tokio::time::sleep;
 
 #[tokio::main]
@@ -70,9 +70,7 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
             Dockerfile::Contents(format!("{ONOMY_STD} {DOWNLOAD_GETH}")),
             entrypoint,
             &["--entry-name", "geth"],
-            // TODO it seems the URI error isn't actually url related
-        )
-        .no_uuid_for_host_name(),
+        ),
         Container::new(
             "test",
             // this is used just for the common gentx
@@ -81,7 +79,9 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
             )),
             entrypoint,
             &["--entry-name", "test"],
-        ),
+        )
+        // needed for contract deployer
+        .volumes(&[("./solidity", "/solidity")]),
         // may want prometheus crate for Rust
         /*Container::new(
             "prometheus",
@@ -117,7 +117,7 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
 async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
     let daemon_home = args.daemon_home.as_ref().stack()?;
     let uuid = &args.uuid;
-    let geth_host = &format!("geth");
+    let geth_host = &format!("geth_{uuid}");
     let mut nm_geth = NetMessenger::connect(STD_TRIES, STD_DELAY, &format!("{geth_host}:26000"))
         .await
         .stack()?;
@@ -130,6 +130,31 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
                 .stack()?,
         );
     }
+
+    info!("super_orchestrator network is connected");
+
+    let eth_node = &format!("http://{geth_host}:8545");
+    let cosmos_node_grpc = &format!("http://validator_0_{uuid}:9090");
+    let cosmos_node_abci = &format!("http://validator_0_{uuid}:26657");
+
+    // requests using the `web30` crate
+    let web3 = Web3::new(eth_node, Duration::from_secs(30));
+
+    // `Web3::new` only waits for initial handshakes, we need to wait for Tcp and
+    // syncing
+    async fn is_eth_up(web3: &Web3) -> Result<()> {
+        web3.eth_syncing().await.map(|_| ()).stack()
+    }
+    wait_for_ok(30, STD_DELAY, || is_eth_up(&web3))
+        .await
+        .stack()?;
+    info!("geth is running");
+
+    info!("deploying contracts in parallel");
+    let tmp = (cosmos_node_abci.to_owned(), eth_node.to_owned());
+    let deployer_handle = tokio::spawn(async move {
+        deploy_contracts(&tmp.0, &tmp.1, None).await;
+    });
 
     // gather the gentxs
     let chain_id = "gravity";
@@ -148,9 +173,14 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         .stack()?;
     let mut genesis: Value = serde_json::from_str(&genesis_s).stack()?;
     let mut peers = vec![];
+    let mut validator_keys = vec![];
     for nm_validator in &mut nm_validators {
-        let (gentx_info, peer_info) = nm_validator.recv::<(GentxInfo, String)>().await.stack()?;
+        let (gentx_info, keys, peer_info) = nm_validator
+            .recv::<(GentxInfo, ValidatorKeys, String)>()
+            .await
+            .stack()?;
         peers.push(peer_info);
+        validator_keys.push(keys);
         // I want to make a position independent version of this, but `tar` is the most finicky command there is
         Command::new(&format!("tar --extract -f -"), &[])
             .run_with_input_to_completion(gentx_info.gentx_tar.as_bytes())
@@ -185,6 +215,8 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         .await
         .stack()?;
 
+    info!("bringing up Cosmos validators");
+
     // send complete genesis and peers
     let tmp = (genesis, peers);
     for nm_validator in &mut nm_validators {
@@ -194,47 +226,16 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
             .stack()?;
     }
 
-    // manual HTTP request
-    /*
-    curl --header "content-type: application/json" --data
-    '{"id":1,"jsonrpc":"2.0","method":"eth_syncing","params":[]}' http://geth:8545
-    */
-
-    // programmatic HTTP request
-    /*
-    sleep(Duration::from_secs(5)).await;
-    let geth_client = reqwest::Client::new();
-    let res = geth_client
-        .post("http://geth:8545")
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            "application/json",
-        )
-        .body(r#"{"method":"eth_blockNumber","params":[],"id":1,"jsonrpc":"2.0"}"#)
-        .send()
-        .await.stack()?
-        .text()
-        .await.stack()?;
-    info!(res);
-    */
-
-    // requests using the `web30` crate
-    let web3 = Web3::new("http://{geth_host}:8545", Duration::from_secs(30));
-
-    // TODO
-    sleep(TIMEOUT).await;
-
-    // `Web3::new` only waits for initial handshakes, we need to wait for Tcp and
-    // syncing
-    async fn is_eth_up(web3: &Web3) -> Result<()> {
-        web3.eth_syncing().await.map(|_| ()).stack()
+    // make sure the cosmos validators are all the way up
+    for nm_validator in &mut nm_validators {
+        nm_validator.recv::<()>().await.stack()?;
     }
-    wait_for_ok(30, STD_DELAY, || is_eth_up(&web3))
-        .await
-        .stack()?;
-    info!("geth is running");
 
-    run_test().await;
+    deployer_handle.await.stack()?;
+
+    info!("all parts are ready");
+
+    run_test(cosmos_node_grpc, cosmos_node_abci, eth_node, validator_keys).await;
 
     // terminate
     for mut nm in nm_validators {
@@ -254,14 +255,14 @@ async fn cosmos_validator(args: &Args) -> Result<()> {
         .await
         .stack()?;
 
-    let gentx_info = gravity_standalone_presetup(daemon_home).await.stack()?;
-    let peer_info = get_peer_info(&format!("validator_{validator_i}_{uuid}"), "26656")
+    let (gentx_info, validator_keys) = gravity_standalone_presetup(daemon_home).await.stack()?;
+    let peer_info = get_self_peer_info(&format!("validator_{validator_i}_{uuid}"), "26656")
         .await
         .stack()?;
 
     // send out info about self
     nm_test
-        .send::<(GentxInfo, String)>(&(gentx_info, peer_info))
+        .send::<(GentxInfo, ValidatorKeys, String)>(&(gentx_info, validator_keys, peer_info))
         .await
         .stack()?;
 
@@ -273,11 +274,13 @@ async fn cosmos_validator(args: &Args) -> Result<()> {
     set_persistent_peers(daemon_home, &peers).await.stack()?;
 
     let options = CosmovisorOptions::default();
-    //options.
     let mut cosmovisor_runner =
         cosmovisor_start(&format!("gravity_runner_{validator_i}.log"), Some(options))
             .await
             .stack()?;
+
+    // notify that we are all the way up
+    nm_test.send::<()>(&()).await.stack()?;
 
     // terminate
     nm_test.recv::<()>().await.stack()?;

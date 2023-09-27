@@ -16,7 +16,15 @@ pub async fn validator_set_stress_test(
 ) {
     let mut grpc_client = grpc_client.clone();
     let no_relay_market_config = create_default_test_config();
-    start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
+    start_orchestrators(
+        contact,
+        web30,
+        keys.clone(),
+        gravity_address,
+        false,
+        no_relay_market_config,
+    )
+    .await;
 
     for _ in 0u32..10 {
         test_valset_update(web30, contact, &mut grpc_client, &keys, gravity_address).await;

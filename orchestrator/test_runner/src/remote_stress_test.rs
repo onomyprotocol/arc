@@ -50,6 +50,8 @@ pub async fn remote_stress_test(
 ) {
     if !keys.is_empty() {
         start_orchestrators(
+            contact,
+            web30,
             keys.clone(),
             gravity_address,
             false,

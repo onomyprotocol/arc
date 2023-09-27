@@ -44,6 +44,7 @@ pub async fn happy_path_test_v2(
         web30,
         Some(keys.clone()),
         &mut grpc_client,
+        contact,
         validator_out,
         footoken_metadata(contact).await,
     )
@@ -157,6 +158,7 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
     web30: &Web3,
     keys: Option<Vec<ValidatorKeys>>,
     grpc_client: &mut GravityQueryClient<Channel>,
+    contact: &Contact,
     validator_out: bool,
     token_metadata: Metadata,
 ) -> EthAddress {
@@ -200,6 +202,8 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
     if let Some(keys) = keys {
         let no_relay_market_config = create_default_test_config();
         start_orchestrators(
+            contact,
+            web30,
             keys.clone(),
             gravity_address,
             validator_out,

@@ -53,7 +53,15 @@ pub async fn invalid_events(
     let mut starting_pool_amount = starting_pool_amount.unwrap();
 
     let no_relay_market_config = create_default_test_config();
-    start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
+    start_orchestrators(
+        contact,
+        web30,
+        keys.clone(),
+        gravity_address,
+        false,
+        no_relay_market_config,
+    )
+    .await;
 
     for test_value in get_deposit_test_strings() {
         // next we send an invalid string deposit, we use byte encoding here so that we can attempt a totally invalid send
@@ -109,6 +117,7 @@ pub async fn invalid_events(
         web30,
         None,
         &mut grpc_client,
+        contact,
         false,
         footoken_metadata(contact).await,
     )

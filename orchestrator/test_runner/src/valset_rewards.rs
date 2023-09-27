@@ -40,6 +40,7 @@ pub async fn valset_rewards_test(
         web30,
         Some(keys.clone()),
         &mut grpc_client,
+        contact,
         false,
         footoken_metadata(contact).await,
     )

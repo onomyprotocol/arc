@@ -28,7 +28,15 @@ pub async fn send_to_eth_and_cancel(
     let mut grpc_client = grpc_client;
 
     let no_relay_market_config = create_default_test_config();
-    start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
+    start_orchestrators(
+        contact,
+        web30,
+        keys.clone(),
+        gravity_address,
+        false,
+        no_relay_market_config,
+    )
+    .await;
 
     // a pair of cosmos and Ethereum keys + addresses to use for this test
     let user_keys = get_user_key();

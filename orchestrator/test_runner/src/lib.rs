@@ -29,7 +29,7 @@ use transaction_stress_test::transaction_stress_test;
 use unhalt_bridge::unhalt_bridge_test;
 use valset_stress::validator_set_stress_test;
 
-use crate::{
+pub use crate::{
     airdrop_proposal::airdrop_proposal_test, bootstrapping::*,
     deposit_overflow::deposit_overflow_test, ethereum_blacklist_test::ethereum_blacklist_test,
     ibc_metadata::ibc_metadata_proposal_test, invalid_events::invalid_events,
@@ -69,14 +69,22 @@ const TOTAL_TIMEOUT: Duration = Duration::from_secs(3600);
 lazy_static! {
     pub static ref ADDRESS_PREFIX: String =
         env::var("ADDRESS_PREFIX").unwrap_or_else(|_| DEFAULT_ADDRESS_PREFIX.to_owned());
-    static ref STAKING_TOKEN: String =
+    pub static ref STAKING_TOKEN: String =
         env::var("STAKING_TOKEN").unwrap_or_else(|_| "stake".to_owned());
-    static ref COSMOS_NODE_GRPC: String =
+    pub static ref COSMOS_NODE_GRPC: String =
         env::var("COSMOS_NODE_GRPC").unwrap_or_else(|_| "http://localhost:9090".to_owned());
-    static ref COSMOS_NODE_ABCI: String =
+    pub static ref COSMOS_NODE_ABCI: String =
         env::var("COSMOS_NODE_ABCI").unwrap_or_else(|_| "http://localhost:26657".to_owned());
-    static ref ETH_NODE: String =
+    pub static ref ETH_NODE: String =
         env::var("ETH_NODE").unwrap_or_else(|_| TEST_DEFAULT_ETH_NODE_ENDPOINT.to_owned());
+    // this key is the private key for the public key defined in tests/assets/ETHGenesis.json
+    // where the full node / miner sends its rewards. Therefore it's always going
+    // to have a lot of ETH to pay for things like contract deployments
+    pub static ref MINER_PRIVATE_KEY: EthPrivateKey = env::var("MINER_PRIVATE_KEY").unwrap_or_else(|_|
+        TEST_DEFAULT_MINER_KEY.to_owned()
+            ).parse()
+            .unwrap();
+    pub static ref MINER_ADDRESS: EthAddress = MINER_PRIVATE_KEY.to_address();
 }
 
 /// this value reflects the contents of /tests/container-scripts/setup-validator.sh
@@ -85,17 +93,6 @@ lazy_static! {
 pub const STAKE_SUPPLY_PER_VALIDATOR: Uint256 = u256!(1000000000000000000000);
 /// this is the amount each validator bonds at startup
 pub const STARTING_STAKE_PER_VALIDATOR: Uint256 = STAKE_SUPPLY_PER_VALIDATOR.shr1();
-
-lazy_static! {
-    // this key is the private key for the public key defined in tests/assets/ETHGenesis.json
-    // where the full node / miner sends its rewards. Therefore it's always going
-    // to have a lot of ETH to pay for things like contract deployments
-    static ref MINER_PRIVATE_KEY: EthPrivateKey = env::var("MINER_PRIVATE_KEY").unwrap_or_else(|_|
-        TEST_DEFAULT_MINER_KEY.to_owned()
-            ).parse()
-            .unwrap();
-    static ref MINER_ADDRESS: EthAddress = MINER_PRIVATE_KEY.to_address();
-}
 
 /// Gets the standard non-token fee for the testnet. We deploy the test chain with STAKE
 /// and FOOTOKEN balances by default, one footoken is sufficient for any Cosmos tx fee except
@@ -140,35 +137,23 @@ pub fn should_deploy_contracts() -> bool {
     }
 }
 
-pub async fn run_test() {
-    if matches!(env::var("GET_TEST_ADDRESS").as_deref(), Ok("1")) {
-        // A way to get the correct Bech32 to the scripts. Derived from the
-        // sha256 hash of 'distribution' to create the address of the module
-        let data = bech32::decode("gravity1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8r0kyvh")
-            .unwrap()
-            .1;
-        println!(
-            "{}",
-            bech32::encode(&ADDRESS_PREFIX, data, bech32::Variant::Bech32).unwrap()
-        );
-        return;
-    }
+pub async fn run_test(
+    cosmos_node_grpc: &str,
+    cosmos_node_abci: &str,
+    eth_node: &str,
+    keys: Vec<ValidatorKeys>,
+) {
     info!("Starting Gravity test-runner");
-    let contact = Contact::new(
-        COSMOS_NODE_GRPC.as_str(),
-        OPERATION_TIMEOUT,
-        ADDRESS_PREFIX.as_str(),
-    )
-    .unwrap();
+    let contact =
+        Contact::new(cosmos_node_grpc, OPERATION_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
 
     info!("Waiting for Cosmos chain to come online");
     wait_for_cosmos_online(&contact, TOTAL_TIMEOUT).await;
 
-    let grpc_client = GravityQueryClient::connect(COSMOS_NODE_GRPC.as_str())
+    let grpc_client = GravityQueryClient::connect(cosmos_node_grpc.to_owned())
         .await
         .unwrap();
-    let web30 = gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
-    let keys = get_keys();
+    let web30 = gravity_utils::web30::client::Web3::new(eth_node, OPERATION_TIMEOUT);
 
     let net_version = get_net_version_with_retry(&web30).await;
     let block_delay = get_block_delay(&web30).await;
@@ -192,6 +177,7 @@ pub async fn run_test() {
         // if `should_deploy_contracts()` this needs to be running beforehand,
         // because some chains have really strong quiescence
         info!("Starting block stimulator workaround");
+        let eth_node = web30.get_url();
         tokio::spawn(async move {
             use std::str::FromStr;
             // we need a duplicate `send_eth_bulk` that uses a different
@@ -241,8 +227,7 @@ pub async fn run_test() {
             }
 
             // repeatedly send to unrelated addresses
-            let web3 =
-                gravity_utils::web30::client::Web3::new(ETH_NODE.as_str(), OPERATION_TIMEOUT);
+            let web3 = gravity_utils::web30::client::Web3::new(&eth_node, OPERATION_TIMEOUT);
             for i in 0u64.. {
                 send_eth_bulk2(
                     u256!(1),
@@ -268,8 +253,11 @@ pub async fn run_test() {
 
     // if we detect this env var we are only deploying contracts, do that then exit.
     if should_deploy_contracts() {
+        // prevents the node deployer from failing (rarely) when the chain has not
+        // yet produced the next block after submitting each eth address
+        contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
         info!("test-runner in contract deploying mode, deploying contracts, then exiting");
-        deploy_contracts(&contact).await;
+        deploy_contracts(cosmos_node_abci, eth_node, env::var("GRAVITY_ADDRESS").ok()).await;
         return;
     }
 

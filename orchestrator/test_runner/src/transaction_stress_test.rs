@@ -46,7 +46,15 @@ pub async fn transaction_stress_test(
     let mut grpc_client = grpc_client;
 
     let no_relay_market_config = create_no_batch_requests_config();
-    start_orchestrators(keys.clone(), gravity_address, false, no_relay_market_config).await;
+    start_orchestrators(
+        contact,
+        web30,
+        keys.clone(),
+        gravity_address,
+        false,
+        no_relay_market_config,
+    )
+    .await;
 
     // Generate 100 user keys to send ETH and multiple types of tokens
     let mut user_keys = Vec::new();

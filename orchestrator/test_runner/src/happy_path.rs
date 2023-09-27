@@ -50,6 +50,8 @@ pub async fn happy_path_test(
 
     let no_relay_market_config = create_default_test_config();
     start_orchestrators(
+        contact,
+        web30,
         keys.clone(),
         gravity_address,
         validator_out,

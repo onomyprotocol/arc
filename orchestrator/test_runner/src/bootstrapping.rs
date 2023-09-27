@@ -8,10 +8,10 @@ use std::{
 
 use gravity_utils::{
     clarity::{Address as EthAddress, PrivateKey as EthPrivateKey},
-    deep_space::{private_key::PrivateKey as CosmosPrivateKey, Contact},
+    deep_space::private_key::PrivateKey as CosmosPrivateKey,
 };
 
-use crate::{utils::ValidatorKeys, COSMOS_NODE_ABCI, ETH_NODE, MINER_PRIVATE_KEY, TOTAL_TIMEOUT};
+use crate::{utils::ValidatorKeys, MINER_PRIVATE_KEY};
 
 /// Ethereum private keys for the validators are generated using the gravity eth_keys add command
 /// and dumped into a file /validator-eth-keys in the container, from there they are then used by
@@ -101,12 +101,12 @@ pub fn get_keys() -> Vec<ValidatorKeys> {
 /// this runs only when the DEPLOY_CONTRACTS env var is set right after
 /// the Ethereum test chain starts in the testing environment. We write
 /// the stdout of this to a file for later test runs to parse
-pub async fn deploy_contracts(contact: &Contact) {
-    // prevents the node deployer from failing (rarely) when the chain has not
-    // yet produced the next block after submitting each eth address
-    contact.wait_for_next_block(TOTAL_TIMEOUT).await.unwrap();
-
-    let remote_mode = if let Ok(s) = env::var("GRAVITY_ADDRESS") {
+pub async fn deploy_contracts(
+    cosmos_node_abci: &str,
+    eth_node: &str,
+    gravity_addr: Option<String>,
+) {
+    let remote_mode = if let Some(s) = gravity_addr {
         info!("GRAVITY_ADDRESS set, using gravity contract address {}", s);
         // leads to the gravity contract not being deployed
         "true"
@@ -119,41 +119,38 @@ pub async fn deploy_contracts(contact: &Contact) {
     // deployments more straightforward.
 
     // both files are just in the PWD
-    const A: [&str; 2] = ["contract-deployer", "Gravity.json"];
+    const A: [&str; 2] = ["contract-deployer.ts", "Gravity.json"];
     // files are placed in a root /solidity/ folder
-    const B: [&str; 2] = ["/solidity/contract-deployer", "/solidity/Gravity.json"];
-    // the default unmoved locations for the Gravity repo
-    const C: [&str; 3] = [
-        "/gravity/solidity/contract-deployer.ts",
-        "/gravity/solidity/artifacts/contracts/Gravity.sol/Gravity.json",
-        "/gravity/solidity/",
+    const B: [&str; 3] = [
+        "/solidity/contract-deployer.ts",
+        "/solidity/artifacts/contracts/Gravity.sol/Gravity.json",
+        "/solidity/",
     ];
-    let output = if all_paths_exist(&A) || all_paths_exist(&B) {
-        let paths = return_existing(A, B);
-        Command::new(paths[0])
+    let output = if all_paths_exist(&A) {
+        Command::new(A[0])
             .args([
-                &format!("--cosmos-node={}", COSMOS_NODE_ABCI.as_str()),
-                &format!("--eth-node={}", ETH_NODE.as_str()),
+                &format!("--cosmos-node={}", cosmos_node_abci),
+                &format!("--eth-node={}", eth_node),
                 &format!("--eth-privkey={:#x}", *MINER_PRIVATE_KEY),
-                &format!("--contract={}", paths[1]),
+                &format!("--contract={}", A[1]),
                 "--test-mode=true",
                 &format!("--remote-mode={remote_mode}"),
             ])
             .output()
             .expect("Failed to deploy contracts!")
-    } else if all_paths_exist(&C) {
+    } else if all_paths_exist(&B) {
         Command::new("npx")
             .args([
                 "ts-node",
-                C[0],
-                &format!("--cosmos-node={}", COSMOS_NODE_ABCI.as_str()),
-                &format!("--eth-node={}", ETH_NODE.as_str()),
+                B[0],
+                &format!("--cosmos-node={}", cosmos_node_abci),
+                &format!("--eth-node={}", eth_node),
                 &format!("--eth-privkey={:#x}", *MINER_PRIVATE_KEY),
-                &format!("--contract={}", C[1]),
+                &format!("--contract={}", B[1]),
                 "--test-mode=true",
                 &format!("--remote-mode={remote_mode}"),
             ])
-            .current_dir(C[2])
+            .current_dir(B[2])
             .output()
             .expect("Failed to deploy contracts!")
     } else {
@@ -226,14 +223,4 @@ fn all_paths_exist(input: &[&str]) -> bool {
         }
     }
     true
-}
-
-fn return_existing<'a>(a: [&'a str; 2], b: [&'a str; 2]) -> [&'a str; 2] {
-    if all_paths_exist(&a) {
-        a
-    } else if all_paths_exist(&b) {
-        b
-    } else {
-        panic!("No paths exist!")
-    }
 }
