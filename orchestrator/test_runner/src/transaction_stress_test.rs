@@ -17,7 +17,9 @@ use rand::seq::SliceRandom;
 use tokio::time::sleep;
 use tonic::transport::Channel;
 
-use crate::{get_fee, get_fee_amount, utils::*, ONE_ETH, ONE_HUNDRED_ETH, TOTAL_TIMEOUT};
+use crate::{
+    get_fee, get_fee_amount, get_test_token_name, utils::*, ONE_ETH, ONE_HUNDRED_ETH, TOTAL_TIMEOUT,
+};
 
 const TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -61,11 +63,14 @@ pub async fn transaction_stress_test(
     for _ in 0..NUM_USERS {
         user_keys.push(get_user_key());
     }
-    // send what will be used for fees
+    // Send what will be used for fees.
     for user in &user_keys {
         contact
             .send_coins(
-                get_fee(),
+                Coin {
+                    amount: get_fee_amount(10),
+                    denom: get_test_token_name(),
+                },
                 Some(get_fee()),
                 user.cosmos_address,
                 Some(TOTAL_TIMEOUT),

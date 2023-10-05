@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use common::{
     build, get_self_peer_info, gravity_standalone_central_setup, gravity_standalone_presetup,
-    GentxInfo, DOWNLOAD_GETH, TEST_TYPES,
+    GentxInfo, DOWNLOAD_GETH,
 };
 use gravity_utils::web30::client::Web3;
 use log::info;
@@ -235,15 +235,49 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
 
     info!("all parts are ready");
 
-    for test_type in TEST_TYPES {
+    pub const TEST_TYPES: [&str; 20] = [
+        "HAPPY_PATH_V2",
+        "BATCH_STRESS",
+        "VALSET_STRESS",
+        "VALSET_REWARDS",
+        "RELAY_MARKET",
+        "HAPPY_PATH",
+        "REMOTE_STRESS",
+        "VALIDATOR_OUT",
+        "ORCHESTRATOR_KEYS",
+        "EVIDENCE",
+        "TXCANCEL",
+        "INVALID_EVENTS",
+        "DEPOSIT_OVERFLOW",
+        "ETHEREUM_BLACKLIST",
+        "AIRDROP_PROPOSAL",
+        "SIGNATURE_SLASHING",
+        "SLASHING_DELEGATION",
+        "IBC_METADATA",
+        "PAUSE_BRIDGE",
+        "UNHALT_BRIDGE",
+    ];
+
+    if let Some(test_type) = args.test_type.as_ref() {
         run_test(
             cosmos_node_grpc,
             cosmos_node_abci,
             eth_node,
             validator_keys.clone(),
-            test_type,
+            &test_type,
         )
         .await;
+    } else {
+        for test_type in &TEST_TYPES {
+            run_test(
+                cosmos_node_grpc,
+                cosmos_node_abci,
+                eth_node,
+                validator_keys.clone(),
+                test_type,
+            )
+            .await;
+        }
     }
 
     // terminate

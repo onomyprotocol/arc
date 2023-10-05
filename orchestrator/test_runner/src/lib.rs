@@ -144,7 +144,7 @@ pub async fn run_test(
     keys: Vec<ValidatorKeys>,
     test_type: &str,
 ) {
-    info!("Starting Gravity test-runner");
+    info!("Starting Gravity test-runner with test_type {test_type}");
     let contact =
         Contact::new(cosmos_node_grpc, OPERATION_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
 
@@ -294,7 +294,6 @@ pub async fn run_test(
     // V2_HAPPY_PATH runs the happy path tests but focusing on moving Cosmos assets to Ethereum
     // ARBITRARY_LOGIC tests the arbitrary logic functionality, where an arbitrary contract call
     //                 is created and deployed vai the bridge.
-    info!("Starting tests with test_type {:?}", test_type);
     match test_type {
         "HAPPY_PATH" => {
             info!("Starting Happy path test");
