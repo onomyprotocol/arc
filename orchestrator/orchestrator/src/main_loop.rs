@@ -23,6 +23,7 @@ use gravity_utils::{
         private_key::PrivateKey as CosmosPrivateKey, utils::FeeInfo, Contact,
     },
     error::GravityError,
+    stacked_errors::{Error, StackableErr},
     types::GravityBridgeToolsConfig,
     u64_array_bigints,
     web30::client::Web3,
@@ -56,7 +57,7 @@ pub async fn orchestrator_main_loop(
     gravity_id: String,
     user_fee_amount: Coin,
     config: GravityBridgeToolsConfig,
-) -> Result<(), GravityError> {
+) -> Result<(), Error> {
     let fee = user_fee_amount;
 
     let a = eth_oracle_main_loop(
@@ -90,11 +91,9 @@ pub async fn orchestrator_main_loop(
 
     // if the relayer is not enabled we just don't start the future
     if config.orchestrator.relayer_enabled {
-        if let Err(e) = try_join3(a, b, c).await {
-            return Err(e);
-        }
+        try_join3(a, b, c).await.stack()?;
     } else if let Err(e) = try_join(a, b).await {
-        return Err(e);
+        return Err(e).stack();
     }
 
     Ok(())
@@ -111,7 +110,7 @@ pub async fn eth_oracle_main_loop(
     grpc_client: GravityQueryClient<Channel>,
     gravity_contract_address: EthAddress,
     fee: Coin,
-) -> Result<(), GravityError> {
+) -> Result<(), Error> {
     let our_cosmos_address = cosmos_key.to_address(&contact.get_prefix()).unwrap();
     let long_timeout_web30 = Web3::new(&web3.get_url(), Duration::from_secs(120));
 
@@ -191,6 +190,7 @@ pub async fn eth_oracle_main_loop(
                     last_checked_block,
                 )
                 .await
+                .stack()
                 {
                     Ok(nonces) => {
                         // this output CheckedNonces is accurate unless a governance vote happens
@@ -235,7 +235,7 @@ pub async fn eth_signer_main_loop(
     contact: Contact,
     grpc_client: GravityQueryClient<Channel>,
     fee: Coin,
-) -> Result<(), GravityError> {
+) -> Result<(), Error> {
     let our_cosmos_address = cosmos_key.to_address(&contact.get_prefix()).unwrap();
     let mut grpc_client = grpc_client;
 
@@ -404,31 +404,27 @@ pub async fn eth_signer_main_loop(
             sleep(ETH_SIGNER_LOOP_SPEED)
         );
 
-        if let Err(e) = async_result {
-            return Err(e);
-        }
+        async_result.stack()?;
     }
 }
 
 /// Checks for fee errors on our confirm submission transactions, a failure here
 /// can be fatal and cause slashing so we want to warn the user and exit. There is
 /// no point in running if we can't perform our most important function
-fn check_for_fee_error(
-    res: Result<TxResponse, CosmosGrpcError>,
-    fee: &Coin,
-) -> Result<(), GravityError> {
+fn check_for_fee_error(res: Result<TxResponse, CosmosGrpcError>, fee: &Coin) -> Result<(), Error> {
     if let Err(CosmosGrpcError::InsufficientFees { fee_info }) = res {
         match fee_info {
             FeeInfo::InsufficientFees { min_fees } => {
                 return Err(GravityError::UnrecoverableError(
                     format!( "Your specified fee value {} is too small please use at least {} \n\
                     Correct fee argument immediately! You will be slashed within a few hours if you fail to do so",  fee, Coin::display_list(&min_fees)),
-                ));
+                )).stack();
             }
             FeeInfo::InsufficientGas { .. } => {
                 return Err(GravityError::UnrecoverableError(
                     "Hardcoded gas amounts insufficient!".into(),
-                ));
+                ))
+                .stack();
             }
         }
     } else if res.is_err() {

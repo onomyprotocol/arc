@@ -17,6 +17,7 @@ use clarity::{u256, Uint256};
 pub use deep_space;
 use get_with_retry::get_net_version_with_retry;
 use lazy_static::lazy_static;
+pub use stacked_errors;
 pub use u64_array_bigints;
 pub use web30;
 use web30::client::Web3;

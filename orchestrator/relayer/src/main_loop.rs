@@ -4,7 +4,7 @@ use gravity_proto::gravity::query_client::QueryClient as GravityQueryClient;
 use gravity_utils::{
     clarity::{address::Address as EthAddress, PrivateKey as EthPrivateKey},
     deep_space::{Coin, Contact, PrivateKey as CosmosPrivateKey},
-    error::GravityError,
+    stacked_errors::Error,
     types::RelayerConfig,
     web30::client::Web3,
 };
@@ -32,7 +32,7 @@ pub async fn relayer_main_loop(
     gravity_contract_address: EthAddress,
     gravity_id: String,
     relayer_config: &RelayerConfig,
-) -> Result<(), GravityError> {
+) -> Result<(), Error> {
     let mut grpc_client = grpc_client;
     let loop_speed = Duration::from_secs(relayer_config.relayer_loop_speed);
     loop {

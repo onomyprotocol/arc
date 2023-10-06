@@ -12,6 +12,7 @@ lazy_static = "1"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 sha3 = "0.10"
+stacked_errors = "0.4"
 thiserror = "1.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tonic = "0.7"

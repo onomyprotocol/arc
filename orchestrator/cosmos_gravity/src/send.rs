@@ -20,6 +20,7 @@ use gravity_utils::{
         address::Address, coin::Coin, error::CosmosGrpcError, private_key::PrivateKey,
         utils::bytes_to_hex_str, Contact, Msg,
     },
+    stacked_errors::{Error, StackableErr},
     types::*,
 };
 
@@ -38,7 +39,7 @@ pub async fn set_gravity_delegate_addresses(
     delegate_cosmos_address: Address,
     private_key: PrivateKey,
     fee: Coin,
-) -> Result<TxResponse, CosmosGrpcError> {
+) -> Result<TxResponse, Error> {
     trace!("Updating Gravity Delegate addresses");
     let our_valoper_address = private_key
         .to_address(&contact.get_prefix())
@@ -69,6 +70,7 @@ pub async fn set_gravity_delegate_addresses(
             private_key,
         )
         .await
+        .stack()
 }
 
 /// Send in a confirmation for an array of validator sets, it's far more efficient to send these
@@ -216,7 +218,7 @@ pub async fn send_ethereum_claims(
     logic_calls: Vec<LogicCallExecutedEvent>,
     valsets: Vec<ValsetUpdatedEvent>,
     fee: Coin,
-) -> Result<TxResponse, CosmosGrpcError> {
+) -> Result<TxResponse, Error> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
 
     // This sorts oracle messages by event nonce before submitting them. It's not a pretty implementation because
@@ -296,6 +298,7 @@ pub async fn send_ethereum_claims(
     contact
         .send_message(&msgs, None, &[fee], Some(TIMEOUT), private_key)
         .await
+        .stack()
 }
 
 /// Sends tokens from Cosmos to Ethereum. These tokens will not be sent immediately instead
@@ -309,13 +312,13 @@ pub async fn send_to_eth(
     bridge_fee: Coin,
     fee: Coin,
     contact: &Contact,
-) -> Result<TxResponse, CosmosGrpcError> {
+) -> Result<TxResponse, Error> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
     if amount.denom != bridge_fee.denom {
         return Err(CosmosGrpcError::BadInput(format!(
             "{} {} is an invalid denom set for SendToEth you must pay fees in the same token your sending",
             amount.denom, bridge_fee.denom,
-        )));
+        ))).stack();
     }
     let balances = contact.get_balances(our_address).await.unwrap();
     let mut found = false;
@@ -323,17 +326,24 @@ pub async fn send_to_eth(
         if balance.denom == amount.denom {
             let total_amount = amount
                 .amount
-                .checked_add(fee.amount.shl1().ok_or_else(|| {
-                    CosmosGrpcError::BadInput("overflow of `U256::shl1`".to_owned())
-                })?)
+                .checked_add(
+                    fee.amount
+                        .shl1()
+                        .ok_or_else(|| {
+                            CosmosGrpcError::BadInput("overflow of `U256::shl1`".to_owned())
+                        })
+                        .stack()?,
+                )
                 .ok_or_else(|| {
                     CosmosGrpcError::BadInput("overflow of `U256::checked_add`".to_owned())
-                })?;
+                })
+                .stack()?;
             if balance.amount < total_amount {
                 return Err(CosmosGrpcError::BadInput(format!(
                     "Insufficient balance of {} (account has {}) to send {}",
                     amount.denom, balance.amount, total_amount,
-                )));
+                )))
+                .stack();
             }
             found = true;
         }
@@ -342,7 +352,8 @@ pub async fn send_to_eth(
         return Err(CosmosGrpcError::BadInput(format!(
             "No balance of {} to send",
             amount.denom,
-        )));
+        )))
+        .stack();
     }
 
     let msg_send_to_eth = MsgSendToEth {
@@ -362,6 +373,7 @@ pub async fn send_to_eth(
             private_key,
         )
         .await
+        .stack()
 }
 
 pub async fn send_request_batch(
@@ -369,7 +381,7 @@ pub async fn send_request_batch(
     denom: String,
     fee: Option<Coin>,
     contact: &Contact,
-) -> Result<TxResponse, CosmosGrpcError> {
+) -> Result<TxResponse, Error> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
 
     let msg_request_batch = MsgRequestBatch {
@@ -391,6 +403,7 @@ pub async fn send_request_batch(
             private_key,
         )
         .await
+        .stack()
 }
 
 /// Sends evidence of a bad signature to the chain to slash the malicious validator
@@ -401,7 +414,7 @@ pub async fn submit_bad_signature_evidence(
     contact: &Contact,
     signed_object: BadSignatureEvidence,
     signature: Signature,
-) -> Result<TxResponse, CosmosGrpcError> {
+) -> Result<TxResponse, Error> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
 
     let any = signed_object.to_any();
@@ -425,6 +438,7 @@ pub async fn submit_bad_signature_evidence(
             private_key,
         )
         .await
+        .stack()
 }
 
 /// Cancels a user provided SendToEth transaction, provided it's not already in a batch
@@ -434,7 +448,7 @@ pub async fn cancel_send_to_eth(
     fee: Coin,
     contact: &Contact,
     transaction_id: u64,
-) -> Result<TxResponse, CosmosGrpcError> {
+) -> Result<TxResponse, Error> {
     let our_address = private_key.to_address(&contact.get_prefix()).unwrap();
 
     let msg_cancel_send_to_eth = MsgCancelSendToEth {
@@ -452,4 +466,5 @@ pub async fn cancel_send_to_eth(
             private_key,
         )
         .await
+        .stack()
 }

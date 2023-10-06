@@ -5,6 +5,7 @@ use gravity_utils::{
         check_for_eth, check_for_fee, create_rpc_connections, wait_for_cosmos_node_ready,
     },
     error::GravityError,
+    stacked_errors::{Error, StackableErr},
     types::{BatchRequestMode, RelayerConfig},
 };
 use relayer::main_loop::{relayer_main_loop, TIMEOUT};
@@ -15,7 +16,7 @@ pub async fn relayer(
     args: RelayerOpts,
     address_prefix: String,
     config: &RelayerConfig,
-) -> Result<(), GravityError> {
+) -> Result<(), Error> {
     let cosmos_grpc = args.cosmos_grpc;
     let ethereum_rpc = args.ethereum_rpc;
     let ethereum_key = args.ethereum_key;
@@ -41,7 +42,7 @@ pub async fn relayer(
     // we can't move any steps above this because they may fail on an incorrect
     // historic chain state while syncing occurs
     wait_for_cosmos_node_ready(&contact).await;
-    check_for_eth(public_eth_key, &web3).await?;
+    check_for_eth(public_eth_key, &web3).await.stack()?;
 
     // get the gravity parameters
     let params = get_gravity_params(&mut grpc)
@@ -59,13 +60,13 @@ pub async fn relayer(
                 if v == ZERO_ADDRESS {
                     return Err(GravityError::UnrecoverableError(
                         "The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into(),
-                    ));
+                    )).stack();
                 }
 
                 v
             }
             Err(_) => {
-                return Err(GravityError::UnrecoverableError("The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into()));
+                return Err(GravityError::UnrecoverableError("The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into())).stack();
             }
         }
     };
@@ -75,7 +76,9 @@ pub async fn relayer(
     if let Some(fee) = args.fees.clone() {
         if config.batch_request_mode != BatchRequestMode::None {
             let public_cosmos_key = cosmos_key.to_address(&contact.get_prefix()).unwrap();
-            check_for_fee(&fee, public_cosmos_key, &contact).await?;
+            check_for_fee(&fee, public_cosmos_key, &contact)
+                .await
+                .stack()?;
             print_relaying_explanation(config, true)
         } else {
             print_relaying_explanation(config, false)
@@ -96,4 +99,5 @@ pub async fn relayer(
         config,
     )
     .await
+    .stack()
 }

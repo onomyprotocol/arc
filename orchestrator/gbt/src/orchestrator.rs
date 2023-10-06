@@ -10,6 +10,7 @@ use gravity_utils::{
     error::GravityError,
     get_block_delay,
     get_with_retry::get_net_version_with_retry,
+    stacked_errors::{Error, StackableErr},
     types::{BatchRequestMode, GravityBridgeToolsConfig},
     SEND_TO_COSMOS_MAX_GAS_LIMIT, TEST_ETH_CHAIN_ID, USE_FINALIZATION,
 };
@@ -24,7 +25,7 @@ pub async fn orchestrator(
     args: OrchestratorOpts,
     address_prefix: String,
     config: GravityBridgeToolsConfig,
-) -> Result<(), GravityError> {
+) -> Result<(), Error> {
     let fee = args.fees;
     let cosmos_grpc = args.cosmos_grpc;
     let ethereum_rpc = args.ethereum_rpc;
@@ -92,11 +93,14 @@ pub async fn orchestrator(
         public_cosmos_key,
         &contact.get_prefix(),
     )
-    .await?;
+    .await
+    .stack()?;
 
     // check if we actually have the promised balance of tokens to pay fees
-    check_for_fee(&fee, public_cosmos_key, &contact).await?;
-    check_for_eth(public_eth_key, &web3).await?;
+    check_for_fee(&fee, public_cosmos_key, &contact)
+        .await
+        .stack()?;
+    check_for_eth(public_eth_key, &web3).await.stack()?;
 
     // get the gravity parameters
     let params = get_gravity_params(&mut grpc)
@@ -113,14 +117,14 @@ pub async fn orchestrator(
                 if v == ZERO_ADDRESS {
                     return Err(GravityError::UnrecoverableError(
                         "The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into(),
-                    ));
+                    )).stack();
                 }
                 c.unwrap()
             }
             Err(_) => {
                 return Err(GravityError::UnrecoverableError(
                     "The Gravity address is not yet set as a chain parameter! You must specify --gravity-contract-address".into(),
-                ));
+                )).stack();
             }
         }
     };
@@ -128,7 +132,9 @@ pub async fn orchestrator(
     if config.orchestrator.relayer_enabled {
         // setup and explain relayer settings
         if config.relayer.batch_request_mode != BatchRequestMode::None {
-            check_for_fee(&fee, public_cosmos_key, &contact).await?;
+            check_for_fee(&fee, public_cosmos_key, &contact)
+                .await
+                .stack()?;
             print_relaying_explanation(&config.relayer, true)
         } else {
             print_relaying_explanation(&config.relayer, false)

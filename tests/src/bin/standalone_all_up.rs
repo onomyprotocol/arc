@@ -64,6 +64,13 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
     ));
     let entrypoint = entrypoint.as_deref();
 
+    let mut test_args = vec!["--entry-name", "test"];
+    let tmp = args.test_type.as_ref();
+    if let Some(test_type) = tmp {
+        test_args.push("--test-type");
+        test_args.push(test_type)
+    }
+
     let mut containers = vec![
         Container::new(
             "geth",
@@ -78,7 +85,7 @@ async fn container_runner(args: &Args, num_nodes: u64) -> Result<()> {
                 "gravityd", ".gravity", "v0.1.0", "gravityd",
             )),
             entrypoint,
-            &["--entry-name", "test"],
+            &test_args,
         )
         // needed for contract deployer
         .volumes(&[("./solidity", "/solidity")]),

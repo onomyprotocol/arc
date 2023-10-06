@@ -9,6 +9,7 @@ use gravity_utils::{
     error::GravityError,
     get_block_delay,
     get_with_retry::{get_finalized_block_number_with_retry, get_latest_block_number_with_retry},
+    stacked_errors::{Error, StackableErr},
     types::{
         event_signatures::*, Erc20DeployedEvent, LogicCallExecutedEvent, SendToCosmosEvent,
         TransactionBatchExecutedEvent, ValsetUpdatedEvent,
@@ -34,7 +35,7 @@ pub async fn check_for_events(
     our_private_key: CosmosPrivateKey,
     fee: Coin,
     starting_block: Uint256,
-) -> Result<CheckedNonces, GravityError> {
+) -> Result<CheckedNonces, Error> {
     let our_cosmos_address = our_private_key.to_address(&contact.get_prefix()).unwrap();
 
     let ending_block = if USE_FINALIZATION {
@@ -50,7 +51,8 @@ pub async fn check_for_events(
                     // `get_block_delay` is not setting the delay to zero for the testnet id.
                     "Latest block number is less than the block delay".to_owned(),
                 )
-            })?
+            })
+            .stack()?
     };
 
     let deposits = web3
@@ -110,15 +112,15 @@ pub async fn check_for_events(
         erc20_deployed,
         logic_call_executed,
     ) {
-        let valsets = ValsetUpdatedEvent::from_logs(&valsets)?;
+        let valsets = ValsetUpdatedEvent::from_logs(&valsets).stack()?;
         trace!("parsed valsets {:?}", valsets);
-        let withdraws = TransactionBatchExecutedEvent::from_logs(&batches)?;
+        let withdraws = TransactionBatchExecutedEvent::from_logs(&batches).stack()?;
         trace!("parsed batches {:?}", batches);
-        let deposits = SendToCosmosEvent::from_logs(&deposits)?;
+        let deposits = SendToCosmosEvent::from_logs(&deposits).stack()?;
         trace!("parsed deposits {:?}", deposits);
-        let erc20_deploys = Erc20DeployedEvent::from_logs(&deploys)?;
+        let erc20_deploys = Erc20DeployedEvent::from_logs(&deploys).stack()?;
         trace!("parsed erc20 deploys {:?}", erc20_deploys);
-        let logic_calls = LogicCallExecutedEvent::from_logs(&logic_calls)?;
+        let logic_calls = LogicCallExecutedEvent::from_logs(&logic_calls).stack()?;
         trace!("logic call executions {:?}", logic_calls);
 
         // note that starting block overlaps with our last checked block, because we have to deal with
@@ -131,7 +133,8 @@ pub async fn check_for_events(
             our_cosmos_address,
             contact.get_prefix(),
         )
-        .await?;
+        .await
+        .stack()?;
         let valsets = ValsetUpdatedEvent::filter_by_event_nonce(last_event_nonce, &valsets);
         let deposits = SendToCosmosEvent::filter_by_event_nonce(last_event_nonce, &deposits);
         let withdraws =
@@ -199,14 +202,16 @@ pub async fn check_for_events(
                 valsets,
                 fee,
             )
-            .await?;
+            .await
+            .stack()?;
 
             let new_event_nonce = get_last_event_nonce_for_validator(
                 grpc_client,
                 our_cosmos_address,
                 contact.get_prefix(),
             )
-            .await?;
+            .await
+            .stack()?;
 
             info!("Current event nonce is {}", new_event_nonce);
 
@@ -215,7 +220,7 @@ pub async fn check_for_events(
             if new_event_nonce == last_event_nonce {
                 return Err(GravityError::ValidationError(
                     format!("Claims did not process, trying to update but still on {}, trying again in a moment, check txhash {} for errors", last_event_nonce, res.txhash),
-                ));
+                )).stack();
             } else {
                 info!("Claims processed, new nonce {}", new_event_nonce);
             }
@@ -230,5 +235,6 @@ pub async fn check_for_events(
         Err(GravityError::RpcError(Box::new(Web3Error::BadResponse(
             "Failed to get logs!".into(),
         ))))
+        .stack()
     }
 }

@@ -26,7 +26,7 @@ use crate::{
         create_default_test_config, footoken_metadata, get_decimals, get_erc20_balance_safe,
         get_event_nonce_safe, get_user_key, send_one_eth, start_orchestrators, ValidatorKeys,
     },
-    MINER_ADDRESS, MINER_PRIVATE_KEY, TOTAL_TIMEOUT,
+    MINER_ADDRESS, MINER_PRIVATE_KEY, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
 };
 
 pub async fn happy_path_test_v2(
@@ -233,13 +233,14 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
         }
     };
 
-    let erc20_contract = match tokio::time::timeout(TOTAL_TIMEOUT, get_cosmos_asset_on_eth).await {
-        Err(_) => panic!(
-            "Cosmos did not adopt the ERC20 contract for {} it must be invalid in some way",
-            token_metadata.base
-        ),
-        Ok(erc20_contract) => erc20_contract.parse().unwrap(),
-    };
+    let erc20_contract =
+        match tokio::time::timeout(OPERATION_TIMEOUT, get_cosmos_asset_on_eth).await {
+            Err(_) => panic!(
+                "Cosmos did not adopt the ERC20 contract for {} it must be invalid in some way",
+                token_metadata.base
+            ),
+            Ok(erc20_contract) => erc20_contract.parse().unwrap(),
+        };
 
     // now that we have the contract, validate that it has the properties we want
     let got_decimals = web30
