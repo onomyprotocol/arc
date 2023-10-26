@@ -143,19 +143,6 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
     let cosmos_node_grpc = &format!("http://validator_0_{uuid}:9090");
     let cosmos_node_abci = &format!("http://validator_0_{uuid}:26657");
 
-    // requests using the `web30` crate
-    let web3 = Web3::new(eth_node, Duration::from_secs(30));
-
-    // `Web3::new` only waits for initial handshakes, we need to wait for Tcp and
-    // syncing
-    async fn is_eth_up(web3: &Web3) -> Result<()> {
-        web3.eth_syncing().await.map(|_| ()).stack()
-    }
-    wait_for_ok(30, STD_DELAY, || is_eth_up(&web3))
-        .await
-        .stack()?;
-    info!("geth is running");
-
     // gather the gentxs
     let chain_id = "gravity";
     sh_cosmovisor("config chain-id", &[chain_id])
@@ -230,6 +217,19 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
     for nm_validator in &mut nm_validators {
         nm_validator.recv::<()>().await.stack()?;
     }
+
+    // requests using the `web30` crate
+    let web3 = Web3::new(eth_node, Duration::from_secs(30));
+
+    // `Web3::new` only waits for initial handshakes, we need to wait for Tcp and
+    // syncing
+    async fn is_eth_up(web3: &Web3) -> Result<()> {
+        web3.eth_syncing().await.map(|_| ()).stack()
+    }
+    wait_for_ok(30, STD_DELAY, || is_eth_up(&web3))
+        .await
+        .stack()?;
+    info!("geth is running");
 
     // this needs both the cosmos and eth nodes, so unfortunately can't be done in parallel
     info!("deploying contracts");
