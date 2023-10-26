@@ -26,7 +26,7 @@ use crate::{
         create_default_test_config, footoken_metadata, get_decimals, get_erc20_balance_safe,
         get_event_nonce_safe, get_user_key, send_one_eth, start_orchestrators, ValidatorKeys,
     },
-    MINER_ADDRESS, MINER_PRIVATE_KEY, OPERATION_TIMEOUT, TOTAL_TIMEOUT,
+    MINER_ADDRESS, MINER_PRIVATE_KEY, TOTAL_TIMEOUT,
 };
 
 pub async fn happy_path_test_v2(
@@ -213,34 +213,41 @@ pub async fn deploy_cosmos_representing_erc20_and_check_adoption(
     }
 
     let get_cosmos_asset_on_eth = async {
-        loop {
+        for i in 0..20 {
             // the erc20 representing the cosmos asset on Ethereum
-            if let Ok(res) = grpc_client
+            match grpc_client
                 .denom_to_erc20(QueryDenomToErc20Request {
                     denom: token_metadata.base.clone(),
                 })
                 .await
             {
-                let erc20 = res.into_inner().erc20;
-                info!(
-                    "Successfully adopted {} token contract of {}",
-                    token_metadata.base, erc20
-                );
-                return erc20;
+                Ok(res) => {
+                    let erc20 = res.into_inner().erc20;
+                    info!(
+                        "Successfully adopted {} token contract of {}",
+                        token_metadata.base, erc20
+                    );
+                    return erc20;
+                }
+                Err(e) => {
+                    if i == 19 {
+                        warn!("when querying ERC20 adoption{}", e);
+                    }
+                }
             }
 
             sleep(Duration::from_secs(1)).await;
         }
+        panic!();
     };
 
-    let erc20_contract =
-        match tokio::time::timeout(OPERATION_TIMEOUT, get_cosmos_asset_on_eth).await {
-            Err(_) => panic!(
-                "Cosmos did not adopt the ERC20 contract for {} it must be invalid in some way",
-                token_metadata.base
-            ),
-            Ok(erc20_contract) => erc20_contract.parse().unwrap(),
-        };
+    let erc20_contract = match tokio::time::timeout(TOTAL_TIMEOUT, get_cosmos_asset_on_eth).await {
+        Err(_) => panic!(
+            "Cosmos did not adopt the ERC20 contract for {} it must be invalid in some way",
+            token_metadata.base
+        ),
+        Ok(erc20_contract) => erc20_contract.parse().unwrap(),
+    };
 
     // now that we have the contract, validate that it has the properties we want
     let got_decimals = web30

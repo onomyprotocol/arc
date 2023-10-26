@@ -156,12 +156,6 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         .stack()?;
     info!("geth is running");
 
-    info!("deploying contracts in parallel");
-    let tmp = (cosmos_node_abci.to_owned(), eth_node.to_owned());
-    let deployer_handle = tokio::spawn(async move {
-        deploy_contracts(&tmp.0, &tmp.1, None).await;
-    });
-
     // gather the gentxs
     let chain_id = "gravity";
     sh_cosmovisor("config chain-id", &[chain_id])
@@ -237,7 +231,9 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         nm_validator.recv::<()>().await.stack()?;
     }
 
-    deployer_handle.await.stack()?;
+    // this needs both the cosmos and eth nodes, so unfortunately can't be done in parallel
+    info!("deploying contracts");
+    deploy_contracts(cosmos_node_abci, eth_node, None).await;
 
     info!("all parts are ready");
 
