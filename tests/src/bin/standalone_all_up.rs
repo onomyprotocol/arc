@@ -1,15 +1,14 @@
 use std::time::Duration;
 
 use common::{
-    build, get_self_peer_info, gravity_standalone_central_setup, gravity_standalone_presetup,
-    GentxInfo, DOWNLOAD_GETH,
+    build, gravity_standalone_central_setup, gravity_standalone_presetup, GentxInfo, DOWNLOAD_GETH,
 };
 use gravity_utils::web30::client::Web3;
 use log::info;
 use onomy_test_lib::{
     cosmovisor::{
-        cosmovisor_start, set_persistent_peers, sh_cosmovisor, sh_cosmovisor_no_dbg,
-        CosmovisorOptions,
+        cosmovisor_start, get_self_peer_info, set_persistent_peers, sh_cosmovisor,
+        sh_cosmovisor_no_dbg, CosmovisorOptions,
     },
     dockerfiles::{onomy_std_cosmos_daemon, ONOMY_STD},
     onomy_std_init,
@@ -189,7 +188,7 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
         peers.push(peer_info);
         validator_keys.push(keys);
         // I want to make a position independent version of this, but `tar` is the most finicky command there is
-        Command::new(&format!("tar --extract -f -"), &[])
+        Command::new("tar --extract -f -", &[])
             .run_with_input_to_completion(gentx_info.gentx_tar.as_bytes())
             .await
             .stack()?
@@ -271,7 +270,7 @@ async fn test_runner(args: &Args, num_nodes: u64) -> Result<()> {
             cosmos_node_abci,
             eth_node,
             validator_keys.clone(),
-            &test_type,
+            test_type,
         )
         .await;
     } else {

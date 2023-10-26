@@ -320,7 +320,6 @@ pub async fn run_test(
                 true,
             )
             .await;
-            return;
         }
         "BATCH_STRESS" => {
             let contact =
@@ -334,43 +333,35 @@ pub async fn run_test(
                 erc20_addresses,
             )
             .await;
-            return;
         }
         "REMOTE_STRESS" => {
             let contact =
                 Contact::new(cosmos_node_grpc, TOTAL_TIMEOUT, ADDRESS_PREFIX.as_str()).unwrap();
             remote_stress_test(&web30, &contact, keys, gravity_address, erc20_addresses).await;
-            return;
         }
         "VALSET_STRESS" => {
             info!("Starting Valset update stress test");
             validator_set_stress_test(&web30, grpc_client, &contact, keys, gravity_address).await;
-            return;
         }
         "VALSET_REWARDS" => {
             info!("Starting Valset rewards test");
             valset_rewards_test(&web30, grpc_client, &contact, keys, gravity_address).await;
-            return;
         }
         "HAPPY_PATH_V2" => {
             info!("Starting happy path for Gravity v2");
             happy_path_test_v2(&web30, grpc_client, &contact, keys, gravity_address, false).await;
-            return;
         }
         "RELAY_MARKET" => {
             info!("Starting relay market tests!");
             relay_market_test(&web30, grpc_client, &contact, keys, gravity_address).await;
-            return;
         }
         "ORCHESTRATOR_KEYS" => {
             info!("Starting orchestrator key update tests!");
             orch_keys(grpc_client, &contact, keys).await;
-            return;
         }
         "EVIDENCE" => {
             info!("Starting evidence based slashing tests!");
             evidence_based_slashing(&web30, &contact, keys, gravity_address).await;
-            return;
         }
         "TXCANCEL" => {
             info!("Starting SendToEth cancellation test!");
@@ -383,7 +374,6 @@ pub async fn run_test(
                 erc20_addresses[0],
             )
             .await;
-            return;
         }
         "INVALID_EVENTS" => {
             info!("Starting invalid events test!");
@@ -396,7 +386,6 @@ pub async fn run_test(
                 grpc_client,
             )
             .await;
-            return;
         }
         "UNHALT_BRIDGE" => {
             info!("Starting unhalt bridge tests");
@@ -409,7 +398,6 @@ pub async fn run_test(
                 erc20_addresses[0],
             )
             .await;
-            return;
         }
         "PAUSE_BRIDGE" => {
             info!("Starting pause bridge tests");
@@ -422,37 +410,30 @@ pub async fn run_test(
                 erc20_addresses[0],
             )
             .await;
-            return;
         }
         "DEPOSIT_OVERFLOW" => {
             info!("Starting deposit overflow test!");
             deposit_overflow_test(&web30, &contact, keys, erc20_addresses, grpc_client).await;
-            return;
         }
         "ETHEREUM_BLACKLIST" => {
             info!("Starting ethereum blacklist test");
             ethereum_blacklist_test(grpc_client, &contact, keys).await;
-            return;
         }
         "AIRDROP_PROPOSAL" => {
             info!("Starting airdrop governance proposal test");
             airdrop_proposal_test(&contact, keys).await;
-            return;
         }
         "SIGNATURE_SLASHING" => {
             info!("Starting Signature Slashing test");
             signature_slashing_test(&web30, grpc_client, &contact, keys, gravity_address).await;
-            return;
         }
         "SLASHING_DELEGATION" => {
             info!("Starting Slashing Delegation test");
             slashing_delegation_test(&web30, grpc_client, &contact, keys, gravity_address).await;
-            return;
         }
         "IBC_METADATA" => {
             info!("Starting IBC metadata proposal test");
             ibc_metadata_proposal_test(gravity_address, keys, grpc_client, &contact, &web30).await;
-            return;
         }
         _ => panic!("Err Unknown test type"),
     }

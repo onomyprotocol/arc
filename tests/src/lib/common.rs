@@ -27,8 +27,8 @@ async fn _unused() {
 }
 
 #[rustfmt::skip]
-pub const DOWNLOAD_GETH: &str = r#"ADD https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.13.1-3f40e65c.tar.gz /tmp/geth.tar.gz
-RUN cd /tmp && tar -xvf * && mv /tmp/geth-linux-amd64-1.13.1-3f40e65c/geth /usr/bin/geth
+pub const DOWNLOAD_GETH: &str = r#"ADD https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.13.4-3f907d6a.tar.gz /tmp/geth.tar.gz
+RUN cd /tmp && tar -xvf * && mv /tmp/geth-linux-amd64-1.13.4-3f907d6a/geth /usr/bin/geth
 
 RUN mkdir /resources
 
@@ -83,33 +83,6 @@ pub async fn build(args: &Args) -> Result<()> {
     }
 
     Ok(())
-}
-
-pub async fn get_self_ip(hostname_of_self: &str) -> Result<String> {
-    let mut ip = None;
-    let hosts = FileOptions::read_to_string("/etc/hosts").await.stack()?;
-    for line in hosts.lines() {
-        let mut columns = line.split_whitespace();
-        if let Some(first) = columns.next() {
-            for column in columns {
-                if column == hostname_of_self {
-                    ip = Some(first);
-                }
-            }
-        }
-    }
-    let ip =
-        ip.stack_err(|| format!("could not find `hostname_of_self == \"{hostname_of_self}\"`"))?;
-    Ok(ip.to_owned())
-}
-
-pub async fn get_self_peer_info(hostname_of_self: &str, port: &str) -> Result<String> {
-    let node_id = sh_cosmovisor_no_dbg("tendermint show-node-id", &[])
-        .await
-        .stack()?;
-    let node_id = node_id.trim();
-    let ip = get_self_ip(hostname_of_self).await.stack()?;
-    Ok(format!("{node_id}@{ip}:{port}"))
 }
 
 /// Information needed for `collect-gentx`

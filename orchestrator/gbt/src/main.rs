@@ -39,6 +39,7 @@ mod orchestrator;
 mod relayer;
 mod utils;
 
+#[allow(clippy::single_match, clippy::collapsible_match)]
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
